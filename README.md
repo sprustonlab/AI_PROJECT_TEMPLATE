@@ -2,7 +2,12 @@
 
 Tested on mac and linux.
 
-The template has three main components: claudechic, reproducible python environment management, and - most importantly - the ao_project_team command. To use this, the first step is to clone this repo and run `source ./activate`. Afterwards you can run `claudechic`. If you run these commands the first time, they will install the base and claudechic environment, respecitvely).
+The template has three main components: claudechic, reproducible python environment management, and - most importantly - the ao_project_team command. 
+
+To use this, 
+- the first step is to clone this repo and run `source ./activate`. (If you activate this for the first time, this will install the base environment). 
+- Afterwards you can run `claudechic`. (If you run this for the first time, this will install the claudechic environment)
+- In claudechic, you can run /ao_project_team, to start the project team workflow. 
 
 ## The three main components
 

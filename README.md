@@ -73,21 +73,15 @@ Afterwards, Tests are implemented. Once they pass, Leadership agents are asked t
    cd <project-name>
    ```
 
-2. Initialize submodules (for claudechic MCP server):
-   ```bash
-   git submodule update --init --recursive
-   ```
-
-3. Activate the project:
+2. Activate the project:
    ```bash
    source ./activate
    ```
-   On first run, this will:
-   - Install Miniforge into `envs/SLCenv/` automatically
-   - Set up paths and environment variables
-   - Display available commands and skills
+   On first run, this will initialize git submodules, install Miniforge into `envs/SLCenv/`, and set up paths.
 
-4. (Optional) Create a project-specific environment:
+   Note: Submodules are auto-initialized on first run if needed.
+
+3. (Optional) Create a project-specific environment:
    ```bash
    # Edit envs/myenv.yml with your dependencies
    python lock_env.py myenv

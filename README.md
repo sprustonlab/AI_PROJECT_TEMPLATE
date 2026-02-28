@@ -4,7 +4,7 @@
 
 Tested on mac and linux.
 
-The template has three main components: claudechic, the multi-agent ao_project_team workflow, and reproducible python environment management. 
+The template has three main components: claudechic, the `/ao_project_team` skill, and reproducible python environment management. 
 
 To use this,
 - On GitHub, click **"Use this template"** → **"Create a new repository"** (choose Private). This creates your own copy.
@@ -24,11 +24,9 @@ My fork has the following modifications
 - add a `/clearui` command, that removes old messages. I like to run it when the session starts to feel sluggish. That command makes it respond fast again, but you cannot scroll up to old messages anymore. 
 - All agents and subagents share the same permission mode - when you cycle through default / edit / plan / bypass with Shift+Tab, all agents are set to that mode. Note, bypassPermissions mode is only functional when you launch claudechic `claudechic --yolo`. Doing this means that the agents are enabled to run any command, which is risky.
 
-## The three main phases of the ao_project_team workflow
+## The `/ao_project_team` skill
 
-To start the ao_project_team multi agent workflow, in claudechic, run `/ao_project_team`. It is orchestrated in the AI_agents/project_team/COORDINATOR.md file.
-
-You run `/ao_project_team` in claudechic. This launches the workflow. The phases are grouped as follows:
+In claudechic, run `/ao_project_team` to start the multi-agent workflow (orchestrated by AI_agents/project_team/COORDINATOR.md). The phases are:
 
 **Understand user vision (1 agent)**: You are asked for what you want to do. The agent tries to spell out the 'User Vision' in more detail, and also say what success and failure would look like. You're asked if what the agent has described is correct, and iterate, until it is correct and complete. You're also asked in which directory the project lives - it can be a new directory, or an existing directory. The agent creates a folder under {working_dir}/.ao_project_team/{project_name} and saves a userpromt.md and STATUS.md. The userprompt.md contains the verbatim prompt that you provided, as well as the approved user vision. STATUS.md tracks where along the workflow we are.
 
@@ -79,7 +77,7 @@ The .gitignore is configured to track .yml and .lock files in the envs folder, b
 
 Situation 1: You have a yml file for the environment that you want to install. Place it in the envs folder, then run `python install_env.py <name>`. If a lockfile is available for your platform, it will use the lockfile (lockfile = all packages are fully specified = no dependency resolution = fast). If no lockfile is available, it will install the environment as you would normally do with `conda env create` from the yml file (yml is minimal = each package might itself specify other required packages = dependency resolution required = slow = how dependencies are resolved one year from now may be different) and then create a lockfile and the offline install folder for your platform.
 
-Situation 2: You have some working environment elsehwere outside of this repo and want to freeze it. To freeze it, first activate that environment, and then run `python lock_env.py <name>`. This will create a lockfile for your environment and save it to envs/<name>.{platform}.lock. Next, activate this repo (`source ./activate') and install that environment from the lockfile by running `python install_env.py <name>, as above, and check that the environment works. 
+Situation 2: You have some working environment elsehwere outside of this repo and want to freeze it. To freeze it, first activate that environment, and then run `python lock_env.py <name>`. This will create a lockfile for your environment and save it to envs/<name>.{platform}.lock. Next, activate this repo (`source ./activate') and install that environment from the lockfile by running `python install_env.py <name>`, as above, and check that the environment works. 
 
 *Note: In this situation, you just get a lockfile, not a yml file (that 'minimal' description of dependencies). If you want to get this to run on another platform, more work is needed - ask claude to work with you on creating a yml file, and check out Situation 4*
 
@@ -87,7 +85,7 @@ Situation 2: You have some working environment elsehwere outside of this repo an
 
 Situation 3: You have installed an environment, and added additional packages as you were working with it. Now you want to update the yml and lockfiles to include the new packages. If you have written down which packages you installed, just add them to the .yml file, delete the lock files (or add a .old suffix), and reinstall - you are now in situation 1. But often it isn't clear what packages have been added - then it helps to ask claude "I have installed new packages to the <name> environment and want to update the .yml and lock files in envs/ to reflect these updates. Can you compare the actually installed packages in the environment <name> to the .lock and .yml file in envs/ and suggest which additional packages should be added to the .yml file?". Be critical - if there are packages popping up that you don't recognize, challenge claude on why it is included: "I don't remember installing ..., can you check that these are not a dependency of a more high level package that I have installed, like ...?". Once you have suggestions that you agree with: "Can you create a new <name>_2.yml with all packages I agreed to, and install the environment with install_env.py as described in $REPO_ROOT/README.md. Important: sometimes dependency resolution hangs - make sure to use sensible timeouts. Once an environment has been installed, check that the environment is indeed identical". Once that works: "Now update the yml lockfiles for the environment <name> with the new files, and delete the <name_2> files and environment folders.
 
-Situation 4: You have a fully specified environment that you know does what you want, and you want to make sure no changes can be made to it. Install it with `python install_env.py <name> --read-only. (Or just remove write permissions to envs/<name>/ with chmod).
+Situation 4: You have a fully specified environment that you know does what you want, and you want to make sure no changes can be made to it. Install it with `python install_env.py <name> --read-only`. (Or just remove write permissions to envs/<name>/ with chmod).
 
 
 ## Quick Start

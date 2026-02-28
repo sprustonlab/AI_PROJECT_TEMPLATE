@@ -23,7 +23,7 @@ fi
 # Find repo root (commands/ is at root level)
 # Export so sourcing scripts can use it
 export REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SLC_DIR="$REPO_ROOT/submodules/SLC"
+SLC_DIR="$REPO_ROOT"
 
 # Color output helpers
 red() { echo -e "\033[0;31m$*\033[0m"; }
@@ -31,18 +31,18 @@ green() { echo -e "\033[0;32m$*\033[0m"; }
 yellow() { echo -e "\033[0;33m$*\033[0m"; }
 blue() { echo -e "\033[0;34m$*\033[0m"; }
 
-# Check if postdoc_monorepo activate has been sourced
-if [[ -z "$POSTDOC_MONOREPO_ROOT" ]]; then
-    red "❌ Error: postdoc_monorepo not activated"
+# Check if project activate has been sourced
+if [[ -z "$PROJECT_ROOT" ]]; then
+    red "❌ Error: Project not activated"
     yellow "💡 Run: source $REPO_ROOT/activate"
     $EXIT_CMD 1
 fi
 
-# Check if it's the correct postdoc_monorepo (this repo, not another clone)
-if [[ "$POSTDOC_MONOREPO_ROOT" != "$REPO_ROOT" ]]; then
-    red "❌ Error: Wrong postdoc_monorepo activated"
+# Check if it's the correct project (this repo, not another clone)
+if [[ "$PROJECT_ROOT" != "$REPO_ROOT" ]]; then
+    red "❌ Error: Wrong project activated"
     yellow "   Expected: $REPO_ROOT"
-    yellow "   Found: $POSTDOC_MONOREPO_ROOT"
+    yellow "   Found: $PROJECT_ROOT"
     yellow "💡 Run: source $REPO_ROOT/activate"
     $EXIT_CMD 1
 fi

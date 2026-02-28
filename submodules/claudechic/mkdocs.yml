@@ -1,0 +1,38 @@
+site_name: Claude Chic
+site_description: A stylish terminal UI for Claude Code
+site_url: https://mrocklin.github.io/claudechic/
+
+nav:
+  - Home: index.md
+  - Multi-Agent: agents.md
+  - Style: style.md
+  - Features: features.md
+  - Architecture: architecture.md
+  - Privacy: privacy.md
+  - Related Work: related.md
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - content.tabs.link
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  analytics:
+    provider: google
+    property: G-44BW8MK9FH
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html

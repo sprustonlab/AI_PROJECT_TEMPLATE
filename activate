@@ -1,0 +1,240 @@
+#!/bin/bash
+# =============================================================================
+# PROJECT ACTIVATE SCRIPT
+# =============================================================================
+# Source this file to activate the project environment.
+#
+# What it does:
+# 1. Bootstraps SLC (Miniforge) if not installed
+# 2. Activates the conda environment
+# 3. Sets up PATH and PYTHONPATH
+# 4. Shows available commands and skills
+#
+# Customization:
+# - Change PROJECT_NAME below for your project
+# - Add project-specific PYTHONPATH entries in Section 2
+# =============================================================================
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║ CUSTOMIZE: Change this to your project name                               ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+PROJECT_NAME="my-project"
+
+# --------------------------------------------------------------------------
+# Section 1: Path Resolution
+# --------------------------------------------------------------------------
+# Resolve script location (handles symlinks, tilde, various shell configs)
+if [[ -n "${BASH_SOURCE[0]}" ]]; then
+    _SCRIPT_PATH="${BASH_SOURCE[0]}"
+elif [[ -n "$0" && "$0" != "-bash" && "$0" != "bash" ]]; then
+    _SCRIPT_PATH="$0"
+else
+    echo "❌ Error: Unable to determine script location."
+    echo "💡 Try: source /full/path/to/activate"
+    return 1
+fi
+
+# Expand ~ and resolve to absolute path
+_SCRIPT_PATH="${_SCRIPT_PATH/#\~/$HOME}"
+BASEDIR="$(cd "$(dirname "$_SCRIPT_PATH")" && pwd)"
+SLCENV_DIR="$BASEDIR/envs/SLCenv"
+
+# --------------------------------------------------------------------------
+# Section 1b: SLC Bootstrap
+# --------------------------------------------------------------------------
+if [[ ! -d "$SLCENV_DIR" ]]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  First-time setup: Installing SLC environment..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    # Check for Python 3
+    if ! command -v python3 &> /dev/null; then
+        echo "❌ Error: python3 not found"
+        echo "💡 Install Python 3 first, then run: source activate"
+        return 1
+    fi
+
+    # Check for install_SLC.py
+    if [[ ! -f "$BASEDIR/install_SLC.py" ]]; then
+        echo "❌ Error: install_SLC.py not found at $BASEDIR"
+        echo "💡 This file is required for SLC bootstrap"
+        return 1
+    fi
+
+    # Run the installer
+    python3 "$BASEDIR/install_SLC.py" || {
+        echo ""
+        echo "❌ Error: SLC installation failed"
+        echo "💡 Check network connection and try again:"
+        echo "   python3 $BASEDIR/install_SLC.py"
+        return 1
+    }
+    echo ""
+    echo "✔ SLC environment installed successfully"
+    echo ""
+fi
+
+# Source conda and mamba
+source "$SLCENV_DIR/etc/profile.d/conda.sh"
+source "$SLCENV_DIR/etc/profile.d/mamba.sh"
+
+# Activate the base environment
+conda activate "$SLCENV_DIR"
+
+# --------------------------------------------------------------------------
+# Section 2: Environment Setup
+# --------------------------------------------------------------------------
+
+# Export project root (generic name - not project-specific)
+export PROJECT_ROOT="$BASEDIR"
+
+# SLC environment variables
+export SLC_BASE="$BASEDIR"
+export SLC_PYTHON="$(which python)"
+export SLC_VERSION="0.0.1"
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║ CUSTOMIZE: Add your project's Python modules here                         ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+# Add modules/ to PYTHONPATH
+if [[ -d "$BASEDIR/modules" ]]; then
+    export PYTHONPATH="$BASEDIR/modules:$PYTHONPATH"
+fi
+
+# Add all repos/ subdirectories to PYTHONPATH (if repos/ exists)
+if [[ -d "$BASEDIR/repos" ]]; then
+    for repo in "$BASEDIR/repos"/*/; do
+        [[ -d "$repo" ]] && export PYTHONPATH="$repo:$PYTHONPATH"
+    done
+fi
+
+# Make environments discoverable by conda
+export CONDA_ENVS_PATH="$BASEDIR/envs:$CONDA_ENVS_PATH"
+
+# Ensure scripts in commands/ are executable (skip .md files)
+if [[ -d "$BASEDIR/commands" ]]; then
+    for script in "$BASEDIR/commands"/*; do
+        [[ -f "$script" ]] && [[ "$script" != *.md ]] && chmod +x "$script"
+    done
+fi
+
+# Add commands/ to PATH
+export PATH="$BASEDIR/commands:$PATH"
+
+# Configure git hooks (if present)
+if [[ -d "$BASEDIR/.git" ]] && [[ -d "$BASEDIR/.githooks" ]]; then
+    git -C "$BASEDIR" config core.hooksPath "$BASEDIR/.githooks"
+fi
+
+# --------------------------------------------------------------------------
+# Section 3: Submodule Checks
+# --------------------------------------------------------------------------
+
+# Track warnings to display at the end
+_WARNINGS=()
+
+# Check for claudechic submodule
+if [[ -f "$BASEDIR/.gitmodules" ]] && grep -q "claudechic" "$BASEDIR/.gitmodules"; then
+    # Submodule is registered - check if initialized
+    if [[ ! -f "$BASEDIR/submodules/claudechic/pyproject.toml" ]]; then
+        _WARNINGS+=("⚠️  claudechic submodule not initialized")
+        _WARNINGS+=("   Run: git submodule update --init submodules/claudechic")
+    fi
+fi
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║ CUSTOMIZE: Add checks for other submodules your project uses              ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+# --------------------------------------------------------------------------
+# Section 4: Status Display
+# --------------------------------------------------------------------------
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  $PROJECT_NAME environment activated"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  ✔ SLC is active"
+
+# --- Show available conda environments ---
+installed_envs=()
+available_envs=()
+
+for yml in "$BASEDIR"/envs/*.yml; do
+    [[ -f "$yml" ]] || continue
+    envname=$(basename "$yml" .yml)
+    if [[ -d "$BASEDIR/envs/$envname" ]]; then
+        installed_envs+=("$envname")
+    else
+        available_envs+=("$envname")
+    fi
+done
+
+if [[ ${#installed_envs[@]} -gt 0 ]]; then
+    echo ""
+    echo "📦 Installed environments:"
+    for env in "${installed_envs[@]}"; do
+        echo "    ✔ $env"
+    done
+    echo "  Activate with: conda activate <name>"
+fi
+
+if [[ ${#available_envs[@]} -gt 0 ]]; then
+    echo ""
+    echo "📋 Available to install:"
+    for env in "${available_envs[@]}"; do
+        echo "    ○ $env"
+    done
+    echo "  Install with: python $BASEDIR/install_env.py <name>"
+fi
+
+# --- Show CLI commands ---
+if [[ -d "$BASEDIR/commands" ]]; then
+    cli_commands=()
+    for script in "$BASEDIR/commands"/*; do
+        basename_script=$(basename "$script")
+        # Skip .md files and dotfiles
+        if [[ -f "$script" ]] && [[ "$basename_script" != *.md ]] && [[ "$basename_script" != .* ]] && [[ -x "$script" ]]; then
+            cli_commands+=("$basename_script")
+        fi
+    done
+    if [[ ${#cli_commands[@]} -gt 0 ]]; then
+        echo ""
+        echo "🛠  CLI commands:"
+        for cmd in "${cli_commands[@]}"; do
+            echo "    $cmd"
+        done
+    fi
+fi
+
+# --- Show Claude Code skills ---
+if [[ -d "$BASEDIR/.claude/commands" ]]; then
+    claude_skills=()
+    for skill_file in "$BASEDIR/.claude/commands"/*.md; do
+        if [[ -f "$skill_file" ]]; then
+            skill_name=$(basename "$skill_file" .md)
+            # Extract the first H1 heading (handles frontmatter)
+            skill_title=$(grep -m1 '^# ' "$skill_file" | sed 's/^# *//')
+            claude_skills+=("/$skill_name - $skill_title")
+        fi
+    done
+    if [[ ${#claude_skills[@]} -gt 0 ]]; then
+        echo ""
+        echo "🤖 Claude Code skills:"
+        for skill in "${claude_skills[@]}"; do
+            echo "    $skill"
+        done
+    fi
+fi
+
+# --- Show any warnings ---
+if [[ ${#_WARNINGS[@]} -gt 0 ]]; then
+    echo ""
+    for warning in "${_WARNINGS[@]}"; do
+        echo "$warning"
+    done
+fi
+
+echo ""

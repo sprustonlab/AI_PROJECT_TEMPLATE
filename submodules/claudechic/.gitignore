@@ -1,0 +1,25 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Logs
+*.log
+
+# Test artifacts
+test_write*.txt
+site/
+uv.lock
+
+# Recordings
+*.cast
+.DS_Store
+
+# Marimo cache
+__marimo__/

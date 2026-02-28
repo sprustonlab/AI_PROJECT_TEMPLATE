@@ -1,0 +1,25 @@
+# claudechic - Claude Code terminal UI
+# This is the minimal spec (cross-platform). Generate lockfiles with:
+#   conda env create -f claudechic.yml -p <path>
+#   conda activate <path>
+#   python ../lock_env.py claudechic
+#
+# Dependencies sourced from: claudechic/pyproject.toml
+
+name: claudechic
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10,<3.14
+  - pip
+  - pip:
+    # Core dependencies (from pyproject.toml)
+    - aiofiles>=25.1.0
+    - aiohttp>=3.9.0
+    - anthropic>=0.75.0
+    - claude-agent-sdk>=0.1.19
+    - psutil>=5.9.0
+    - pyperclip>=1.11.0
+    - pyyaml>=6.0
+    - textual>=7.1.0
+    - textual-autocomplete>=4.0.6

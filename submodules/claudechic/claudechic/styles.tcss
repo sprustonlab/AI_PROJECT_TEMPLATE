@@ -1,0 +1,711 @@
+/* Claude Code Textual UI Styles
+ *
+ * CSS POLICY:
+ * -----------
+ * DEFAULT_CSS (inline): Use for structural styles that are essential to the widget
+ *   - Dimensions (width, height, min-width)
+ *   - Layout properties (padding, margin for structure)
+ *   - Display modes (display: none for hidden states)
+ *
+ * styles.tcss (this file): Use for visual/thematic styles
+ *   - Colors (use theme variables: $primary, $surface, etc.)
+ *   - Borders for visual grouping
+ *   - Hover effects and interactive states
+ *   - App-level layout coordination
+ *
+ * Avoid hardcoded hex colors - use theme variables.
+ *
+ * Visual language: All content blocks use left border bars to indicate type.
+ * - User messages: vibrant orange border ($primary)
+ * - Assistant messages: dim blue border ($secondary)
+ * - Tool uses: subtle gray border ($panel)
+ * All blocks have transparent backgrounds and consistent spacing.
+ *
+ * Theme colors are defined in app.py via Textual's Theme system.
+ */
+
+Screen {
+    background: $background;
+    layers: below above modal;
+}
+
+/* Generic hidden class for dynamic visibility */
+.hidden {
+    display: none;
+}
+
+/* Scrollbar styling - only for scroll containers (not all widgets) */
+VerticalScroll, HorizontalScroll, AutoHideScroll, ScrollableContainer {
+    scrollbar-background: $surface;
+    scrollbar-background-hover: $surface;
+    scrollbar-background-active: $surface;
+    scrollbar-color: $panel;
+    scrollbar-color-hover: $panel-lighten-1;
+    scrollbar-color-active: $panel-lighten-2;
+}
+
+/* Button styling - subtle dark buttons with visible hover */
+Button {
+    background: $surface;
+    color: $text;
+    border: none;
+    min-width: 10;
+    height: 1;
+    padding: 0 1;
+}
+
+Button:hover {
+    background: $accent !important;
+    color: white !important;
+}
+
+Button:focus {
+    background: $surface;
+    text-style: none;
+}
+
+/* Custom status footer */
+StatusFooter {
+    dock: bottom;
+    height: 1;
+    background: $surface;
+}
+
+#footer-content {
+    height: 1;
+}
+
+.footer-label {
+    color: $text-muted;
+    padding: 0 1;
+    width: auto;
+}
+
+ModelLabel:hover {
+    background: $panel;
+}
+
+.footer-sep {
+    color: $panel;
+    width: auto;
+}
+
+#footer-spacer {
+    width: 1fr;
+}
+
+.footer-label.active {
+    color: $primary;
+}
+
+.footer-label.plan-mode {
+    color: $secondary;
+}
+
+.footer-label.plan-swarm-mode {
+    color: $error;
+}
+
+/* Shared block styling - all content blocks */
+ChatMessage, BaseToolWidget, ThinkingIndicator, ErrorMessage, SystemInfo, #input-container {
+    background: transparent;
+    margin: 0 2 1 0;  /* 1 line between blocks, 2 from scrollbar */
+    padding: 0 2 0 2;
+}
+
+/* Base tool widget styling - inherited by ToolUseWidget, TaskWidget, AgentToolWidget */
+BaseToolWidget {
+    border-left: wide $panel;
+    margin: 0;
+}
+
+BaseToolWidget:hover {
+    border-left: wide $panel-lighten-2;
+}
+
+/* Error messages - red, like user messages but indicating problems */
+ErrorMessage {
+    border-left: thick $error;
+    background: $error 10%;
+    margin: 1 0 1 0;
+}
+
+/* System info messages - muted, informational */
+SystemInfo {
+    border-left: thick $panel;
+    color: $panel;
+    margin: 1 0 1 0;
+}
+
+SystemInfo.system-warning {
+    border-left: thick $warning;
+    color: $warning;
+}
+
+SystemInfo.system-error {
+    border-left: thick $error;
+}
+
+/* Chat messages - text cursor for selection */
+ChatMessage {
+    pointer: text;
+}
+
+/* User messages - vibrant orange, extra spacing */
+ChatMessage.user-message {
+    border-left: thick $primary;
+    margin: 2 0 2 0;
+}
+
+/* Agent-to-agent messages - double border (secondary outer, primary inner) */
+ChatMessage.agent-message {
+    border-left: thick $secondary;
+    padding-left: 0;
+    margin: 2 0 2 0;
+}
+
+ChatMessage.agent-message #agent-inner {
+    border-left: tall $primary;
+    padding-left: 2;
+    height: auto;
+}
+
+/* Assistant messages - softer, consistent spacing */
+ChatMessage.assistant-message {
+    border-left: wide $secondary;
+    margin: 1 0 1 0;
+}
+
+/* Summary messages - final text after tool uses, emphasized like user messages */
+ChatMessage.summary {
+    border-left: thick $secondary;
+    margin: 2 0 1 0;
+}
+
+/* System messages - compaction summaries, etc. */
+ChatMessage.system-message {
+    border-left: wide $warning;
+    margin: 2 0 2 0;
+    background: $surface;
+}
+
+/* Skill header (when no collapsible needed) */
+ToolUseWidget .skill-header {
+    color: $text-muted;
+    padding: 0;
+}
+
+/* Task widgets - slightly more prominent */
+TaskWidget {
+    border-left: wide $accent;
+}
+
+/* ExitPlanMode - prominent secondary color border */
+ToolUseWidget.exit-plan-mode {
+    border-left: thick $secondary;
+}
+
+/* Nested content inside tasks - aligns with expansion arrow */
+TaskWidget #task-content {
+    padding-left: 0;
+}
+
+/* Nested tool uses inside tasks start collapsed - hide contents by default */
+TaskWidget #task-content ToolUseWidget QuietCollapsible > Contents {
+    display: none;
+}
+
+/* Show contents when explicitly expanded */
+TaskWidget #task-content ToolUseWidget QuietCollapsible.-expanded > Contents {
+    display: block;
+}
+
+/* Shell output from ! commands */
+ShellOutputWidget {
+    border-left: wide $warning;
+    margin: 1 0;
+}
+
+ShellOutputWidget:hover {
+    border-left: wide $warning-lighten-1;
+}
+
+ShellOutputWidget #shell-output {
+    padding: 0 1;
+}
+
+/* Thinking indicator - fixed position above input */
+#thinking-indicator {
+    height: 1;
+    padding: 0 2;
+    color: $text-muted;
+    margin: 0;
+}
+
+#thinking-indicator.hidden {
+    display: none;
+}
+
+
+/* Edit plan button in ExitPlanMode widget */
+.edit-plan-btn {
+    margin-top: 1;
+    width: auto;
+    min-width: 14;
+}
+
+/* Main layout */
+#main {
+    height: 1fr;
+    align: center top;
+}
+
+/* Shift left when sidebar visible but not enough room to center */
+#main.sidebar-shift {
+    align: left top;
+}
+
+/* Chat views - both initial and dynamically created */
+#chat-view, .chat-view {
+    layout: stream;
+    width: 100%;
+    height: 1fr;
+    padding: 1 1;
+}
+
+#chat-view.hidden, .chat-view.hidden {
+    display: none;
+}
+
+/* Worktree modal overlay */
+#worktree-modal {
+    layer: modal;
+    width: 100%;
+    height: 100%;
+    align: center middle;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+/* Shared prompt placeholder style */
+.prompt-placeholder {
+    color: $text-muted;
+}
+
+/* Image attachments indicator - shows above input */
+#image-attachments {
+    width: 100%;
+    height: auto;
+    padding: 0 1 1 1;
+    align: left middle;
+}
+
+#image-attachments.hidden {
+    display: none;
+}
+
+#image-attachments .image-tag {
+    min-width: 10;
+    width: auto;
+    height: 1;
+    margin: 0 1 0 0;
+    padding: 0 1;
+    background: $panel-lighten-1;
+    color: $text-muted;
+    border: none;
+}
+
+#image-attachments .image-tag:hover {
+    background: $panel-lighten-2;
+    color: $text;
+}
+
+/* Clickable attachment tags in chat messages */
+.chat-attachment {
+    min-width: 10;
+    width: auto;
+    height: 1;
+    margin: 0 1 1 1;
+    padding: 0 1;
+    background: $panel;
+    color: $text-muted;
+    border: none;
+}
+
+.chat-attachment:hover {
+    background: $panel-lighten-1;
+    color: $text;
+}
+
+/* Chat column - contains chat view and input, fills available width */
+#chat-column {
+    width: 1fr;
+    max-width: 100;
+    height: 1fr;
+    overflow: hidden;  /* Prevent chat-view from pushing input off screen */
+}
+
+#input-container {
+    height: auto;
+    min-height: 3;  /* Ensure input always visible (1 line + padding) */
+    margin: 1 2 0 1;  /* Left margin matches chat-view padding */
+    padding: 1 2;  /* Vertical padding for space around cursor */
+    border: solid $panel;
+    background: $surface;
+    pointer: text;
+}
+
+#input-container:focus-within {
+    border: solid $primary;
+}
+
+#input-container.hidden {
+    display: none;
+}
+
+/* Input area */
+#input {
+    height: auto;
+    min-height: 1;
+    max-height: 10;
+    width: 100%;
+    border: none;
+    padding: 0 1 0 0;  /* No left padding - container provides it */
+    background: transparent;
+    pointer: text;
+}
+
+#input .text-area--cursor-line {
+    background: transparent;
+}
+
+/* Markdown resets */
+Markdown {
+    padding: 0;
+    margin: 0;
+}
+
+/* Markdown overrides - neutral headers, brighter code blocks */
+MarkdownH1 {
+    color: $text;
+    text-style: bold;
+    margin: 1 0;
+}
+
+MarkdownH2 {
+    color: $text;
+    text-style: bold underline;
+    margin: 2 0 1 0;
+}
+
+MarkdownH3 {
+    color: $text;
+    text-style: bold;
+    margin: 1 0 1 0;
+}
+
+MarkdownTableContent > .header {
+    color: $text;
+}
+
+MarkdownFence {
+    background: $surface;
+    scrollbar-size-horizontal: 1;
+    scrollbar-background: $surface;
+    scrollbar-color: $surface;
+}
+
+MarkdownFence:hover {
+    scrollbar-color: $panel;
+    scrollbar-color-hover: $panel-lighten-1;
+    scrollbar-color-active: $panel-lighten-2;
+}
+
+/* Remove bottom margin from last element in markdown containers */
+ChatMessage MarkdownParagraph:last-of-type,
+ChatMessage MarkdownFence:last-of-type,
+ToolUseWidget MarkdownParagraph:last-of-type,
+ToolUseWidget MarkdownFence:last-of-type {
+    margin-bottom: 0;
+}
+
+/* Tool use spinner - overlaid on collapsible expand arrow */
+ToolUseWidget > Spinner {
+    layer: above;
+    dock: top;
+    background: transparent;
+}
+
+/* Tool use collapsible internals */
+ToolUseWidget Collapsible {
+    border: none;
+    padding: 0;
+    background: transparent;
+}
+
+ToolUseWidget Collapsible.error {
+    background: $error 10%;
+}
+
+ToolUseWidget Collapsible.error.-collapsed {
+    background: $error 25%;
+}
+
+ToolUseWidget Collapsible CollapsibleTitle {
+    color: $text-muted;
+    padding: 0;
+    width: 100%;
+    background: transparent;
+}
+
+/* Add breathing room when expanded */
+ToolUseWidget Collapsible.-expanded CollapsibleTitle {
+    padding: 1 0;
+}
+
+ToolUseWidget Collapsible CollapsibleTitle:hover {
+    background: $surface;
+}
+
+ToolUseWidget Collapsible Contents {
+    padding: 0 0 0 2;
+    background: transparent;
+}
+
+/* Tool input/output sections - clean with breathing room */
+ToolUseWidget #tool-input {
+    padding: 1 0 0 1;
+    margin: 0;
+}
+
+ToolUseWidget #tool-separator {
+    color: $panel;
+    padding: 0;
+    margin: 0;
+    height: 1;
+}
+
+ToolUseWidget #tool-output {
+    padding: 0 0 1 1;
+    margin: 0;
+    overflow-x: auto;
+}
+
+/* Footer indicators (CPU and context bars) */
+CPUBar {
+    width: auto;
+    padding: 0 1;
+    content-align: right middle;
+}
+
+CPUBar:hover {
+    background: $panel;
+}
+
+ContextBar {
+    width: auto;
+    padding: 0 1;
+    content-align: right middle;
+}
+
+ContextBar:hover {
+    background: $panel;
+}
+
+AutoEditLabel:hover {
+    background: $panel;
+}
+
+/* All prompts inheriting from BasePrompt */
+.base-prompt {
+    height: auto;
+    width: 100%;
+    max-width: 90;
+    background: $surface;
+    border-left: tall $primary;
+    padding: 1 2 1 1;  /* 1 line top/bottom padding */
+}
+
+WorktreePrompt, ModelPrompt {
+    width: 50;
+    padding: 1 2 1 1;
+}
+
+/* Model modal overlay */
+#model-modal {
+    layer: modal;
+    width: 100%;
+    height: 100%;
+    align: center middle;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.prompt-title {
+    color: $text;
+    padding: 0 0 1 0;
+}
+
+.prompt-option {
+    padding: 0 0 0 1;
+    color: $text-muted;
+    border-left: tall $panel;
+}
+
+.prompt-option.selected {
+    color: $text;
+    background: $surface-lighten-1;
+    border-left: tall $primary;
+}
+
+.prompt-option.prompt-placeholder {
+    color: $text-disabled;
+}
+
+.prompt-option.prompt-placeholder.selected {
+    color: $text-muted;
+}
+
+/* Right sidebar - agents + todos stacked */
+#right-sidebar {
+    width: 28;
+    height: 100%;
+    /* Negative margin shifts chat+sidebar group left so chat is centered */
+    margin-right: -28;
+}
+
+/* When shifted left, sidebar takes normal space */
+#main.sidebar-shift #right-sidebar {
+    margin-right: 0;
+}
+
+#right-sidebar.hidden {
+    display: none;
+}
+
+/* Overlay mode - float over content on narrow screens */
+#right-sidebar.overlay {
+    layer: above;
+    dock: right;
+    margin-right: 0;
+    background: $surface;
+    border-left: solid $panel;
+}
+
+/* Todo panel - inside right sidebar */
+#todo-panel {
+    width: 100%;
+    height: auto;
+    max-height: 50%;
+    border-top: solid $panel;
+    padding: 1;
+}
+
+#todo-panel.hidden {
+    display: none;
+}
+
+#todo-panel .todo-title {
+    color: $text-muted;
+    text-style: bold;
+    padding: 0 0 1 0;
+}
+
+/* Todo widget - inline checklist */
+TodoWidget {
+    border-left: tall $accent;
+    padding: 0 1;
+    margin: 0 0 1 0;
+}
+
+TodoItem {
+    height: 1;
+}
+
+/* Toast notifications */
+Toast {
+    background: $surface;
+    border-left: tall $panel;
+    padding: 0 1;
+}
+
+Toast.-error {
+    border-left: tall $error;
+}
+
+ToastRack {
+    margin-bottom: 6;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Diff View - /diff command
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+DiffSidebar {
+    width: 30;
+    border-right: solid $panel;
+    padding: 1 0;
+}
+
+DiffSidebar .section-header {
+    padding: 0 1;
+    text-style: bold;
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+DiffFileItem {
+    padding: 0 1;
+    height: 1;
+}
+
+DiffFileItem:hover {
+    background: $surface;
+}
+
+DiffFileItem.active {
+    background: $primary 35%;
+}
+
+DiffView {
+    padding: 1;
+}
+
+FileDiffPanel {
+    margin-bottom: 1;
+    border: solid $panel;
+    height: auto;
+}
+
+FileDiffPanel .file-header {
+    background: $surface;
+    padding: 0 1;
+    text-style: bold;
+}
+
+FileDiffPanel DiffWidget {
+    padding: 0 1;
+}
+
+/* Responsive height - classes applied by app.on_resize */
+StatusFooter.compact-height {
+    display: none;
+}
+
+#input-container.compact-height {
+    margin: 0;
+    padding: 0 2;
+    min-height: 1;
+}
+
+/* Compact chat view - remove padding/margins */
+.chat-view.compact-height {
+    padding: 0;
+}
+
+.chat-view.compact-height ChatMessage,
+.chat-view.compact-height BaseToolWidget,
+.chat-view.compact-height ThinkingIndicator,
+.chat-view.compact-height ErrorMessage,
+.chat-view.compact-height SystemInfo {
+    margin: 0;
+    padding: 0 1 0 1;
+}

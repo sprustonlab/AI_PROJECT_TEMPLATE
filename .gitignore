@@ -1,0 +1,25 @@
+# SLC / Conda
+envs/SLCenv/
+envs/*/
+*.lock.cache/
+__pycache__/
+*.py[cod]
+
+# Claude Code
+.claude/cache/
+.claude/logs/
+
+# Project team state (optional - keep or ignore)
+.ao_project_team/*/specification/*.md
+# But always keep STATUS.md tracked for continuity
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Data (customize per project)
+data/raw/
+data/processed/
+*.csv
+*.parquet

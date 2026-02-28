@@ -1,0 +1,33 @@
+#!/bin/bash
+# Wrapper script that runs claudechic with remote control and auto-restarts on exit
+# Usage: ./scripts/claudechic-remote [port]
+
+PORT="${1:-9999}"
+cd "$(dirname "$0")/.." || exit 1
+
+echo "Starting claudechic with remote control on port $PORT"
+echo "Auto-restart enabled. Use Ctrl+C twice to fully stop."
+
+while true; do
+    uv run claudechic --remote-port "$PORT"
+    EXIT_CODE=$?
+
+    # Exit code 0 = clean exit (from /exit endpoint), restart
+    # Exit code 130 = Ctrl+C, check if user wants to stop
+    if [ $EXIT_CODE -eq 130 ]; then
+        echo ""
+        echo "Interrupted. Press Ctrl+C again within 2 seconds to stop, or wait to restart..."
+        if read -t 2 -n 1; then
+            :  # User pressed a key, continue to restart
+        else
+            # Check if we got another Ctrl+C during the wait
+            if [ $? -gt 128 ]; then
+                echo "Stopping."
+                exit 0
+            fi
+        fi
+    fi
+
+    echo "Restarting in 1 second..."
+    sleep 1
+done

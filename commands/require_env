@@ -1,0 +1,285 @@
+#!/bin/bash
+# require_env - Auto-install SLC base environment and specific environments
+#
+# Usage:
+#   require_env                    # Ensure SLC base is installed
+#   require_env <env_name>         # Ensure SLC + environment are installed
+#   require_env --check-only       # Check SLC without installing
+#   require_env --check-only <env> # Check SLC + environment without installing
+#
+# Exit codes:
+#   0 - Success (everything installed or already exists)
+#   1 - Error (installation failed or missing components in check-only mode)
+
+set -e
+
+# Detect if sourced or executed
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    EXIT_CMD="return"
+else
+    EXIT_CMD="exit"
+fi
+
+# Find repo root (commands/ is at root level)
+# Export so sourcing scripts can use it
+export REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SLC_DIR="$REPO_ROOT/submodules/SLC"
+
+# Color output helpers
+red() { echo -e "\033[0;31m$*\033[0m"; }
+green() { echo -e "\033[0;32m$*\033[0m"; }
+yellow() { echo -e "\033[0;33m$*\033[0m"; }
+blue() { echo -e "\033[0;34m$*\033[0m"; }
+
+# Check if postdoc_monorepo activate has been sourced
+if [[ -z "$POSTDOC_MONOREPO_ROOT" ]]; then
+    red "❌ Error: postdoc_monorepo not activated"
+    yellow "💡 Run: source $REPO_ROOT/activate"
+    $EXIT_CMD 1
+fi
+
+# Check if it's the correct postdoc_monorepo (this repo, not another clone)
+if [[ "$POSTDOC_MONOREPO_ROOT" != "$REPO_ROOT" ]]; then
+    red "❌ Error: Wrong postdoc_monorepo activated"
+    yellow "   Expected: $REPO_ROOT"
+    yellow "   Found: $POSTDOC_MONOREPO_ROOT"
+    yellow "💡 Run: source $REPO_ROOT/activate"
+    $EXIT_CMD 1
+fi
+
+# Check if SLC is activated (should be automatic via activate script)
+if [[ -z "$SLC_BASE" ]]; then
+    red "❌ Error: SLC not activated"
+    yellow "💡 This shouldn't happen if activate was sourced correctly"
+    yellow "💡 Try: source $REPO_ROOT/activate"
+    $EXIT_CMD 1
+fi
+
+# Check if correct SLC (from this repo, not another clone)
+if [[ "$SLC_BASE" != "$SLC_DIR" ]]; then
+    red "❌ Error: Wrong SLC activated"
+    yellow "   Expected: $SLC_DIR"
+    yellow "   Found: $SLC_BASE"
+    yellow "💡 Run: source $REPO_ROOT/activate"
+    $EXIT_CMD 1
+fi
+
+# Initialize conda/mamba
+source "$SLC_DIR/envs/SLCenv/etc/profile.d/conda.sh"
+source "$SLC_DIR/envs/SLCenv/etc/profile.d/mamba.sh"
+
+# Parse arguments
+CHECK_ONLY=false
+ENV_NAME=""
+
+for arg in "$@"; do
+    case "$arg" in
+        --check-only)
+            CHECK_ONLY=true
+            ;;
+        -*)
+            red "❌ Error: Unknown option: $arg"
+            exit 1
+            ;;
+        *)
+            if [[ -n "$ENV_NAME" ]]; then
+                red "❌ Error: Multiple environment names provided"
+                exit 1
+            fi
+            ENV_NAME="$arg"
+            ;;
+    esac
+done
+
+#
+# Function: check_slc_installed
+# Returns: 0 if installed, 1 if not
+#
+check_slc_installed() {
+    [[ -x "$SLC_DIR/envs/SLCenv/bin/conda" ]]
+}
+
+#
+# Function: install_slc
+# Installs the SLC base environment using install_SLC.py
+#
+install_slc() {
+    blue "🔧 Installing SLC base environment..."
+
+    # Check if install_SLC.py exists
+    if [[ ! -f "$SLC_DIR/install_SLC.py" ]]; then
+        red "❌ Error: $SLC_DIR/install_SLC.py not found"
+        return 1
+    fi
+
+    # Check write permissions
+    if [[ ! -w "$SLC_DIR" ]]; then
+        red "❌ Error: No write permission to $SLC_DIR"
+        red "💡 You may need to check directory permissions"
+        return 1
+    fi
+
+    # Run the installer using system Python3
+    if ! python3 "$SLC_DIR/install_SLC.py"; then
+        red "❌ Error: SLC installation failed"
+        return 1
+    fi
+
+    green "✔ SLC base environment installed successfully"
+    return 0
+}
+
+#
+# Function: check_env_installed <env_name>
+# Returns: 0 if installed, 1 if not
+#
+check_env_installed() {
+    local env_name="$1"
+    [[ -d "$SLC_DIR/envs/$env_name" ]]
+}
+
+#
+# Function: list_available_envs
+# Lists all available environment YAML files
+#
+list_available_envs() {
+    blue "💡 Available environments:"
+    for yml in "$SLC_DIR/envs"/*.yml; do
+        if [[ -f "$yml" ]]; then
+            local name=$(basename "$yml" .yml)
+            # Skip SLCenv if it exists (it's the base, not an installable env)
+            if [[ "$name" != "SLCenv" ]]; then
+                echo "    - $name"
+            fi
+        fi
+    done
+}
+
+#
+# Function: install_env <env_name>
+# Installs a specific SLC environment
+#
+install_env() {
+    local env_name="$1"
+
+    blue "🔧 Installing environment: $env_name"
+
+    # Check if YAML exists
+    local env_yml="$SLC_DIR/envs/${env_name}.yml"
+    if [[ ! -f "$env_yml" ]]; then
+        red "❌ Error: Environment definition not found: $env_yml"
+        list_available_envs
+        return 1
+    fi
+
+    # Check if already installed
+    if check_env_installed "$env_name"; then
+        green "✔ Environment '$env_name' is already installed"
+        return 0
+    fi
+
+    # Check write permissions
+    if [[ ! -w "$SLC_DIR/envs" ]]; then
+        red "❌ Error: No write permission to $SLC_DIR/envs"
+        red "💡 You may need to check directory permissions"
+        return 1
+    fi
+
+    # Set up environment variables required by install_env.py
+    export SLC_BASE="$SLC_DIR"
+    export SLC_PYTHON="$SLC_DIR/envs/SLCenv/bin/python"
+    export PYTHONPATH="$SLC_DIR/modules:${PYTHONPATH:-}"
+    export CONDA_ENVS_PATH="$SLC_DIR/envs:${CONDA_ENVS_PATH:-}"
+    export PATH="$SLC_DIR/envs/SLCenv/bin:$PATH"
+
+    # Create a subshell to avoid polluting parent environment
+    (
+        # Source conda initialization
+        if [[ -f "$SLC_DIR/envs/SLCenv/etc/profile.d/conda.sh" ]]; then
+            source "$SLC_DIR/envs/SLCenv/etc/profile.d/conda.sh"
+        else
+            red "❌ Error: conda.sh not found in SLCenv"
+            exit 1
+        fi
+
+        if [[ -f "$SLC_DIR/envs/SLCenv/etc/profile.d/mamba.sh" ]]; then
+            source "$SLC_DIR/envs/SLCenv/etc/profile.d/mamba.sh"
+        fi
+
+        # Activate SLCenv
+        conda activate "$SLC_DIR/envs/SLCenv" || {
+            red "❌ Error: Failed to activate SLCenv"
+            exit 1
+        }
+
+        # Run install_env.py
+        "$SLC_PYTHON" "$SLC_DIR/install_env.py" "$env_name" || {
+            red "❌ Error: Environment installation failed"
+            exit 1
+        }
+
+        # Deactivate
+        conda deactivate
+    )
+
+    local install_result=$?
+    if [[ $install_result -ne 0 ]]; then
+        return $install_result
+    fi
+
+    green "✔ Environment '$env_name' installed successfully"
+    return 0
+}
+
+#
+# Main logic
+#
+
+# Check/install SLC base
+if check_slc_installed; then
+    if [[ -z "$ENV_NAME" ]]; then
+        green "✔ SLC base environment is installed"
+    fi
+else
+    if [[ "$CHECK_ONLY" == "true" ]]; then
+        red "❌ SLC base environment is not installed"
+        yellow "💡 Run: $REPO_ROOT/commands/require_env"
+        yellow "   Or: python3 $SLC_DIR/install_SLC.py"
+        exit 1
+    else
+        install_slc || exit 1
+    fi
+fi
+
+# Check/install specific environment if requested
+if [[ -n "$ENV_NAME" ]]; then
+    if check_env_installed "$ENV_NAME"; then
+        green "✔ Environment '$ENV_NAME' is installed"
+    else
+        if [[ "$CHECK_ONLY" == "true" ]]; then
+            red "❌ Environment '$ENV_NAME' is not installed"
+            yellow "💡 Run: $REPO_ROOT/commands/require_env $ENV_NAME"
+            yellow "   Or: python $SLC_DIR/install_env.py $ENV_NAME"
+            list_available_envs
+            exit 1
+        else
+            # Make sure SLC is installed first (should already be checked above)
+            if ! check_slc_installed; then
+                red "❌ Error: SLC base must be installed before installing environments"
+                exit 1
+            fi
+
+            install_env "$ENV_NAME" || exit 1
+        fi
+    fi
+
+    # If sourced and environment name provided, activate it
+    if [[ "${BASH_SOURCE[0]}" != "${0}" ]] && [[ -n "$ENV_NAME" ]]; then
+        conda activate "$SLC_DIR/envs/$ENV_NAME" || {
+            red "❌ Error: Failed to activate environment '$ENV_NAME'"
+            return 1
+        }
+    fi
+fi
+
+$EXIT_CMD 0

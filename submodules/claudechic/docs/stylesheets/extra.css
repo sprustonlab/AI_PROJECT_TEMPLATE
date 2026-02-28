@@ -1,0 +1,330 @@
+/* Claude Chic - Minimalist dark theme
+ *
+ * Design language: Pure black background, left borders for focus,
+ * orange accent only for interaction points.
+ */
+
+:root {
+  /* Core palette */
+  --md-primary-fg-color: #cc7700;
+  --md-primary-fg-color--light: #dd8811;
+  --md-primary-fg-color--dark: #aa5500;
+  --md-accent-fg-color: #cc7700;
+  --md-typeset-a-color: #cc7700;
+
+  /* True black background */
+  --md-default-bg-color: #000000;
+  --md-default-bg-color--light: #0a0a0a;
+  --md-default-bg-color--lighter: #111111;
+  --md-default-bg-color--lightest: #1a1a1a;
+
+  /* Muted text hierarchy */
+  --md-default-fg-color: #cccccc;
+  --md-default-fg-color--light: #888888;
+  --md-default-fg-color--lighter: #666666;
+  --md-default-fg-color--lightest: #444444;
+
+  /* Code colors */
+  --md-code-bg-color: #0a0a0a;
+  --md-code-fg-color: #cccccc;
+
+  /* Footer */
+  --md-footer-bg-color: #000000;
+  --md-footer-bg-color--dark: #000000;
+}
+
+/* Header - hidden */
+.md-header {
+  display: none;
+}
+
+/* Responsive video container */
+.video-container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+}
+
+.video-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Navigation - left border treatment */
+.md-nav__link {
+  color: #888888;
+  border-left: 2px solid transparent;
+  padding-left: 0.5em;
+  margin-left: -0.5em;
+}
+
+.md-nav__link:hover {
+  color: #cccccc;
+  border-left-color: #cc7700;
+}
+
+.md-nav__link--active {
+  color: #cccccc;
+  border-left-color: #cc7700;
+}
+
+/* Sidebar - muted */
+.md-sidebar {
+  background-color: #000000;
+}
+
+.md-sidebar__scrollwrap {
+  background-color: #000000;
+}
+
+/* Main content area */
+.md-main {
+  background-color: #000000;
+}
+
+.md-content {
+  background-color: #000000;
+}
+
+/* Code blocks - left border style */
+.md-typeset code {
+  background-color: #111111;
+  color: #cccccc;
+  border-radius: 0;
+}
+
+.md-typeset pre {
+  background-color: #0a0a0a;
+  border-radius: 0;
+  border-left: 3px solid #333333;
+}
+
+.md-typeset pre:hover {
+  border-left-color: #cc7700;
+}
+
+.md-typeset pre > code {
+  background-color: transparent;
+}
+
+/* Blockquotes - left border */
+.md-typeset blockquote {
+  border-left: 3px solid #333333;
+  background-color: transparent;
+  color: #888888;
+  padding-left: 1em;
+}
+
+/* Tables - minimal */
+.md-typeset table:not([class]) {
+  background-color: transparent;
+  border: none;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: #111111;
+  border-bottom: 1px solid #333333;
+}
+
+.md-typeset table:not([class]) td {
+  border-bottom: 1px solid #1a1a1a;
+}
+
+/* Admonitions - left border style (matching tool widgets) */
+.md-typeset .admonition,
+.md-typeset details {
+  background-color: #0a0a0a;
+  border: none;
+  border-left: 3px solid #333333;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.md-typeset .admonition-title,
+.md-typeset details summary {
+  background-color: transparent;
+  border: none;
+  padding-left: 0.5em;
+}
+
+.md-typeset .admonition-title::before,
+.md-typeset details summary::before {
+  display: none;
+}
+
+/* Tip admonitions - orange accent */
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+  border-left-color: #cc7700;
+}
+
+/* Note admonitions - blue-gray (like assistant messages) */
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  border-left-color: #334455;
+}
+
+/* Warning - subtle yellow */
+.md-typeset .admonition.warning,
+.md-typeset details.warning {
+  border-left-color: #887700;
+}
+
+/* Question/FAQ - gray, orange on hover (like tool widgets) */
+.md-typeset .admonition.question,
+.md-typeset details.question {
+  border-left-color: #333333;
+  background-color: transparent !important;
+}
+
+.md-typeset details.question:hover {
+  border-left-color: #cc7700;
+}
+
+.md-typeset .admonition.question > .admonition-title,
+.md-typeset details.question > summary {
+  cursor: pointer;
+  color: #cccccc;
+  padding-left: 1em;
+  background-color: transparent !important;
+}
+
+/* Chat message admonitions - shared styles */
+.md-typeset .admonition.user,
+.md-typeset details.user,
+.md-typeset .admonition.claude,
+.md-typeset details.claude {
+  background-color: #0a0a0a;
+  font-family: var(--md-code-font-family);
+  padding: 0.1em 0.6em 0.1em 1em;
+}
+
+.md-typeset .admonition.user > .admonition-title,
+.md-typeset details.user > summary,
+.md-typeset .admonition.claude > .admonition-title,
+.md-typeset details.claude > summary {
+  font-weight: 500;
+  padding-left: 0;
+}
+
+.md-typeset .admonition.user p,
+.md-typeset details.user p,
+.md-typeset .admonition.claude p,
+.md-typeset details.claude p {
+  margin: 0.2em 0;
+}
+
+/* User messages - orange accent */
+.md-typeset .admonition.user,
+.md-typeset details.user {
+  border-left-color: #cc7700;
+}
+
+.md-typeset .admonition.user > .admonition-title,
+.md-typeset details.user > summary {
+  color: #cc7700;
+}
+
+/* Claude messages - blue-gray accent */
+.md-typeset .admonition.claude,
+.md-typeset details.claude {
+  border-left-color: #557799;
+}
+
+.md-typeset .admonition.claude > .admonition-title,
+.md-typeset details.claude > summary {
+  color: #88aacc;
+}
+
+/* Hide the chevron/marker on details */
+.md-typeset details summary::after {
+  display: none;
+}
+
+/* Hide icon clutter */
+.md-typeset .admonition-title .twemoji,
+.md-typeset summary .twemoji {
+  display: none;
+}
+
+/* Links - dimmed orange, bright on hover */
+.md-typeset a {
+  color: #996633;
+  text-decoration: none;
+}
+
+.md-typeset a:hover {
+  color: #cc7700;
+}
+
+/* Footer - minimal */
+.md-footer {
+  background-color: #000000;
+  border-top: 1px solid #222222;
+}
+
+.md-footer-meta {
+  background-color: #000000;
+}
+
+/* Copy button on code blocks */
+.md-code__button {
+  color: #444444;
+  background-color: transparent !important;
+}
+
+.md-code__button:hover {
+  color: #cc7700;
+}
+
+.md-code__nav {
+  background-color: transparent !important;
+}
+
+/* Scrollbar - subtle */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333333;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444444;
+}
+
+/* Keyboard shortcuts */
+.md-typeset kbd {
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  box-shadow: none;
+  color: #cccccc;
+}
+
+/* Horizontal rules */
+.md-typeset hr {
+  border-color: #222222;
+}
+
+/* Tab navigation (if used) */
+.md-typeset .tabbed-labels > label {
+  color: #666666;
+}
+
+.md-typeset .tabbed-labels > label:hover {
+  color: #888888;
+}
+
+.md-typeset .tabbed-labels > .tabbed-label--active {
+  color: #cc7700;
+}
+

@@ -121,6 +121,7 @@ Situation 4: You have a fully specified environment that you know does what you 
 - This README
 - `envs/*.yml` - your environment spec files
 - `commands/*` - your CLI scripts
+- `repos/` - your Python repos (automatically added to PYTHONPATH)
 - `.claude/commands` - other Claude Code skills that you want to have available
 
 ### What to keep as-is:

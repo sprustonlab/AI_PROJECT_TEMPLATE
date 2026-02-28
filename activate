@@ -98,7 +98,12 @@ export SLC_VERSION="0.0.1"
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║ CUSTOMIZE: Add your project's Python modules here                         ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
-# Example: export PYTHONPATH="$BASEDIR/src:$PYTHONPATH"
+# Add all repos/ subdirectories to PYTHONPATH (if repos/ exists)
+if [[ -d "$BASEDIR/repos" ]]; then
+    for repo in "$BASEDIR/repos"/*/; do
+        [[ -d "$repo" ]] && export PYTHONPATH="$repo:$PYTHONPATH"
+    done
+fi
 
 # Make environments discoverable by conda
 export CONDA_ENVS_PATH="$BASEDIR/envs:$CONDA_ENVS_PATH"

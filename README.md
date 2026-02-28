@@ -121,8 +121,7 @@ Situation 4: You have a fully specified environment that you know does what you 
 - This README
 - `envs/*.yml` - your environment spec files
 - `commands/*` - your CLI scripts
-- `modules/`, `repos/` - your code
-- `.claude/commands` - other claudechic commands that you want to have available.
+- `.claude/commands` - other Claude Code skills that you want to have available
 
 ### What to keep as-is:
 - `activate` script (except CUSTOMIZE sections)

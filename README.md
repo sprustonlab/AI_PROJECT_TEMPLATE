@@ -1,21 +1,19 @@
-# Template Repository
+# AI Project Team (Template Repository)
 
 A reusable template for bootstrapping new research projects with integrated environment management, Claude Code project team workflow, and consistent project structure.
 
 Tested on mac and linux.
 
-The template has three main components.
+The template has three main components. To acces them, the first step is to clone this repo and run `source ./activate`. This will install the base environment. Afterwards you can run `claudechic`. 
 
-The first step to get access is to run `source ./activate`.
+## The three main components
 
-(1) My fork of claudechic (upstream: https://github.com/mrocklin/claudechic). Claudechic is like claude, but with multi agent support (via MCP - Model Context Protocol) and with a nice layout. You can start claudechic by running `claudechic` (available after `source ./activate`). An introductory video to the repo by Matthew Rocklin (the developer, also the developer of dask and sympy) can be found here: https://www.youtube.com/watch?v=2HcORToX5sU. A good first thing to run in claudechic is "Start two subagents that play chess against each other".
+(1) My fork of claudechic (upstream: https://github.com/mrocklin/claudechic). Claudechic is like claude code, but with great built in multi agent support (via MCP - Model Context Protocol) and with a nice layout. You can start claudechic by running `claudechic` (available after `source ./activate`). An introductory video to claudechic by Matthew Rocklin (the developer, also the developer of dask and sympy) can be found here: https://www.youtube.com/watch?v=2HcORToX5sU. A good "hello world" command to run in claudechic is "Start two subagents that play chess against each other".
 
 My fork has the following modifications
-- add a /clearui command, that removes old messages. I like to run it when the session starts to feel sluggish.
+- add a /clearui command, that removes old messages. I like to run it when the session starts to feel sluggish. You lose the ability to look at old messages, but it responds fast again.
 - Make it such that all agents and subagents share the same permission mode
-- Make it such that the bypassPermissions mode is available. You can cycle through modes with Shift+Tab. Note: This won't do anything, unless you start `claudechic --yolo`. Doing this means that the agents are enabled to run any command, which is risky.
-
-Claudechic is added as submodule, so after cloning this repo, you need to run `git submodule update --init --recursive` as described in the Quick Start section.
+- Make it such that the bypassPermissions mode is available. You can cycle through modes with Shift+Tab. Note: This won't do anything, unless you start claudechic with `claudechic --yolo`. Doing this means that the agents are enabled to run any command, which is risky.
 
 (2) **Python environment management** (adapted from [SLC - Spruston Lab Commands](https://github.com/sprustonlab))
 
@@ -31,7 +29,7 @@ envs/
 └── claudechic.osx-arm64.cache/  # Package cache for offline reinstall (gitignored)
 ```
 
-**Workflow:** Edit `*.yml` → `python lock_env.py <name>` → `python install_env.py <name>` → `conda activate <name>`
+**Workflow:** Edit `*.yml` → `python install_env.py <name>` → `conda activate <name>`
 
 First `source ./activate` bootstraps Miniforge into `envs/SLCenv/` automatically.
 

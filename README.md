@@ -4,7 +4,7 @@ A reusable template for bootstrapping new research projects with integrated envi
 
 Tested on mac and linux.
 
-The template has three main components. To acces them, the first step is to clone this repo and run `source ./activate`. This will install the base environment. Afterwards you can run `claudechic`. 
+The template has three main components: claudechic, reproducible python environment management, and - most importantly - the ao_project_team command. To use this, the first step is to clone this repo and run `source ./activate`. On first run, this will install the base environment. Afterwards you can run `claudechic`. On first run, this will install the claudechic environment. 
 
 ## The three main components
 

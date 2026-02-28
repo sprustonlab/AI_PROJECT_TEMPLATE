@@ -1,22 +1,21 @@
-# AI Project Team (Template Repository)
+# Template Repository
+
+A reusable template for bootstrapping new research projects with integrated environment management, Claude Code project team workflow, and consistent project structure.
 
 Tested on mac and linux.
 
-The template has three main components: claudechic, reproducible python environment management, and - most importantly - the ao_project_team command. 
+The template has three main components.
 
-To use this, 
-- the first step is to clone this repo and run `source ./activate`. (If you activate this for the first time, this will install the base environment). 
-- Afterwards you can run `claudechic`. (If you run this for the first time, this will install the claudechic environment)
-- In claudechic, you can run /ao_project_team, to start the project team workflow. 
+The first step to get access is to run `source ./activate`.
 
-## The three main components
-
-(1) My fork of claudechic (upstream: https://github.com/mrocklin/claudechic). Claudechic is like claude code, but with great built in multi agent support (via MCP - Model Context Protocol) and with a nice layout. You can start claudechic by running `claudechic` (available after `source ./activate`). An introductory video to claudechic by Matthew Rocklin (the developer, also the developer of dask and sympy) can be found here: https://www.youtube.com/watch?v=2HcORToX5sU. A good "hello world" command to run in claudechic is "Start two subagents that play chess against each other".
+(1) My fork of claudechic (upstream: https://github.com/mrocklin/claudechic). Claudechic is like claude, but with multi agent support (via MCP - Model Context Protocol) and with a nice layout. You can start claudechic by running `claudechic` (available after `source ./activate`). An introductory video to the repo by Matthew Rocklin (the developer, also the developer of dask and sympy) can be found here: https://www.youtube.com/watch?v=2HcORToX5sU. A good first thing to run in claudechic is "Start two subagents that play chess against each other".
 
 My fork has the following modifications
-- add a /clearui command, that removes old messages. I like to run it when the session starts to feel sluggish. You lose the ability to look at old messages, but it responds fast again.
+- add a /clearui command, that removes old messages. I like to run it when the session starts to feel sluggish.
 - Make it such that all agents and subagents share the same permission mode
-- Make it such that the bypassPermissions mode is available. You can cycle through modes with Shift+Tab. Note: This won't do anything, unless you start claudechic with `claudechic --yolo`. Doing this means that the agents are enabled to run any command, which is risky.
+- Make it such that the bypassPermissions mode is available. You can cycle through modes with Shift+Tab. Note: This won't do anything, unless you start `claudechic --yolo`. Doing this means that the agents are enabled to run any command, which is risky.
+
+Claudechic is added as submodule, so after cloning this repo, you need to run `git submodule update --init --recursive` as described in the Quick Start section.
 
 (2) **Python environment management** (adapted from [SLC - Spruston Lab Commands](https://github.com/sprustonlab))
 
@@ -32,7 +31,7 @@ envs/
 └── claudechic.osx-arm64.cache/  # Package cache for offline reinstall (gitignored)
 ```
 
-**Workflow:** Edit `*.yml` → `python install_env.py <name>` → `conda activate <name>`
+**Workflow:** Edit `*.yml` → `python lock_env.py <name>` → `python install_env.py <name>` → `conda activate <name>`
 
 First `source ./activate` bootstraps Miniforge into `envs/SLCenv/` automatically.
 
@@ -73,15 +72,21 @@ Afterwards, Tests are implemented. Once they pass, Leadership agents are asked t
    cd <project-name>
    ```
 
-2. Activate the project:
+2. Initialize submodules (for claudechic MCP server):
+   ```bash
+   git submodule update --init --recursive
+   ```
+
+3. Activate the project:
    ```bash
    source ./activate
    ```
-   On first run, this will initialize git submodules, install Miniforge into `envs/SLCenv/`, and set up paths.
+   On first run, this will:
+   - Install Miniforge into `envs/SLCenv/` automatically
+   - Set up paths and environment variables
+   - Display available commands and skills
 
-   Note: Submodules are auto-initialized on first run if needed.
-
-3. (Optional) Create a project-specific environment:
+4. (Optional) Create a project-specific environment:
    ```bash
    # Edit envs/myenv.yml with your dependencies
    python lock_env.py myenv
@@ -113,10 +118,6 @@ Afterwards, Tests are implemented. Once they pass, Leadership agents are asked t
 ## Available Commands
 
 Run `source ./activate` to see available CLI commands and Claude Code skills.
-
-## Example
-
-The `.ao_project_team/readme_review/` folder contains an example of the workflow output from reviewing this README. It includes the user prompt, specification documents, and final review by all Leadership agents.
 
 ## AI_agents/ Version
 

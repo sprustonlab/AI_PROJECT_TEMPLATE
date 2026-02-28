@@ -129,24 +129,48 @@ if [[ -d "$BASEDIR/.git" ]] && [[ -d "$BASEDIR/.githooks" ]]; then
 fi
 
 # --------------------------------------------------------------------------
-# Section 3: Submodule Checks
+# Section 3: Submodule Auto-Init
 # --------------------------------------------------------------------------
 
 # Track warnings to display at the end
 _WARNINGS=()
 
-# Check for claudechic submodule
-if [[ -f "$BASEDIR/.gitmodules" ]] && grep -q "claudechic" "$BASEDIR/.gitmodules"; then
-    # Submodule is registered - check if initialized
-    if [[ ! -f "$BASEDIR/submodules/claudechic/pyproject.toml" ]]; then
-        _WARNINGS+=("⚠️  claudechic submodule not initialized")
-        _WARNINGS+=("   Run: git submodule update --init submodules/claudechic")
+# Check if any submodules need initialization
+if [[ -f "$BASEDIR/.gitmodules" ]]; then
+    # Check if submodules directory exists and has content
+    _needs_init=false
+
+    # Check for claudechic specifically (main submodule)
+    if grep -q "claudechic" "$BASEDIR/.gitmodules"; then
+        if [[ ! -f "$BASEDIR/submodules/claudechic/pyproject.toml" ]]; then
+            _needs_init=true
+        fi
+    fi
+
+    # ╔═══════════════════════════════════════════════════════════════════════════╗
+    # ║ CUSTOMIZE: Add checks for other submodules your project uses              ║
+    # ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    # Auto-init submodules if needed
+    if [[ "$_needs_init" == true ]]; then
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  Initializing git submodules..."
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+
+        git -C "$BASEDIR" submodule update --init --recursive || {
+            _WARNINGS+=("⚠️  Failed to initialize submodules")
+            _WARNINGS+=("   Try manually: cd $BASEDIR && git submodule update --init --recursive")
+        }
+
+        # Verify it worked
+        if [[ -f "$BASEDIR/submodules/claudechic/pyproject.toml" ]]; then
+            echo "✔ Submodules initialized successfully"
+            echo ""
+        fi
     fi
 fi
-
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ CUSTOMIZE: Add checks for other submodules your project uses              ║
-# ╚═══════════════════════════════════════════════════════════════════════════╝
 
 # --------------------------------------------------------------------------
 # Section 4: Status Display

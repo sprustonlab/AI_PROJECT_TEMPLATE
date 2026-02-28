@@ -4,11 +4,11 @@ Tested on mac and linux.
 
 The template has three main components: claudechic, reproducible python environment management, and - most importantly - the ao_project_team command. 
 
-To use this, 
-- fork the template (so you have your own version of it for your project that you can change any way you want).
-- clone your forked repo and run `source ./activate`. (If you activate this for the first time, this will install the base environment `SLCenv`, which is a miniforge environment.). 
-- Afterwards you can run `claudechic`. (If you run this for the first time, this will install the claudechic environment)
-- In claudechic, you can run /ao_project_team, to start the project team workflow. 
+To use this,
+- On GitHub, click **"Use this template"** → **"Create a new repository"** (choose Private). This creates your own copy.
+- Clone your new repo and run `source ./activate`. (On first run, this installs the base environment `SLCenv`, a miniforge environment.)
+- Run `claudechic`. (On first run, this installs the claudechic environment.)
+- In claudechic, run /ao_project_team to start the project team workflow. 
 
 ## The three main components
 
@@ -56,7 +56,7 @@ Key concept: separate "what you want" (spec) from "what you get" (lockfile, exac
 
 Installed environments can be activated with `conda activate <name>`. Environments can be activated (and auto-installed if needed) with `source require_env <name>`
 
-By default (i.e., when you fork / clone this template repo) there are already two environments available: the base environment (SLCenv) and the claudechic environment. Once they are installed, the envs folder looks like this:
+By default (i.e., when you click "Use this template") there are already two environments available: the base environment (SLCenv) and the claudechic environment. Once they are installed, the envs folder looks like this:
 
 ```
 envs/
@@ -90,13 +90,11 @@ In claudechic, run /ao_project_team. This starts a multi agent coding workflow. 
 
 ## Quick Start
 
-1. Clone this repository:
-   ```bash
-   git clone <url> <project-name>
-   cd <project-name>
-   ```
+1. Create your project from this template:
+   - On GitHub: Click **"Use this template"** → **"Create a new repository"**
+   - Or via CLI: `gh repo create my-project --template=sprustonlab/AI_PROJECT_TEMPLATE --private --clone`
 
-2. Activate the project:
+2. Clone (if you used the web UI) and activate:
    ```bash
    source ./activate
    ```

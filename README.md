@@ -8,7 +8,7 @@ To use this,
 - On GitHub, click **"Use this template"** → **"Create a new repository"** (choose Private). This creates your own copy.
 - Clone your new repo and run `source ./activate`. (On first run, this installs the base environment `SLCenv`, a miniforge environment.)
 - Run `claudechic`. (On first run, this installs the claudechic environment.)
-- In claudechic, run /ao_project_team to start the project team workflow. 
+- In claudechic, run `/ao_project_team` to start the project team workflow. 
 
 ## The three main components
 
@@ -17,13 +17,13 @@ To use this,
 Claudechic is like claude code, but with great built in multi agent support (via MCP - Model Context Protocol) and with a nice layout. This repo contains my fork of claudechic (My fork of claudechic (upstream: https://github.com/mrocklin/claudechic). You can start claudechic by running `claudechic` (available after `source ./activate`). An introductory video to claudechic by Matthew Rocklin (the developer, also the developer of dask and sympy) can be found here: https://www.youtube.com/watch?v=2HcORToX5sU. A good "hello world" command to run in claudechic is "Start two subagents that play chess against each other".
 
 My fork has the following modifications
-- add a /clearui command, that removes old messages. I like to run it when the session starts to feel sluggish. You lose the ability to look at old messages, but it responds fast again.
+- add a `/clearui` command, that removes old messages. I like to run it when the session starts to feel sluggish. You lose the ability to look at old messages, but it responds fast again.
 - Make it such that all agents and subagents share the same permission mode
 - Make it such that the bypassPermissions mode is available. You can cycle through modes with Shift+Tab. Note: This won't do anything, unless you start claudechic with `claudechic --yolo`. Doing this means that the agents are enabled to run any command, which is risky.
 
 ## The three main phases of the ao_project_team workflow
 
-You run /ao_project_team in claudechic. This launches the workflow.
+You run `/ao_project_team` in claudechic. This launches the workflow.
 
 **Understand user vision**: You are asked for what you want to do. The agent tries to spell out the 'User Vision' in more detail, and also say what success and failure would look like. You're asked if what the agent has described is correct, and iterate, until it is correct and complete. You're also asked in which directory the project lives - it can be a new directory, or an existing directory. The agent creates a folder under {working_dir}/.ao_project_team/{project_name} and saves a userpromt.md and STATUS.md. The userprompt.md contains the verbatim prompt that you provided, as well as the approved user vision.
 
@@ -72,7 +72,7 @@ envs/
 
 Situation 1: You have a yml file for the environment that you want to install. Place it in the envs folder, then run `python install_env.py <name>`. If a lockfile is available for your platform, it will use the lockfile (lockfile means all packages are fully specified = no dependency resolution = fast). If no lockfile is available, it will install the environment as you would normally do with `conda env create` from the yml file (yml is minimal = each package might itself specify other required packages = dependency resolution required = slow) and then create a lockfile and the offline install folder for your platform.
 
-Situation 2: You have some working environment elsehwere outside of this repo and want to freeze it. To freeze it, first activate that environment, and then run python lock_env.py <name>. This will create a lockfile for your environment and save it to envs/<name>.{platform}.lock. Next, activate this repo (`source ./activate') and install that environment from the lockfile by running `python install_env.py <name>, as above, and check that the environment works. 
+Situation 2: You have some working environment elsehwere outside of this repo and want to freeze it. To freeze it, first activate that environment, and then run `python lock_env.py <name>`. This will create a lockfile for your environment and save it to envs/<name>.{platform}.lock. Next, activate this repo (`source ./activate') and install that environment from the lockfile by running `python install_env.py <name>, as above, and check that the environment works. 
 
 *Note: In this situation, you just get a lockfile, not a yml file (that 'minimal' description of dependencies). If you want to get this to run on another platform more work is needed - ask claude to work with you on creating a yml file, and check out Situation 4*
 
@@ -84,7 +84,7 @@ Situation 4: You have a fully specified environment that you know does what you 
 
 (3) The ao_project_team multi agent workflow
 
-In claudechic, run /ao_project_team. This starts a multi agent coding workflow. It is orchestrated in the AI_agents/project_team/COORDINATOR.md file.
+In claudechic, run `/ao_project_team`. This starts a multi agent coding workflow. It is orchestrated in the AI_agents/project_team/COORDINATOR.md file.
 
 
 

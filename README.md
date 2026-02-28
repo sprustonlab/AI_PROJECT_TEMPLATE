@@ -8,10 +8,12 @@ The template has three main components.
 
 The first step to get access is to run `source ./activate`. 
 
-(1) My fork of claudechic (upstream: https://github.com/mrocklin/claudechic). Claudechic is like claude, but with multi agent support (via MCP) and with a nice layout. My modifications 
+(1) My fork of claudechic (upstream: https://github.com/mrocklin/claudechic). Claudechic is like claude, but with multi agent support (via MCP) and with a nice layout. You can start claudechic by running `claudechic` (available after `source ./activate`). An introductory video to the repo by Mattew Rocklin (the developer, also the developer of dask and sympy) can be found here: https://www.youtube.com/watch?v=2HcORToX5sU. A good firs thing to run in claudechic is "Start two subagents that play chess against each other".
+
+My fork has the following modifications 
 - add a /clearui command, that removes old messages. I like to run it when the session starts to feel sluggish.
 - Make it such that all agents and subagents share the same permission mode
-- Make it such that the bypassPermissions mode is available. You can cycle through modes with Alt+Tab. Note: This won't do anything, unless you start `claudechic --yolo`
+- Make it such that the bypassPermissions mode is available. You can cycle through modes with Alt+Tab. Note: This won't do anything, unless you start `claudechic --yolo`. Doing this means that the agents are enabled to run any command, which is risky. 
 
 Claudechic is added as submodule, so after cloning this repo, you need to run `git submodule update --init --recursive` as described in the Quick Start section.
 
@@ -28,7 +30,7 @@ You run /ao_project_team in claudechic. This launches the workflow.
 
 *User checkpoint*: You need to approve the 'vision' before work proceeds. 
 
-**Specification phase**: Before we just had one agent, let's now call it the 'coordinator'. The coordinator is now instructed to spawn the 'leadership' agents, which are Composability, Terminology, UserAlignment and Skeptic. These agents work together to draft a specification, which is saved under {working_dir}/.ao_project_team/{project_name}/specification. 
+**Specification phase**: Before, there was one agent, let's now call it the 'coordinator'. The coordinator is now instructed to spawn the 'leadership' agents, which are Composability, Terminology, UserAlignment and Skeptic. These agents work together to draft a specification, which is saved under {working_dir}/.ao_project_team/{project_name}/specification. 
 
 Composability is the agent that I have spent most time developing, and that (subjectively) is the most important. Composabilities goal is to dissect the problem into independent ('orthogonal') axes that are independent. This may be a seperation between memory layout, algorithms, frontend. The goal is to write a specification, in which these components are independent with defined 'seams' between them. A leaky seam exists for example if the algorithm needs to know what memory layout is used.
 

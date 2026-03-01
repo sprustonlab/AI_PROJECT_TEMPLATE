@@ -2,17 +2,21 @@
 
 **Please only use in private repos for now.**
 
-Tested on mac and linux.
+Tested on macOS, Linux, and Windows.
 
-The template has three main components: claudechic, the `/ao_project_team` skill, and reproducible python environment management. 
+The template has three main components: claudechic, the `/ao_project_team` skill, and reproducible python environment management.
 
 To use this,
 - On GitHub, click **"Use this template"** → **"Create a new repository"** (choose Private). This creates your own copy.
-- Clone your new repo and run `source ./activate`. (On first run, this installs the base environment `SLCenv`, a miniforge environment.)
+- Clone your new repo and activate:
+  - **macOS/Linux**: `source ./activate`
+  - **Windows (PowerShell)**: `. .\activate.ps1`
+
+  (On first run, this installs the base environment `SLCenv`, a miniforge environment.)
 - Run `claudechic`. (On first run, this installs the claudechic environment.)
 - In claudechic, run `/ao_project_team` to start the project team workflow.
 
-When you run `source ./activate`, you see the available CLI commands and Claude Code skills.
+When you run the activate script, you see the available CLI commands and Claude Code skills.
 
 ## The three main components
 
@@ -57,16 +61,24 @@ The python environment management in this repo is adapted from my implementation
 
 Key concept: separate "what you want" (spec) from "what you get" (lockfile, exact versions of everything, platform specific), and collect all installers for all packages in a folder so you get a reproducible offline installer. Specs, lockfile, cache folder, and folder containning the installed environment are all in `envs/`. 
 
-Installed environments can be activated with `conda activate <name>`. A more powerful command (which not only activates, but also auto-installs if needed) is `source require_env <name>`. An example of how require_env can be used is in commands/claudechic.
+Installed environments can be activated with `conda activate <name>`. A more powerful command (which not only activates, but also auto-installs if needed) is:
+- **macOS/Linux:** `source require_env <name>`
+- **Windows:** `. require_env.ps1 <name>`
+
+An example of how require_env can be used is in the `commands/` directory (see `claudechic` for bash, `claudechic.ps1` for PowerShell).
 
 When you use this template, there will already be two environments available: the base environment (SLCenv) and the claudechic environment. Once they are installed, the envs folder looks like this:
 
 ```
 envs/
 ├── SLCenv/                      # Bootstrap environment (auto-created on first activate)
-├── SLCenv_offline_install_mac/  # Bootstrap cache (platform-specific)
+├── SLCenv_offline_install_mac/  # Bootstrap cache (macOS)
+├── SLCenv_offline_install/      # Bootstrap cache (Linux)
+├── SLCenv_offline_install_win/  # Bootstrap cache (Windows)
 ├── claudechic.yml               # Spec file (user edits this)
-├── claudechic.osx-arm64.lock    # lockfile (auto-generated, platform-specific, commit this)
+├── claudechic.osx-arm64.lock    # lockfile (macOS ARM64)
+├── claudechic.linux-64.lock     # lockfile (Linux x86_64)
+├── claudechic.win-64.lock       # lockfile (Windows x86_64)
 ├── claudechic/                  # Installed environment (gitignored)
 └── claudechic.osx-arm64.cache/  # Package cache for offline reinstall (gitignored)
 ```
@@ -95,12 +107,22 @@ Situation 4: You have a fully specified environment that you know does what you 
    - Or via CLI: `gh repo create my-project --template=sprustonlab/AI_PROJECT_TEMPLATE --private --clone`
 
 2. Clone (if you used the web UI) and activate:
+
+   **macOS/Linux:**
    ```bash
    source ./activate
    ```
+
+   **Windows (PowerShell):**
+   ```powershell
+   . .\activate.ps1
+   ```
+
    On first run, this will initialize git submodules, install Miniforge into `envs/SLCenv/`, and set up paths.
 
    Note: Submodules are auto-initialized on first run if needed.
+
+   **Windows Note:** You may need to run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` first to allow running PowerShell scripts.
 
 3. (Optional) Create a project-specific environment:
    ```bash
@@ -120,16 +142,31 @@ Situation 4: You have a fully specified environment that you know does what you 
 ### What to modify:
 - This README
 - `envs/*.yml` - your environment spec files
-- `commands/*` - your CLI scripts
+- `commands/*` - your CLI scripts (bash scripts for macOS/Linux, `.ps1` scripts for Windows)
 - `repos/` - your Python repos (automatically added to PYTHONPATH)
 - `.claude/commands` - other Claude Code skills that you want to have available
 
 ### What to keep as-is:
-- `activate` script (except CUSTOMIZE sections)
+- `activate` and `activate.ps1` scripts (except CUSTOMIZE sections)
 - `install_SLC.py`, `install_env.py`, `lock_env.py`
 - `.gitignore` patterns
 - `AI_agents/` directory
 - `.claude/commands/` structure
+
+## Platform Support
+
+| Platform | Shell | Architecture | Status |
+|----------|-------|--------------|--------|
+| macOS | Bash | ARM64 (M1/M2) | Fully supported |
+| Linux | Bash | x86_64 | Fully supported |
+| Windows | PowerShell | x86_64 | Fully supported |
+
+### Windows Notes
+
+- **PowerShell Required**: Windows support uses PowerShell (not cmd.exe or WSL)
+- **Execution Policy**: Run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` to allow scripts
+- **Commands**: All CLI commands have `.ps1` equivalents (e.g., `claudechic.ps1`, `require_env.ps1`)
+- **Activation**: Use `. .\activate.ps1` (dot-source) instead of `source ./activate`
 
 ## Available Commands
 

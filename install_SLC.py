@@ -1,11 +1,35 @@
 #!/usr/bin/env python3
 # Source: postdoc_monorepo/submodules/gaby_arco @ 2026-02-27
 import os
+import sys
 import urllib.request
 import subprocess
 import functools
 import shutil
 import platform
+
+# Emoji support detection - use ASCII fallbacks on Windows with non-UTF-8 encoding
+def _supports_emoji():
+    """Check if stdout can display emoji characters."""
+    if hasattr(sys.stdout, 'encoding') and sys.stdout.encoding:
+        return sys.stdout.encoding.lower() in ('utf-8', 'utf8')
+    return False
+
+# Emoji or ASCII fallback
+if _supports_emoji():
+    EMOJI_CHECK = "✔"
+    EMOJI_DOWNLOAD = "⬇"
+    EMOJI_GEAR = "⚙"
+    EMOJI_PACKAGE = "📦"
+    EMOJI_GLOBE = "🌐"
+    EMOJI_SEARCH = "🔍"
+else:
+    EMOJI_CHECK = "[OK]"
+    EMOJI_DOWNLOAD = "[DL]"
+    EMOJI_GEAR = "[..]"
+    EMOJI_PACKAGE = "[pkg]"
+    EMOJI_GLOBE = "[net]"
+    EMOJI_SEARCH = "[?]"
 
 # Miniforge details
 ENV = 'SLCenv'
@@ -90,15 +114,15 @@ def download_miniforge():
     """Download Miniforge installer if not present."""
     if not os.path.exists(INSTALLER_PATH):
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-        print(f"⬇ Downloading Miniforge {MINIFORGE_VERSION}...")
+        print(f"{EMOJI_DOWNLOAD} Downloading Miniforge {MINIFORGE_VERSION}...")
         urllib.request.urlretrieve(MINIFORGE_URL, INSTALLER_PATH)
-        print("✔ Download complete.")
+        print(f"{EMOJI_CHECK} Download complete.")
 
 @CleanEnvFakeHome(SCRIPT_DIR)
 def install_miniforge():
     """Install Miniforge without modifying the user's shell settings."""
     if not check_miniforge():
-        print("⚙ Installing Miniforge without modifying user settings...")
+        print(f"{EMOJI_GEAR} Installing Miniforge without modifying user settings...")
         if IS_WINDOWS:
             # Windows installer uses different flags
             # /InstallationType=JustMe - Install for current user only
@@ -116,7 +140,7 @@ def install_miniforge():
             ], check=True)
         else:
             subprocess.run(["bash", INSTALLER_PATH, "-b", "-s", "-p", INSTALL_DIR], check=True)
-        print("✔ Miniforge installed.")
+        print(f"{EMOJI_CHECK} Miniforge installed.")
 
     # Ensure PIP_CACHE_DIR exists
     os.makedirs(PIP_CACHE_DIR, exist_ok=True)
@@ -125,18 +149,18 @@ def install_miniforge():
     cached_pyyaml = any("pyyaml" in fname.lower() for fname in os.listdir(PIP_CACHE_DIR))
 
     if cached_pyyaml:
-        print("📦 Installing PyYAML from cache...")
+        print(f"{EMOJI_PACKAGE} Installing PyYAML from cache...")
         subprocess.run([PIP_BIN, "install", "--no-index", "--find-links", PIP_CACHE_DIR, "PyYAML"], check=True)
     else:
-        print("🌐 Downloading and caching PyYAML...")
+        print(f"{EMOJI_GLOBE} Downloading and caching PyYAML...")
         subprocess.run([PIP_BIN, "download", "--no-deps", "-d", PIP_CACHE_DIR, "PyYAML"], check=True)
         subprocess.run([PIP_BIN, "install", "--no-index", "--find-links", PIP_CACHE_DIR, "PyYAML"], check=True)
 
-    print("✔ PyYAML installed.")
+    print(f"{EMOJI_CHECK} PyYAML installed.")
 
 def main():
     """Ensure Miniforge and PyYAML are installed in a self-contained way."""
-    print("🔍 Checking Miniforge setup...")
+    print(f"{EMOJI_SEARCH} Checking Miniforge setup...")
     download_miniforge()
     install_miniforge()
 

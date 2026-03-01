@@ -121,7 +121,7 @@ jobs:
           }
 
           # Test helper functions from install_env.py
-          python -c "import sys; sys.path.insert(0, '.'); exec(open('install_env.py').read().split('# --- Preliminary Setup ---')[0]); print(f'Platform: {get_platform_subdir()}'); print(f'is_windows: {is_windows()}'); print('install_env.py helpers: OK')"
+          python -c "import sys; sys.path.insert(0, '.'); exec(open('install_env.py', encoding='utf-8').read().split('# --- Preliminary Setup ---')[0]); print(f'Platform: {get_platform_subdir()}'); print(f'is_windows: {is_windows()}'); print('install_env.py helpers: OK')"
           if ($LASTEXITCODE -ne 0) {
             Write-Error "install_env.py helper functions failed"
             exit 1

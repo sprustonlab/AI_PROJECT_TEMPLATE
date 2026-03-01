@@ -26,6 +26,10 @@ jobs:
     name: E2E Tests (Windows)
     runs-on: windows-latest
 
+    env:
+      # Force UTF-8 encoding for Python to handle emoji characters
+      PYTHONIOENCODING: utf-8
+
     defaults:
       run:
         shell: pwsh  # Use PowerShell Core

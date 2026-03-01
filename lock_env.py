@@ -85,9 +85,11 @@ def get_pip_package_hashes(env_prefix: Path) -> dict[str, str]:
 
     Returns dict mapping 'package==version' to 'sha256:hash'.
     """
-    pip_path = env_prefix / "bin" / "pip"
-    if not pip_path.exists():
-        pip_path = env_prefix / "Scripts" / "pip.exe"  # Windows
+    # Platform-specific pip path: bin/pip on Unix, Scripts/pip.exe on Windows
+    if platform.system().lower() == 'windows':
+        pip_path = env_prefix / "Scripts" / "pip.exe"
+    else:
+        pip_path = env_prefix / "bin" / "pip"
 
     if not pip_path.exists():
         return {}

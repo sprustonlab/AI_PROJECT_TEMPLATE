@@ -15,22 +15,37 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SCRIPT_DIR = os.path.join(SCRIPT_DIR, 'envs')
 
 # Detect platform and set appropriate installer and download directory
-if platform.system() == 'Darwin':
+PLATFORM = platform.system()
+IS_WINDOWS = PLATFORM == 'Windows'
+
+if PLATFORM == 'Darwin':
     MINIFORGE_URL = f"https://github.com/conda-forge/miniforge/releases/download/{MINIFORGE_VERSION}/Miniforge3-MacOSX-arm64.sh"
     DOWNLOAD_DIR = os.path.join(SCRIPT_DIR, f'{ENV}_offline_install_mac')
-elif platform.system() == 'Linux':
+    INSTALLER_NAME = "Miniforge3.sh"
+    BIN_DIR = "bin"
+    EXE_SUFFIX = ""
+elif PLATFORM == 'Linux':
     MINIFORGE_URL = f"https://github.com/conda-forge/miniforge/releases/download/{MINIFORGE_VERSION}/Miniforge3-Linux-x86_64.sh"
     DOWNLOAD_DIR = os.path.join(SCRIPT_DIR, f'{ENV}_offline_install')
+    INSTALLER_NAME = "Miniforge3.sh"
+    BIN_DIR = "bin"
+    EXE_SUFFIX = ""
+elif PLATFORM == 'Windows':
+    MINIFORGE_URL = f"https://github.com/conda-forge/miniforge/releases/download/{MINIFORGE_VERSION}/Miniforge3-Windows-x86_64.exe"
+    DOWNLOAD_DIR = os.path.join(SCRIPT_DIR, f'{ENV}_offline_install_win')
+    INSTALLER_NAME = "Miniforge3.exe"
+    BIN_DIR = "Scripts"
+    EXE_SUFFIX = ".exe"
 else:
-    raise NotImplementedError(f"Unsupported platform: {platform.system()}")
+    raise NotImplementedError(f"Unsupported platform: {PLATFORM}")
 
 PIP_CACHE_DIR = os.path.join(DOWNLOAD_DIR, 'pip')
 CONDA_CACHE_DIR = os.path.join(DOWNLOAD_DIR, 'conda')  # Fixed typo
-INSTALLER_PATH = os.path.join(DOWNLOAD_DIR, "Miniforge3.sh")
+INSTALLER_PATH = os.path.join(DOWNLOAD_DIR, INSTALLER_NAME)
 INSTALL_DIR = os.path.join(SCRIPT_DIR, ENV)  # Install location for Miniforge
-CONDA_BIN = os.path.join(INSTALL_DIR, "bin", "conda")
-PIP_BIN = os.path.join(INSTALL_DIR, "bin", "pip")
-PYTHON_BIN = os.path.join(INSTALL_DIR, "bin", "python")  # Fixed incorrect reference
+CONDA_BIN = os.path.join(INSTALL_DIR, BIN_DIR, f"conda{EXE_SUFFIX}")
+PIP_BIN = os.path.join(INSTALL_DIR, BIN_DIR, f"pip{EXE_SUFFIX}")
+PYTHON_BIN = os.path.join(INSTALL_DIR, BIN_DIR, f"python{EXE_SUFFIX}")
 
 class CleanEnvFakeHome:
     """
@@ -43,10 +58,13 @@ class CleanEnvFakeHome:
         self._temp_home = os.path.join(self._dir, 'temp_home')
 
     def __enter__(self):
-        """Set HOME to a temporary directory and remove PYTHONPATH."""
+        """Set HOME/USERPROFILE to a temporary directory and remove PYTHONPATH."""
         os.makedirs(self._temp_home, exist_ok=True)
         self._env_bak = os.environ.copy()
-        os.environ['HOME'] = self._temp_home  # Set temporary HOME
+        if IS_WINDOWS:
+            os.environ['USERPROFILE'] = self._temp_home  # Set temporary USERPROFILE on Windows
+        else:
+            os.environ['HOME'] = self._temp_home  # Set temporary HOME on Unix
         os.environ.pop('PYTHONPATH', None)  # Remove PYTHONPATH if it exists
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -81,7 +99,23 @@ def install_miniforge():
     """Install Miniforge without modifying the user's shell settings."""
     if not check_miniforge():
         print("⚙ Installing Miniforge without modifying user settings...")
-        subprocess.run(["bash", INSTALLER_PATH, "-b", "-s", "-p", INSTALL_DIR], check=True)
+        if IS_WINDOWS:
+            # Windows installer uses different flags
+            # /InstallationType=JustMe - Install for current user only
+            # /AddToPath=0 - Don't modify PATH
+            # /RegisterPython=0 - Don't register as system Python
+            # /S - Silent install
+            # /D= - Installation directory (must be last)
+            subprocess.run([
+                INSTALLER_PATH,
+                "/InstallationType=JustMe",
+                "/AddToPath=0",
+                "/RegisterPython=0",
+                "/S",
+                f"/D={INSTALL_DIR}"
+            ], check=True)
+        else:
+            subprocess.run(["bash", INSTALLER_PATH, "-b", "-s", "-p", INSTALL_DIR], check=True)
         print("✔ Miniforge installed.")
 
     # Ensure PIP_CACHE_DIR exists

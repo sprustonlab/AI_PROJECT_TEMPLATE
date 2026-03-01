@@ -50,6 +50,27 @@ def get_platform_subdir() -> str:
         raise ValueError(f"Unsupported OS: {system}")
 
 
+def is_windows() -> bool:
+    """Check if running on Windows."""
+    return platform_module.system().lower() == 'windows'
+
+
+def get_env_executable(env_path: Path, name: str) -> Path:
+    """Get path to an executable in an environment, handling Windows differences.
+
+    Args:
+        env_path: Path to the conda environment
+        name: Name of the executable (e.g., 'pip', 'python', 'conda')
+
+    Returns:
+        Path to the executable (with .exe suffix on Windows, in Scripts/ on Windows)
+    """
+    if is_windows():
+        return env_path / "Scripts" / f"{name}.exe"
+    else:
+        return env_path / "bin" / name
+
+
 def find_env_source(env_name: str, envs_dir: Path) -> tuple[Path, Literal["lockfile", "spec"]]:
     """Find the best install source for an environment.
 
@@ -272,9 +293,7 @@ def install_pip_deps():
         return
 
     print("📦 Ensuring setuptools & wheel are installed...")
-    pip_bin_new_env = INSTALL_DIR / "bin" / "pip"
-    if not pip_bin_new_env.exists():
-        pip_bin_new_env = INSTALL_DIR / "Scripts" / "pip.exe"  # Windows
+    pip_bin_new_env = get_env_executable(INSTALL_DIR, "pip")
 
     subprocess.run([str(pip_bin_new_env), "install", "setuptools", "wheel"], check=True)
 
@@ -302,11 +321,21 @@ if not offline_mode:
 # ✅ Make environment read-only if --read-only was specified
 if make_readonly:
     print("🔒 Making environment read-only...")
-    if platform_module.system().lower() != 'windows':
+    if not is_windows():
         subprocess.run(["chmod", "-R", "a-w", str(INSTALL_DIR)], check=True)
         print("✔ Environment '{}' is now read-only.".format(env_name))
     else:
-        print("ℹ️  Read-only mode not supported on Windows.")
+        # Windows: use icacls to remove write permissions
+        # icacls <path> /deny Everyone:(W) /T makes it read-only recursively
+        try:
+            subprocess.run(
+                ["icacls", str(INSTALL_DIR), "/deny", "Everyone:(W)", "/T", "/Q"],
+                check=True,
+                capture_output=True
+            )
+            print("✔ Environment '{}' is now read-only.".format(env_name))
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("⚠️  Could not set read-only permissions on Windows.")
 else:
     print("ℹ️  Environment remains writable (default).")
 

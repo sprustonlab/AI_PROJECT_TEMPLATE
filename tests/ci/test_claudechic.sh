@@ -84,28 +84,21 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Test 2: Claudechic environment is installed (or can be installed)
+# Test 2: Run claudechic command (triggers env installation via require_env)
 # --------------------------------------------------------------------------
 
-blue "Step 3: Ensuring claudechic environment is installed..."
+blue "Step 3: Running claudechic command (E2E test - triggers env installation)..."
 
-# The claudechic command itself handles env installation via require_env
-# We'll verify by checking if the env directory exists after a dry-run
-# or by checking the require_env output
-
+# Check if environment already exists
+ENV_PREEXISTED=false
 if [[ -d "$PROJECT_ROOT/envs/claudechic" ]]; then
-    pass "claudechic conda environment already installed"
+    yellow "    Note: claudechic environment already exists"
+    ENV_PREEXISTED=true
 else
-    yellow "    Environment not yet installed, will be installed on first run"
+    yellow "    Environment not installed - claudechic will trigger installation..."
 fi
 
-# --------------------------------------------------------------------------
-# Test 3: Launch claudechic and verify TUI output
-# --------------------------------------------------------------------------
-
-blue "Step 4: Launching claudechic (with timeout)..."
-
-# Create a temp file for output capture
+# Create temp files for output capture
 OUTPUT_FILE=$(mktemp)
 ERROR_FILE=$(mktemp)
 
@@ -115,23 +108,27 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Run claudechic with a short timeout
-# We use --help first to verify basic functionality without needing API keys
-# This tests that the module loads correctly
-
 # Set SETUPTOOLS_SCM_PRETEND_VERSION to work around submodule version detection issue
-# when installing claudechic in editable mode
+# when installing claudechic in editable mode (git submodules don't have full .git history)
 export SETUPTOOLS_SCM_PRETEND_VERSION="0.0.0+test"
+
+# Run claudechic --help with a long timeout (5 minutes) to allow for:
+# 1. require_env to detect missing environment
+# 2. conda environment installation (can take several minutes)
+# 3. pip install -e for claudechic package
+# 4. Actually running --help
+
+blue "    Running: claudechic --help (timeout: 5 minutes)"
 
 set +e
 # Use gtimeout on macOS if available, otherwise fall back to perl-based timeout
 if command -v gtimeout &> /dev/null; then
-    gtimeout 60s "$PROJECT_ROOT/commands/claudechic" --help > "$OUTPUT_FILE" 2> "$ERROR_FILE"
+    gtimeout 300s "$PROJECT_ROOT/commands/claudechic" --help > "$OUTPUT_FILE" 2> "$ERROR_FILE"
 elif command -v timeout &> /dev/null; then
-    timeout 60s "$PROJECT_ROOT/commands/claudechic" --help > "$OUTPUT_FILE" 2> "$ERROR_FILE"
+    timeout 300s "$PROJECT_ROOT/commands/claudechic" --help > "$OUTPUT_FILE" 2> "$ERROR_FILE"
 else
     # Perl-based timeout for macOS without coreutils
-    perl -e 'alarm shift; exec @ARGV' 60 "$PROJECT_ROOT/commands/claudechic" --help > "$OUTPUT_FILE" 2> "$ERROR_FILE"
+    perl -e 'alarm shift; exec @ARGV' 300 "$PROJECT_ROOT/commands/claudechic" --help > "$OUTPUT_FILE" 2> "$ERROR_FILE"
 fi
 CLAUDECHIC_EXIT=$?
 set -e
@@ -140,15 +137,20 @@ set -e
 if [[ $CLAUDECHIC_EXIT -eq 0 ]] || [[ $CLAUDECHIC_EXIT -eq 2 ]]; then
     # Exit 0 = success, Exit 2 = argparse help (normal)
     if [[ -s "$OUTPUT_FILE" ]]; then
-        pass "claudechic --help produced output"
+        pass "claudechic --help executed successfully"
     else
         # Some Python CLIs output help to stderr
-        if [[ -s "$ERROR_FILE" ]]; then
-            pass "claudechic --help produced output (stderr)"
+        if [[ -s "$ERROR_FILE" ]] && ! grep -q "ERROR\|Error\|error" "$ERROR_FILE"; then
+            pass "claudechic --help executed successfully (output on stderr)"
         else
             fail "claudechic --help produced no output"
         fi
     fi
+elif [[ $CLAUDECHIC_EXIT -eq 124 ]] || [[ $CLAUDECHIC_EXIT -eq 142 ]]; then
+    # 124 = timeout exit code, 142 = SIGALRM (perl timeout)
+    fail "claudechic --help timed out after 5 minutes"
+    echo "  This may indicate environment installation is hanging"
+    echo "  stderr tail: $(tail -20 "$ERROR_FILE")"
 else
     fail "claudechic --help failed with exit code $CLAUDECHIC_EXIT"
     echo "  stdout: $(cat "$OUTPUT_FILE")"
@@ -156,50 +158,48 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# Test 3: Verify claudechic environment was created by running the command
+# --------------------------------------------------------------------------
+
+blue "Step 4: Verifying claudechic environment was installed..."
+
+CLAUDECHIC_ENV="$PROJECT_ROOT/envs/claudechic"
+if [[ -d "$CLAUDECHIC_ENV" ]]; then
+    if [[ "$ENV_PREEXISTED" == "true" ]]; then
+        pass "claudechic conda environment exists (was pre-existing)"
+    else
+        pass "claudechic conda environment was installed by running claudechic command"
+    fi
+else
+    fail "claudechic conda environment not found at $CLAUDECHIC_ENV"
+    echo "  The claudechic command should have triggered installation via require_env"
+fi
+
+# --------------------------------------------------------------------------
 # Test 4: Verify claudechic module can be imported
 # --------------------------------------------------------------------------
 
-blue "Step 5: Verifying claudechic Python module..."
+blue "Step 5: Verifying claudechic Python module imports..."
 
-# Activate the claudechic conda environment and test import
-CLAUDECHIC_ENV="$PROJECT_ROOT/envs/claudechic"
 if [[ -d "$CLAUDECHIC_ENV" ]]; then
     # Use the conda from SLCenv to activate claudechic env
     source "$PROJECT_ROOT/envs/SLCenv/etc/profile.d/conda.sh"
     conda activate "$CLAUDECHIC_ENV" 2>/dev/null || true
 
-    # Install claudechic in editable mode if not already installed
-    if ! python -c "import claudechic" 2>/dev/null; then
-        echo "  Installing claudechic in editable mode..."
-        # Set SETUPTOOLS_SCM_PRETEND_VERSION to work around submodule version detection
-        export SETUPTOOLS_SCM_PRETEND_VERSION="0.0.0+test"
-        pip install -e "$PROJECT_ROOT/submodules/claudechic" --quiet 2>/dev/null || true
-    fi
-
     set +e
-    python -c "import claudechic; print(f'claudechic version: {claudechic.__version__}')"
+    IMPORT_OUTPUT=$(python -c "import claudechic; print(f'claudechic version: {claudechic.__version__}')" 2>&1)
     IMPORT_EXIT=$?
     set -e
 
     if [[ $IMPORT_EXIT -eq 0 ]]; then
+        echo "    $IMPORT_OUTPUT"
         pass "claudechic Python module imports successfully"
     else
         fail "claudechic Python module failed to import"
+        echo "    Error: $IMPORT_OUTPUT"
     fi
 else
-    fail "claudechic environment not found at $CLAUDECHIC_ENV"
-fi
-
-# --------------------------------------------------------------------------
-# Test 5: Verify claudechic environment was created
-# --------------------------------------------------------------------------
-
-blue "Step 6: Verifying claudechic environment exists..."
-
-if [[ -d "$PROJECT_ROOT/envs/claudechic" ]]; then
-    pass "claudechic conda environment exists"
-else
-    fail "claudechic conda environment not created"
+    fail "Cannot test import - claudechic environment not found"
 fi
 
 # --------------------------------------------------------------------------

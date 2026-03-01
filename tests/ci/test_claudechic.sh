@@ -119,19 +119,23 @@ export SETUPTOOLS_SCM_PRETEND_VERSION="0.0.0+test"
 # 4. Actually running --help
 
 blue "    Running: claudechic --help (timeout: 5 minutes)"
+echo ""
 
 set +e
 # Use gtimeout on macOS if available, otherwise fall back to perl-based timeout
+# Use tee to show output in CI logs AND capture it for verification
 if command -v gtimeout &> /dev/null; then
-    gtimeout 300s "$PROJECT_ROOT/commands/claudechic" --help > "$OUTPUT_FILE" 2> "$ERROR_FILE"
+    gtimeout 300s "$PROJECT_ROOT/commands/claudechic" --help 2>&1 | tee "$OUTPUT_FILE"
 elif command -v timeout &> /dev/null; then
-    timeout 300s "$PROJECT_ROOT/commands/claudechic" --help > "$OUTPUT_FILE" 2> "$ERROR_FILE"
+    timeout 300s "$PROJECT_ROOT/commands/claudechic" --help 2>&1 | tee "$OUTPUT_FILE"
 else
     # Perl-based timeout for macOS without coreutils
-    perl -e 'alarm shift; exec @ARGV' 300 "$PROJECT_ROOT/commands/claudechic" --help > "$OUTPUT_FILE" 2> "$ERROR_FILE"
+    perl -e 'alarm shift; exec @ARGV' 300 "$PROJECT_ROOT/commands/claudechic" --help 2>&1 | tee "$OUTPUT_FILE"
 fi
-CLAUDECHIC_EXIT=$?
+CLAUDECHIC_EXIT=${PIPESTATUS[0]:-$?}
 set -e
+
+echo ""
 
 # Check if claudechic responded to --help
 if [[ $CLAUDECHIC_EXIT -eq 0 ]] || [[ $CLAUDECHIC_EXIT -eq 2 ]]; then
@@ -139,22 +143,15 @@ if [[ $CLAUDECHIC_EXIT -eq 0 ]] || [[ $CLAUDECHIC_EXIT -eq 2 ]]; then
     if [[ -s "$OUTPUT_FILE" ]]; then
         pass "claudechic --help executed successfully"
     else
-        # Some Python CLIs output help to stderr
-        if [[ -s "$ERROR_FILE" ]] && ! grep -q "ERROR\|Error\|error" "$ERROR_FILE"; then
-            pass "claudechic --help executed successfully (output on stderr)"
-        else
-            fail "claudechic --help produced no output"
-        fi
+        fail "claudechic --help produced no output"
     fi
 elif [[ $CLAUDECHIC_EXIT -eq 124 ]] || [[ $CLAUDECHIC_EXIT -eq 142 ]]; then
     # 124 = timeout exit code, 142 = SIGALRM (perl timeout)
     fail "claudechic --help timed out after 5 minutes"
     echo "  This may indicate environment installation is hanging"
-    echo "  stderr tail: $(tail -20 "$ERROR_FILE")"
 else
     fail "claudechic --help failed with exit code $CLAUDECHIC_EXIT"
-    echo "  stdout: $(cat "$OUTPUT_FILE")"
-    echo "  stderr: $(cat "$ERROR_FILE")"
+    echo "  Output was shown above"
 fi
 
 # --------------------------------------------------------------------------
@@ -173,6 +170,20 @@ if [[ -d "$CLAUDECHIC_ENV" ]]; then
 else
     fail "claudechic conda environment not found at $CLAUDECHIC_ENV"
     echo "  The claudechic command should have triggered installation via require_env"
+fi
+
+# --------------------------------------------------------------------------
+# Step 4b: Show environment contents in CI logs
+# --------------------------------------------------------------------------
+
+blue "Step 4b: Listing claudechic environment contents..."
+if [[ -d "$CLAUDECHIC_ENV" ]]; then
+    echo "    Environment directory: $CLAUDECHIC_ENV"
+    echo "    Contents (top-level):"
+    ls -la "$CLAUDECHIC_ENV/" | head -20 | sed 's/^/    /'
+    echo ""
+    echo "    Bin directory (first 15 entries):"
+    ls "$CLAUDECHIC_ENV/bin/" | head -15 | sed 's/^/    /'
 fi
 
 # --------------------------------------------------------------------------

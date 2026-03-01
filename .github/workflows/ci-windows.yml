@@ -1,0 +1,188 @@
+# =============================================================================
+# CI Workflow - Windows E2E Tests
+# =============================================================================
+# Runs end-to-end tests on Windows using PowerShell.
+#
+# Tests:
+#   1. test_activate.ps1 - Verifies SLCenv bootstrap and environment activation
+#   2. test_install_env.ps1 - Verifies environment installation
+#
+# Platform notes:
+#   - Windows: Uses PowerShell 7.x, x86_64 architecture
+#   - Miniforge is installed via .exe installer
+# =============================================================================
+
+name: CI Windows
+
+on:
+  push:
+    branches: [main, master, windows]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  test-windows:
+    name: E2E Tests (Windows)
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh  # Use PowerShell Core
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # -----------------------------------------------------------------------
+      # Test 1: . .\activate.ps1
+      # -----------------------------------------------------------------------
+      - name: Test 1 - Activate Script (PowerShell)
+        run: |
+          Write-Host "Testing activate.ps1..."
+
+          # Check activate.ps1 exists
+          if (-not (Test-Path "activate.ps1")) {
+            Write-Error "activate.ps1 not found"
+            exit 1
+          }
+          Write-Host "✓ activate.ps1 exists"
+
+          # Source the activate script
+          . .\activate.ps1
+
+          # Verify environment variables are set
+          if (-not $env:PROJECT_ROOT) {
+            Write-Error "PROJECT_ROOT not set"
+            exit 1
+          }
+          Write-Host "✓ PROJECT_ROOT = $env:PROJECT_ROOT"
+
+          if (-not $env:SLC_BASE) {
+            Write-Error "SLC_BASE not set"
+            exit 1
+          }
+          Write-Host "✓ SLC_BASE = $env:SLC_BASE"
+
+          if (-not $env:SLC_PYTHON) {
+            Write-Error "SLC_PYTHON not set"
+            exit 1
+          }
+          Write-Host "✓ SLC_PYTHON = $env:SLC_PYTHON"
+
+          # Verify SLCenv was created
+          if (-not (Test-Path "envs\SLCenv")) {
+            Write-Error "envs\SLCenv not created"
+            exit 1
+          }
+          Write-Host "✓ envs\SLCenv exists"
+
+          # Verify conda is available
+          $condaPath = Join-Path $env:SLC_BASE "envs\SLCenv\Scripts\conda.exe"
+          if (-not (Test-Path $condaPath)) {
+            Write-Error "conda.exe not found at $condaPath"
+            exit 1
+          }
+          Write-Host "✓ conda.exe exists"
+
+          Write-Host ""
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "  Test 1 PASSED: activate.ps1 works correctly"
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        timeout-minutes: 15  # Miniforge download can take time
+
+      # -----------------------------------------------------------------------
+      # Test 2: Python scripts work on Windows
+      # -----------------------------------------------------------------------
+      - name: Test 2 - Python Scripts
+        run: |
+          Write-Host "Testing Python scripts import correctly..."
+
+          # Source activate first
+          . .\activate.ps1
+
+          # Test install_SLC.py can be imported
+          python -c "import install_SLC; print('install_SLC.py: OK')"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "install_SLC.py import failed"
+            exit 1
+          }
+
+          # Test helper functions from install_env.py
+          $testCode = @"
+import sys
+sys.path.insert(0, '.')
+exec(open('install_env.py').read().split('# --- Preliminary Setup ---')[0])
+assert get_platform_subdir() == 'win-64', f'Expected win-64, got {get_platform_subdir()}'
+assert is_windows() == True, 'is_windows() should return True'
+from pathlib import Path
+exe_path = get_env_executable(Path('C:/test'), 'pip')
+assert str(exe_path) == r'C:\test\Scripts\pip.exe', f'Wrong path: {exe_path}'
+print('install_env.py helpers: OK')
+"@
+          python -c $testCode
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "install_env.py helper functions failed"
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "  Test 2 PASSED: Python scripts work on Windows"
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # -----------------------------------------------------------------------
+      # Test 3: PowerShell command scripts exist and are valid
+      # -----------------------------------------------------------------------
+      - name: Test 3 - PowerShell Commands
+        run: |
+          Write-Host "Testing PowerShell command scripts..."
+
+          # Check all .ps1 command scripts exist
+          $commands = @("require_env.ps1", "claudechic.ps1", "jupyter.ps1")
+          foreach ($cmd in $commands) {
+            $path = "commands\$cmd"
+            if (-not (Test-Path $path)) {
+              Write-Error "$cmd not found"
+              exit 1
+            }
+
+            # Verify script has valid PowerShell syntax
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path),
+              [ref]$null,
+              [ref]$errors
+            ) | Out-Null
+
+            if ($errors.Count -gt 0) {
+              Write-Error "$cmd has syntax errors: $($errors[0].Message)"
+              exit 1
+            }
+
+            Write-Host "✓ $cmd exists and has valid syntax"
+          }
+
+          Write-Host ""
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "  Test 3 PASSED: PowerShell commands are valid"
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # -----------------------------------------------------------------------
+      # Summary
+      # -----------------------------------------------------------------------
+      - name: Test Summary
+        if: always()
+        run: |
+          Write-Host ""
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "  Windows CI Tests completed"
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -2,7 +2,7 @@
 
 **Please only use in private repos for now.**
 
-Tested on mac and linux.
+Tested on mac and linux. If you also need Windows support, use the [`windows` branch](https://github.com/sprustonlab/AI_PROJECT_TEMPLATE/tree/windows).
 
 The template has three main components: claudechic, the `/ao_project_team` skill, and reproducible python environment management. 
 

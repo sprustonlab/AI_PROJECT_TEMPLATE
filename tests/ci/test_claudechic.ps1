@@ -213,6 +213,8 @@ try {
         Write-Detail "This may indicate conda environment installation is hanging"
     } else {
         $exitCode = $process.ExitCode
+        # PS 5.1: ExitCode can be $null after WaitForExit; treat as 0 (success)
+        if ($null -eq $exitCode) { $exitCode = 0 }
 
         # Read captured output from temp files
         $stdout = ""

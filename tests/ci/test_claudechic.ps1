@@ -160,64 +160,112 @@ $env:SETUPTOOLS_SCM_PRETEND_VERSION = "0.0.0+test"
 Write-Banner "    Running: claudechic.ps1 --help (timeout: 5 minutes)"
 Write-Host ""
 
-# Run claudechic --help with a timeout using Start-Job.
-# The job runs in a child scope, so we must pass needed env vars and re-source activate.
+# Run claudechic --help with a timeout using Start-Process (NOT Start-Job).
+# Start-Job runs in a remoting runspace that wraps errors as RemoteException
+# and fails to initialize conda hooks on PS 5.1. A real child process avoids
+# these issues. A real child process inherits all env vars from activate.ps1 (PROJECT_ROOT,
+# SLC_BASE, PATH, CONDA_ENVS_PATH, SETUPTOOLS_SCM_PRETEND_VERSION) and
+# claudechic.ps1 -> require_env.ps1 handles conda initialization internally.
+#
 # Timeout: 300 seconds (5 minutes) to allow for:
-#   1. require_env to detect missing environment
+#   1. require_env to detect missing conda environment
 #   2. conda environment installation (can take several minutes)
 #   3. pip install -e for claudechic Python package (editable install)
 #   4. Actually running --help
-
 $timeoutSeconds = 300
-$jobScript = {
-    param($ProjectRoot, $ScriptPath, $SetuptoolsVersion)
 
-    # Propagate critical environment variables
-    $env:SETUPTOOLS_SCM_PRETEND_VERSION = $SetuptoolsVersion
+# Create temp files for output capture and the helper script
+$tempDir = [System.IO.Path]::GetTempPath()
+$tempScript = Join-Path $tempDir "test_claudechic_run_$PID.ps1"
+$outputFile = Join-Path $tempDir "test_claudechic_stdout_$PID.txt"
+$errorFile = Join-Path $tempDir "test_claudechic_stderr_$PID.txt"
 
-    # Re-source activate.ps1 in the job scope (sets PROJECT_ROOT, SLC_BASE, PATH, etc.)
-    Set-Location $ProjectRoot
-    . (Join-Path $ProjectRoot "activate.ps1")
+# Build helper script that runs claudechic.ps1 --help
+$scriptContent = @"
+`$ErrorActionPreference = "Continue"
+Set-Location "$PROJECT_ROOT"
+& "$claudechicCmd" --help
+exit `$LASTEXITCODE
+"@
+[System.IO.File]::WriteAllText($tempScript, $scriptContent)
 
-    # Run claudechic --help
-    & $ScriptPath --help 2>&1
+# Determine the PowerShell executable (same version as current session)
+$psExePath = (Get-Process -Id $PID -ErrorAction SilentlyContinue).Path
+if (-not $psExePath) {
+    # Fallback if process path unavailable
+    if ($PSVersionTable.PSVersion.Major -ge 7) { $psExePath = "pwsh.exe" }
+    else { $psExePath = "powershell.exe" }
 }
 
-$job = Start-Job -ScriptBlock $jobScript -ArgumentList $PROJECT_ROOT, $claudechicCmd, "0.0.0+test"
+$process = $null
+try {
+    $process = Start-Process -FilePath $psExePath `
+        -ArgumentList "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$tempScript`"" `
+        -PassThru -NoNewWindow `
+        -RedirectStandardOutput $outputFile `
+        -RedirectStandardError $errorFile
 
-$completed = $job | Wait-Job -Timeout $timeoutSeconds
+    $exited = $process.WaitForExit($timeoutSeconds * 1000)
 
-if ($null -eq $completed) {
-    # Job timed out
-    $job | Stop-Job
-    $job | Remove-Job -Force
-    Write-TestFail "claudechic --help timed out after $timeoutSeconds seconds"
-    Write-Detail "This may indicate environment installation is hanging"
-} else {
-    $jobState = $job.State
-    $jobOutput = $job | Receive-Job 2>&1
-    $job | Remove-Job -Force
-
-    # Show output in CI logs
-    if ($jobOutput) {
-        foreach ($line in $jobOutput) {
-            Write-Host "    $line"
-        }
-    }
-    Write-Host ""
-
-    if ($jobState -eq "Completed") {
-        # Check if there was meaningful output
-        $outputText = ($jobOutput | Out-String).Trim()
-        if ($outputText.Length -gt 0) {
-            Write-TestPass "claudechic --help executed successfully"
-        } else {
-            Write-TestFail "claudechic --help produced no output"
-        }
+    if (-not $exited) {
+        try { $process.Kill() } catch { }
+        Write-TestFail "claudechic --help timed out after $timeoutSeconds seconds"
+        Write-Detail "This may indicate conda environment installation is hanging"
     } else {
-        Write-TestFail "claudechic --help failed (job state: $jobState)"
-        Write-Detail "Output was shown above"
+        $exitCode = $process.ExitCode
+
+        # Read captured output from temp files
+        $stdout = ""
+        if (Test-Path $outputFile) {
+            $stdout = [System.IO.File]::ReadAllText($outputFile)
+        }
+        $stderr = ""
+        if (Test-Path $errorFile) {
+            $stderr = [System.IO.File]::ReadAllText($errorFile)
+        }
+
+        # Display output in CI logs
+        if ($stdout) {
+            foreach ($outLine in ($stdout -split "\r?\n")) {
+                if ($outLine) { Write-Host "    $outLine" }
+            }
+        }
+        if ($stderr) {
+            foreach ($errLine in ($stderr -split "\r?\n")) {
+                if ($errLine) { Write-Host "    [stderr] $errLine" -ForegroundColor Yellow }
+            }
+        }
+        Write-Host ""
+
+        # Evaluate results:
+        # Exit 0 = success, Exit 2 = argparse help (normal for --help)
+        # Also scan for error patterns to catch silent failures where the exit
+        # code is 0 but installation actually failed (prevents false PASS).
+        $hasErrorPatterns = $false
+        $combinedOutput = "$stdout $stderr"
+        if ($combinedOutput -match '(?i)(Error:.*install|Error:.*failed|Exception:.*install)') {
+            $hasErrorPatterns = $true
+        }
+
+        if (($exitCode -eq 0 -or $exitCode -eq 2) -and -not $hasErrorPatterns) {
+            if ($stdout -and $stdout.Trim().Length -gt 0) {
+                Write-TestPass "claudechic --help executed successfully"
+            } else {
+                Write-TestFail "claudechic --help produced no output"
+            }
+        } elseif ($hasErrorPatterns) {
+            Write-TestFail "claudechic --help completed but output contains errors (exit code: $exitCode)"
+            Write-Detail "Check output above for error details"
+        } else {
+            Write-TestFail "claudechic --help failed with exit code $exitCode"
+            Write-Detail "Output was shown above"
+        }
     }
+} finally {
+    if ($process) { $process.Dispose() }
+    Remove-Item -Path $tempScript -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $outputFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $errorFile -Force -ErrorAction SilentlyContinue
 }
 
 # --------------------------------------------------------------------------

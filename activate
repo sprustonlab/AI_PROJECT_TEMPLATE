@@ -100,9 +100,12 @@ export SLC_VERSION="0.0.1"
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 # Add all repos/ subdirectories to PYTHONPATH (if repos/ exists)
 if [[ -d "$BASEDIR/repos" ]]; then
+    # Use nullglob to handle empty directories gracefully (zsh + bash)
+    setopt NULL_GLOB 2>/dev/null || shopt -s nullglob 2>/dev/null
     for repo in "$BASEDIR/repos"/*/; do
         [[ -d "$repo" ]] && export PYTHONPATH="$repo:$PYTHONPATH"
     done
+    unsetopt NULL_GLOB 2>/dev/null || shopt -u nullglob 2>/dev/null
 fi
 
 # Make environments discoverable by conda

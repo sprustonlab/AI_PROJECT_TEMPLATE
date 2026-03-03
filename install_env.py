@@ -265,29 +265,39 @@ subprocess.run(
 print("✔ Conda environment successfully created!")
 
 # --- Install Pip Dependencies ---
+# --- Install Pip Dependencies ---
 def install_pip_deps():
     """Handles pip dependency installation."""
     if not pip_deps:
-        print("ℹ️  No pip dependencies found in lockfile.")
+        print("ℹ️   No pip dependencies found in lockfile.")
         return
-
+    
     print("📦 Ensuring setuptools & wheel are installed...")
     pip_bin_new_env = INSTALL_DIR / "bin" / "pip"
     if not pip_bin_new_env.exists():
         pip_bin_new_env = INSTALL_DIR / "Scripts" / "pip.exe"  # Windows
+    
+    # Set up environment for pip install (copy parent env and add custom vars)
+    pip_env = os.environ.copy()
+    
+    # For claudechic environment, set fake version for setuptools-scm
+    if env_name == "claudechic":
+        pip_env["SETUPTOOLS_SCM_PRETEND_VERSION_FOR_CLAUDECHIC"] = "0.1.0"
+        print("ℹ️   Setting SETUPTOOLS_SCM_PRETEND_VERSION_FOR_CLAUDECHIC=0.1.0")
+    
+    subprocess.run([str(pip_bin_new_env), "install", "setuptools", "wheel"], check=True, env=pip_env)
 
-    subprocess.run([str(pip_bin_new_env), "install", "setuptools", "wheel"], check=True)
 
     PIP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     if not offline_mode:
         for pkg in ["setuptools", "wheel"] + pip_deps:
             print("🌍 Downloading {}...".format(pkg))
-            subprocess.run([str(pip_bin_new_env), "download", "--no-deps", "-d", str(PIP_CACHE_DIR), pkg], check=True)
+            subprocess.run([str(pip_bin_new_env), "download", "--no-deps", "-d", str(PIP_CACHE_DIR), pkg], check=True, env=pip_env)
         print("✔ Pip packages downloaded.")
 
     print("📦 Installing pip dependencies from cache...")
-    subprocess.run([str(pip_bin_new_env), "install", "--no-index", "--find-links", str(PIP_CACHE_DIR)] + pip_deps, check=True)
+    subprocess.run([str(pip_bin_new_env), "install", "--no-index", "--find-links", str(PIP_CACHE_DIR)] + pip_deps, check=True, env=pip_env)
     print("✔ Pip dependencies installed!")
 
 # Run pip installation

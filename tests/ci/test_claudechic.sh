@@ -1,16 +1,21 @@
 #!/bin/bash
 # =============================================================================
-# test_claudechic.sh - E2E test for `claudechic` command
+# test_claudechic.sh - E2E test for the claudechic command
 # =============================================================================
-# Tests that claudechic can be launched and produces expected output:
-# 1. Environment activation (prerequisite)
-# 2. Claudechic conda env installation
+# Tests that the claudechic command can be launched and produces expected output:
+# 1. Environment activation (prerequisite via the activate script)
+# 2. claudechic conda environment installation (via require_env)
 # 3. Process launches and produces TUI output
 #
 # Strategy:
-# - Run claudechic with timeout, capture stdout/stderr
+# - Run the claudechic command with timeout, capture stdout/stderr
 # - Verify expected output appears (TUI elements)
 # - Kill process cleanly after verification
+#
+# Shell compatibility:
+#   Compatible with both bash and zsh. CI invokes explicitly with the target
+#   shell (e.g., `bash test_claudechic.sh` or `zsh test_claudechic.sh`), so
+#   the shebang is only used for direct execution.
 #
 # Exit codes:
 #   0 - All tests passed
@@ -23,7 +28,12 @@ set -e
 # Setup
 # --------------------------------------------------------------------------
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get script location (portable: bash uses BASH_SOURCE, zsh uses $0)
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Colors
@@ -84,18 +94,18 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Test 2: Run claudechic command (triggers env installation via require_env)
+# Test 2: Run claudechic command (triggers conda environment installation via require_env)
 # --------------------------------------------------------------------------
 
-blue "Step 3: Running claudechic command (E2E test - triggers env installation)..."
+blue "Step 3: Running claudechic command (E2E test — triggers conda environment installation)..."
 
 # Check if environment already exists
 ENV_PREEXISTED=false
 if [[ -d "$PROJECT_ROOT/envs/claudechic" ]]; then
-    yellow "    Note: claudechic environment already exists"
+    yellow "    Note: claudechic conda environment already exists"
     ENV_PREEXISTED=true
 else
-    yellow "    Environment not installed - claudechic will trigger installation..."
+    yellow "    Environment not installed - claudechic command will trigger conda environment installation..."
 fi
 
 # Create temp files for output capture
@@ -109,7 +119,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Set SETUPTOOLS_SCM_PRETEND_VERSION to work around submodule version detection issue
-# when installing claudechic in editable mode (git submodules don't have full .git history)
+# when installing the claudechic Python package in editable mode (git submodules don't have full .git history)
 export SETUPTOOLS_SCM_PRETEND_VERSION="0.0.0+test"
 
 # Run claudechic --help with a long timeout (5 minutes) to allow for:
@@ -122,6 +132,9 @@ blue "    Running: claudechic --help (timeout: 5 minutes)"
 echo ""
 
 set +e
+# Enable pipefail to capture the exit status of the timeout command (not tee)
+# pipefail works in both bash (3.x+) and zsh (5.x+)
+set -o pipefail
 # Use gtimeout on macOS if available, otherwise fall back to perl-based timeout
 # Use tee to show output in CI logs AND capture it for verification
 if command -v gtimeout &> /dev/null; then
@@ -132,7 +145,8 @@ else
     # Perl-based timeout for macOS without coreutils
     perl -e 'alarm shift; exec @ARGV' 300 "$PROJECT_ROOT/commands/claudechic" --help 2>&1 | tee "$OUTPUT_FILE"
 fi
-CLAUDECHIC_EXIT=${PIPESTATUS[0]:-$?}
+CLAUDECHIC_EXIT=$?
+set +o pipefail
 set -e
 
 echo ""
@@ -155,10 +169,10 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Test 3: Verify claudechic environment was created by running the command
+# Test 3: Verify claudechic conda environment was created by running the command
 # --------------------------------------------------------------------------
 
-blue "Step 4: Verifying claudechic environment was installed..."
+blue "Step 4: Verifying claudechic conda environment was installed..."
 
 CLAUDECHIC_ENV="$PROJECT_ROOT/envs/claudechic"
 if [[ -d "$CLAUDECHIC_ENV" ]]; then
@@ -176,7 +190,7 @@ fi
 # Step 4b: Show environment contents in CI logs
 # --------------------------------------------------------------------------
 
-blue "Step 4b: Listing claudechic environment contents..."
+blue "Step 4b: Listing claudechic conda environment contents..."
 if [[ -d "$CLAUDECHIC_ENV" ]]; then
     echo "    Environment directory: $CLAUDECHIC_ENV"
     echo "    Contents (top-level):"
@@ -193,7 +207,7 @@ fi
 blue "Step 5: Verifying claudechic Python module imports..."
 
 if [[ -d "$CLAUDECHIC_ENV" ]]; then
-    # Use the conda from SLCenv to activate claudechic env
+    # Use the conda from SLCenv to activate the claudechic conda environment
     source "$PROJECT_ROOT/envs/SLCenv/etc/profile.d/conda.sh"
     conda activate "$CLAUDECHIC_ENV" 2>/dev/null || true
 
@@ -210,7 +224,7 @@ if [[ -d "$CLAUDECHIC_ENV" ]]; then
         echo "    Error: $IMPORT_OUTPUT"
     fi
 else
-    fail "Cannot test import - claudechic environment not found"
+    fail "Cannot test import - claudechic conda environment not found"
 fi
 
 # --------------------------------------------------------------------------

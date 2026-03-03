@@ -2,10 +2,15 @@
 # =============================================================================
 # test_activate.sh - E2E test for `source ./activate`
 # =============================================================================
-# Tests the complete activation workflow as a user would experience it:
+# Tests the complete activate script workflow as a user would experience it:
 # 1. SLCenv bootstrap (Miniforge installation)
 # 2. Submodule initialization
-# 3. Environment activation
+# 3. SLCenv conda environment is activated (conda activate)
+#
+# Shell compatibility:
+#   Compatible with both bash and zsh. CI invokes explicitly with the target
+#   shell (e.g., `bash test_activate.sh` or `zsh test_activate.sh`), so the
+#   shebang is only used for direct execution.
 #
 # Exit codes:
 #   0 - All tests passed
@@ -18,8 +23,12 @@ set -e
 # Setup
 # --------------------------------------------------------------------------
 
-# Get script location
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get script location (portable: bash uses BASH_SOURCE, zsh uses $0)
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Colors for output
@@ -48,7 +57,7 @@ fail() {
 }
 
 # --------------------------------------------------------------------------
-# Run activation
+# Source the activate script
 # --------------------------------------------------------------------------
 
 blue "Running: source ./activate"
@@ -103,7 +112,7 @@ fi
 # Test 3: CONDA_PREFIX is set (environment activated)
 # --------------------------------------------------------------------------
 
-blue "Checking: Environment activated..."
+blue "Checking: SLCenv base environment activated..."
 
 if [[ -n "$CONDA_PREFIX" ]]; then
     pass "CONDA_PREFIX is set: $CONDA_PREFIX"

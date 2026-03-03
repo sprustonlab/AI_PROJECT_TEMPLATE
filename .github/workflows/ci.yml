@@ -1,17 +1,25 @@
 # =============================================================================
 # CI Workflow - End-to-End Tests
 # =============================================================================
-# Runs the E2E test suite on both Ubuntu and macOS.
+# Runs the E2E test suite on Ubuntu and macOS across shell combinations.
+#
+# Coverage matrix (platform x shell):
+#   - Ubuntu  / bash 5.x  (x86_64)
+#   - macOS   / bash 3.2  (ARM64, macos-latest = M1)
+#   - macOS   / zsh  5.x  (ARM64) — default user shell since Catalina
+#
+# The macOS zsh entry is CRITICAL: macOS users use zsh by default. The
+# activate script has zsh-specific code (setopt NULL_GLOB) that would never
+# be tested without this. A zsh nullglob bug already shipped to main because
+# CI only tested bash on macOS.
 #
 # Tests:
-#   1. test_activate.sh - Verifies SLCenv bootstrap and environment activation
-#   2. test_claudechic.sh - Verifies claudechic installation and launch
-#   3. test_skill_available.sh - Verifies /ao_project_team skill is available
+#   1. test_activate.sh  — E2E test: SLCenv bootstrap + environment activation
+#   2. test_claudechic.sh — E2E test: claudechic command install + launch
+#   3. test_skill_available.sh — File content verification: /ao_project_team skill
 #
-# Platform notes:
-#   - Ubuntu: Uses bash 5.x, x86_64 architecture
-#   - macOS: Uses bash 3.2, ARM64 architecture (macos-latest = M1)
-#   - Both platforms run tests with explicit bash shell
+# All test scripts are dual-shell compatible (bash + zsh). The matrix.shell
+# variable determines which shell invokes each script.
 # =============================================================================
 
 name: CI
@@ -25,23 +33,25 @@ on:
 
 jobs:
   test:
-    name: E2E Tests (${{ matrix.os }})
+    name: E2E Tests (${{ matrix.os }} / ${{ matrix.shell }})
     runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-
-    defaults:
-      run:
-        shell: bash  # Explicitly use bash on both platforms
+        include:
+          - os: ubuntu-latest
+            shell: bash
+          - os: macos-latest
+            shell: bash
+          - os: macos-latest
+            shell: zsh
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive  # Critical: Initialize submodules (claudechic)
+          submodules: recursive  # Critical: Initialize claudechic submodule
           fetch-depth: 0         # Full history for submodule checkout
 
       - name: Set up Python
@@ -53,30 +63,34 @@ jobs:
         run: chmod +x tests/ci/*.sh
 
       # -----------------------------------------------------------------------
-      # Test 1: source ./activate
+      # Test 1: source ./activate (E2E — runs under target shell)
+      # Under zsh, this tests the activate script's zsh code paths including
+      # setopt NULL_GLOB and $0-based path detection.
       # -----------------------------------------------------------------------
       - name: Test 1 - Activate Script
         run: |
-          echo "Running test_activate.sh..."
-          bash tests/ci/test_activate.sh
+          echo "Running test_activate.sh under ${{ matrix.shell }}..."
+          ${{ matrix.shell }} tests/ci/test_activate.sh
 
       # -----------------------------------------------------------------------
-      # Test 2: claudechic
-      # Note: Tests module import and --help, not full TUI (headless CI)
+      # Test 2: claudechic command (E2E — runs under target shell)
+      # Tests the full chain: activate → require_env → conda env install →
+      # claudechic --help. Under zsh, verifies the entire workflow works in
+      # the user's actual default shell.
       # -----------------------------------------------------------------------
       - name: Test 2 - Claudechic
         run: |
-          echo "Running test_claudechic.sh..."
-          bash tests/ci/test_claudechic.sh
-        timeout-minutes: 15  # Environment installation can take time
+          echo "Running test_claudechic.sh under ${{ matrix.shell }}..."
+          ${{ matrix.shell }} tests/ci/test_claudechic.sh
+        timeout-minutes: 15  # claudechic conda environment installation can take time
 
       # -----------------------------------------------------------------------
-      # Test 3: /ao_project_team skill
+      # Test 3: /ao_project_team skill (file content verification)
       # -----------------------------------------------------------------------
       - name: Test 3 - Skill Available
         run: |
-          echo "Running test_skill_available.sh..."
-          bash tests/ci/test_skill_available.sh
+          echo "Running test_skill_available.sh under ${{ matrix.shell }}..."
+          ${{ matrix.shell }} tests/ci/test_skill_available.sh
 
       # -----------------------------------------------------------------------
       # Summary
@@ -86,5 +100,5 @@ jobs:
         run: |
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  CI Tests completed on ${{ matrix.os }}"
+          echo "  CI Tests completed on ${{ matrix.os }} (${{ matrix.shell }})"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -1,15 +1,17 @@
 # =============================================================================
 # CI Workflow - Windows E2E Tests
 # =============================================================================
-# Runs end-to-end tests on Windows using PowerShell.
+# Runs end-to-end tests on Windows using both PowerShell 5.1 and 7.x.
 #
 # Tests:
-#   1. test_activate.ps1 - Verifies SLCenv bootstrap and environment activation
-#   2. test_install_env.ps1 - Verifies environment installation
+#   1. Syntax validation of ALL .ps1 files (PS 5.1 + 7.x)
+#   2. Activate script runs correctly (PS 5.1 + 7.x)
+#   3. Python scripts work on Windows
 #
 # Platform notes:
-#   - Windows: Uses PowerShell 7.x, x86_64 architecture
-#   - Miniforge is installed via .exe installer
+#   - PowerShell 5.1 (shell: powershell) = Windows PowerShell, ships with Win10/11
+#   - PowerShell 7.x (shell: pwsh) = PowerShell Core, cross-platform
+#   - Both must pass. PS 5.1 is stricter (encoding, Join-Path, string parsing).
 # =============================================================================
 
 name: CI Windows
@@ -23,8 +25,13 @@ on:
 
 jobs:
   test-windows:
-    name: E2E Tests (Windows)
+    name: E2E Tests (Windows, ${{ matrix.shell }})
     runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]  # 5.1 and 7.x
 
     env:
       # Force UTF-8 encoding for Python to handle emoji characters
@@ -32,7 +39,7 @@ jobs:
 
     defaults:
       run:
-        shell: pwsh  # Use PowerShell Core
+        shell: ${{ matrix.shell }}
 
     steps:
       - name: Checkout repository
@@ -46,19 +53,60 @@ jobs:
         with:
           python-version: '3.11'
 
-      # -----------------------------------------------------------------------
-      # Test 1: . .\activate.ps1
-      # -----------------------------------------------------------------------
-      - name: Test 1 - Activate Script (PowerShell)
+      - name: Show PowerShell version
         run: |
-          Write-Host "Testing activate.ps1..."
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+          Write-Host "Shell: ${{ matrix.shell }}"
 
-          # Check activate.ps1 exists
-          if (-not (Test-Path "activate.ps1")) {
-            Write-Error "activate.ps1 not found"
+      # -----------------------------------------------------------------------
+      # Test 1: Syntax validation of ALL .ps1 files
+      # -----------------------------------------------------------------------
+      - name: Test 1 - Syntax validation of all .ps1 files
+        run: |
+          Write-Host "Validating syntax of all .ps1 files..."
+
+          $allPs1 = Get-ChildItem -Path . -Filter "*.ps1" -Recurse -File |
+            Where-Object { $_.FullName -notlike "*\submodules\*" -and $_.FullName -notlike "*\envs\*" }
+
+          $failCount = 0
+          foreach ($file in $allPs1) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $file.FullName,
+              [ref]$null,
+              [ref]$errors
+            ) | Out-Null
+
+            if ($errors.Count -gt 0) {
+              $relativePath = $file.FullName.Substring((Get-Location).Path.Length + 1)
+              Write-Host "FAIL $relativePath"
+              foreach ($err in $errors) {
+                Write-Host "  Line $($err.Extent.StartLineNumber): $($err.Message)"
+              }
+              $failCount++
+            } else {
+              $relativePath = $file.FullName.Substring((Get-Location).Path.Length + 1)
+              Write-Host "  OK $relativePath"
+            }
+          }
+
+          Write-Host ""
+          Write-Host "Checked $($allPs1.Count) files, $failCount failed"
+
+          if ($failCount -gt 0) {
+            Write-Error "Syntax validation failed for $failCount file(s)"
             exit 1
           }
-          Write-Host "✓ activate.ps1 exists"
+
+          Write-Host ""
+          Write-Host "Test 1 PASSED: All .ps1 files have valid syntax (${{ matrix.shell }})"
+
+      # -----------------------------------------------------------------------
+      # Test 2: . .\activate.ps1 actually runs
+      # -----------------------------------------------------------------------
+      - name: Test 2 - Activate Script
+        run: |
+          Write-Host "Testing activate.ps1 with ${{ matrix.shell }}..."
 
           # Source the activate script
           . .\activate.ps1
@@ -68,45 +116,43 @@ jobs:
             Write-Error "PROJECT_ROOT not set"
             exit 1
           }
-          Write-Host "✓ PROJECT_ROOT = $env:PROJECT_ROOT"
+          Write-Host "  OK PROJECT_ROOT = $env:PROJECT_ROOT"
 
           if (-not $env:SLC_BASE) {
             Write-Error "SLC_BASE not set"
             exit 1
           }
-          Write-Host "✓ SLC_BASE = $env:SLC_BASE"
+          Write-Host "  OK SLC_BASE = $env:SLC_BASE"
 
           if (-not $env:SLC_PYTHON) {
             Write-Error "SLC_PYTHON not set"
             exit 1
           }
-          Write-Host "✓ SLC_PYTHON = $env:SLC_PYTHON"
+          Write-Host "  OK SLC_PYTHON = $env:SLC_PYTHON"
 
           # Verify SLCenv was created
           if (-not (Test-Path "envs\SLCenv")) {
             Write-Error "envs\SLCenv not created"
             exit 1
           }
-          Write-Host "✓ envs\SLCenv exists"
+          Write-Host "  OK envs\SLCenv exists"
 
           # Verify conda is available
-          $condaPath = Join-Path $env:SLC_BASE "envs\SLCenv\Scripts\conda.exe"
+          $condaPath = Join-Path (Join-Path $env:SLC_BASE "envs\SLCenv") "Scripts\conda.exe"
           if (-not (Test-Path $condaPath)) {
             Write-Error "conda.exe not found at $condaPath"
             exit 1
           }
-          Write-Host "✓ conda.exe exists"
+          Write-Host "  OK conda.exe exists"
 
           Write-Host ""
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          Write-Host "  Test 1 PASSED: activate.ps1 works correctly"
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "Test 2 PASSED: activate.ps1 works correctly (${{ matrix.shell }})"
         timeout-minutes: 15  # Miniforge download can take time
 
       # -----------------------------------------------------------------------
-      # Test 2: Python scripts work on Windows
+      # Test 3: Python scripts work on Windows
       # -----------------------------------------------------------------------
-      - name: Test 2 - Python Scripts
+      - name: Test 3 - Python Scripts
         run: |
           Write-Host "Testing Python scripts import correctly..."
 
@@ -128,46 +174,7 @@ jobs:
           }
 
           Write-Host ""
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          Write-Host "  Test 2 PASSED: Python scripts work on Windows"
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-      # -----------------------------------------------------------------------
-      # Test 3: PowerShell command scripts exist and are valid
-      # -----------------------------------------------------------------------
-      - name: Test 3 - PowerShell Commands
-        run: |
-          Write-Host "Testing PowerShell command scripts..."
-
-          # Check all .ps1 command scripts exist
-          $commands = @("require_env.ps1", "claudechic.ps1", "jupyter.ps1")
-          foreach ($cmd in $commands) {
-            $path = "commands\$cmd"
-            if (-not (Test-Path $path)) {
-              Write-Error "$cmd not found"
-              exit 1
-            }
-
-            # Verify script has valid PowerShell syntax
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile(
-              (Resolve-Path $path),
-              [ref]$null,
-              [ref]$errors
-            ) | Out-Null
-
-            if ($errors.Count -gt 0) {
-              Write-Error "$cmd has syntax errors: $($errors[0].Message)"
-              exit 1
-            }
-
-            Write-Host "✓ $cmd exists and has valid syntax"
-          }
-
-          Write-Host ""
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          Write-Host "  Test 3 PASSED: PowerShell commands are valid"
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "Test 3 PASSED: Python scripts work on Windows (${{ matrix.shell }})"
 
       # -----------------------------------------------------------------------
       # Summary
@@ -176,6 +183,4 @@ jobs:
         if: always()
         run: |
           Write-Host ""
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          Write-Host "  Windows CI Tests completed"
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "Windows CI Tests completed (${{ matrix.shell }})"

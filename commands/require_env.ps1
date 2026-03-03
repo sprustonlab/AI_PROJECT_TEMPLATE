@@ -1,4 +1,4 @@
-# require_env.ps1 - Auto-install SLC base environment and specific environments
+﻿# require_env.ps1 - Auto-install SLC base environment and specific environments
 #
 # Usage:
 #   . .\require_env.ps1                    # Ensure SLC base is installed
@@ -159,10 +159,10 @@ function Install-Env {
 
     # Set up environment variables required by install_env.py
     $env:SLC_BASE = $SLC_DIR
-    $env:SLC_PYTHON = "$SLC_DIR\envs\SLCenv\Scripts\python.exe"
+    $env:SLC_PYTHON = "$SLC_DIR\envs\SLCenv\python.exe"
     $env:PYTHONPATH = "$SLC_DIR\modules;$env:PYTHONPATH"
     $env:CONDA_ENVS_PATH = "$SLC_DIR\envs;$env:CONDA_ENVS_PATH"
-    $env:PATH = "$SLC_DIR\envs\SLCenv\Scripts;$env:PATH"
+    $env:PATH = "$SLC_DIR\envs\SLCenv;$SLC_DIR\envs\SLCenv\Scripts;$env:PATH"
 
     # Initialize conda for PowerShell
     $condaHook = "$SLC_DIR\envs\SLCenv\shell\condabin\conda-hook.ps1"

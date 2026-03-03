@@ -1,4 +1,4 @@
-# claudechic.ps1 - Launch claudechic
+﻿# claudechic.ps1 - Launch claudechic
 
 $ErrorActionPreference = "Stop"
 
@@ -29,9 +29,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Install claudechic in editable mode if not already installed
+$ErrorActionPreference = "Continue"
 $pythonCheck = python -c "import claudechic" 2>&1
-if ($LASTEXITCODE -ne 0) {
+$importExitCode = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
+if ($importExitCode -ne 0) {
     Write-Host "Installing claudechic in editable mode..."
+    # claudechic uses setuptools-scm but is embedded in the parent repo (no git tags),
+    # so we must fake the version
+    $env:SETUPTOOLS_SCM_PRETEND_VERSION_FOR_CLAUDECHIC = "0.1.0"
     pip install -e $CLAUDECHIC_DIR --quiet
     if ($LASTEXITCODE -ne 0) {
         exit 1

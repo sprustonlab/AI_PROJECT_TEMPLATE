@@ -1,4 +1,4 @@
-# jupyter.ps1 - Launch Jupyter Lab locally
+﻿# jupyter.ps1 - Launch Jupyter Lab locally
 
 $ErrorActionPreference = "Stop"
 

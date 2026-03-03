@@ -22,6 +22,24 @@ import os
 import sys
 from pathlib import Path
 
+# Emoji support detection - use ASCII fallbacks on Windows with non-UTF-8 encoding
+def _supports_emoji():
+    """Check if stdout can display emoji characters."""
+    if hasattr(sys.stdout, 'encoding') and sys.stdout.encoding:
+        return sys.stdout.encoding.lower() in ('utf-8', 'utf8')
+    return False
+
+if _supports_emoji():
+    E_CHECK = "\u2714"       # ✔
+    E_PKG = "\U0001f4e6"     # 📦
+    E_LOCK = "\U0001f512"    # 🔒
+    E_WARN = "\u26a0\ufe0f"  # ⚠️
+else:
+    E_CHECK = "[OK]"
+    E_PKG = "[pkg]"
+    E_LOCK = "[lock]"
+    E_WARN = "[WARN]"
+
 
 def get_platform_subdir() -> str:
     """Return conda platform subdir for current system.
@@ -148,7 +166,7 @@ def generate_lockfile(env_name: str, env_prefix: Path | None = None):
     envs_dir = Path(__file__).parent / "envs"
 
     # Export environment
-    print(f"📦 Exporting conda environment...")
+    print(f"{E_PKG} Exporting conda environment...")
     export_cmd = ["conda", "env", "export"]
     if env_prefix:
         export_cmd.extend(["-p", str(env_prefix)])
@@ -168,7 +186,7 @@ def generate_lockfile(env_name: str, env_prefix: Path | None = None):
 
     # Add hashes to pip packages for reproducibility
     if env_prefix.exists():
-        print(f"🔐 Computing pip package hashes...")
+        print(f"{E_LOCK} Computing pip package hashes...")
         pip_hashes = get_pip_package_hashes(env_prefix)
 
         # Update pip dependencies with hashes
@@ -220,11 +238,11 @@ def generate_lockfile(env_name: str, env_prefix: Path | None = None):
     lock_path = envs_dir / f"{env_name}.{plat}.lock"
     atomic_write(lock_path, full_content)
 
-    print(f"✔ Generated {lock_path}")
+    print(f"{E_CHECK} Generated {lock_path}")
     print(f"  Platform: {plat}")
     print(f"  Origin hash: {origin_hash}")
     if origin_hash == 'N/A':
-        print(f"  ⚠️  No origin spec found at {origin_path}")
+        print(f"  {E_WARN}  No origin spec found at {origin_path}")
         print(f"     Consider creating a minimal spec file.")
 
 

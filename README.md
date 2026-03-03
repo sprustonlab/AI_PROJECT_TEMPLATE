@@ -164,7 +164,15 @@ Situation 4: You have a fully specified environment that you know does what you 
 ### Windows Notes
 
 - **PowerShell Required**: Windows support uses PowerShell (not cmd.exe or WSL)
-- **Execution Policy**: Run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` to allow scripts
+- **Execution Policy**: By default, Windows disables running PowerShell scripts. You must enable it first:
+  ```powershell
+  Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+  ```
+  This only needs to be done once per user. Without this, `. .\activate.ps1` will fail with `UnauthorizedAccess`.
+- **PowerShell version**: Scripts must be compatible with both PowerShell 5.1 (ships with Windows) and PowerShell 7.x (pwsh). Key 5.1 limitations to be aware of:
+  - `Join-Path` only accepts two arguments (nest calls for deeper paths)
+  - `.ps1` files without a UTF-8 BOM are read as the system default encoding, which breaks emoji/Unicode
+  - `<>` inside double-quoted strings are treated as reserved operators
 - **Commands**: All CLI commands have `.ps1` equivalents (e.g., `claudechic.ps1`, `require_env.ps1`)
 - **Activation**: Use `. .\activate.ps1` (dot-source) instead of `source ./activate`
 

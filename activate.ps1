@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # PROJECT ACTIVATE SCRIPT (PowerShell)
 # =============================================================================
 # Dot-source this file to activate the project environment.
@@ -28,7 +28,7 @@ $PROJECT_NAME = "my-project"
 # --------------------------------------------------------------------------
 # $PSScriptRoot is the directory containing this script
 $BASEDIR = $PSScriptRoot
-$SLCENV_DIR = Join-Path $BASEDIR "envs" "SLCenv"
+$SLCENV_DIR = Join-Path (Join-Path $BASEDIR "envs") "SLCenv"
 
 # --------------------------------------------------------------------------
 # Section 1b: SLC Bootstrap
@@ -50,7 +50,10 @@ if (-not (Test-Path $SLCENV_DIR)) {
         }
     }
     if (-not $pythonCmd -and (Get-Command python3 -ErrorAction SilentlyContinue)) {
-        $pythonCmd = "python3"
+        $pyVersion = & python3 --version 2>&1
+        if ($LASTEXITCODE -eq 0 -and $pyVersion -match "Python 3") {
+            $pythonCmd = "python3"
+        }
     }
 
     if (-not $pythonCmd) {
@@ -85,10 +88,10 @@ if (-not (Test-Path $SLCENV_DIR)) {
 # Section 1c: Conda Activation
 # --------------------------------------------------------------------------
 # Source conda's PowerShell hook
-$condaHook = Join-Path $SLCENV_DIR "shell" "condabin" "conda-hook.ps1"
+$condaHook = Join-Path (Join-Path (Join-Path $SLCENV_DIR "shell") "condabin") "conda-hook.ps1"
 if (-not (Test-Path $condaHook)) {
     # Fallback: try the profile.d location with Invoke-Expression on the shell init
-    $condaExe = Join-Path $SLCENV_DIR "Scripts" "conda.exe"
+    $condaExe = Join-Path (Join-Path $SLCENV_DIR "Scripts") "conda.exe"
     if (Test-Path $condaExe) {
         # Initialize conda for PowerShell
         $condaInit = & $condaExe shell.powershell hook 2>$null
@@ -172,7 +175,7 @@ if (Test-Path $gitmodulesFile) {
     # Check for claudechic specifically (main submodule)
     $gitmodulesContent = Get-Content $gitmodulesFile -Raw
     if ($gitmodulesContent -match "claudechic") {
-        $claudechicPyproject = Join-Path $BASEDIR "submodules" "claudechic" "pyproject.toml"
+        $claudechicPyproject = Join-Path (Join-Path (Join-Path $BASEDIR "submodules") "claudechic") "pyproject.toml"
         if (-not (Test-Path $claudechicPyproject)) {
             $needsInit = $true
         }
@@ -196,7 +199,7 @@ if (Test-Path $gitmodulesFile) {
             $script:WARNINGS += "   Try manually: cd $BASEDIR; git submodule update --init --recursive"
         } else {
             # Verify it worked
-            $claudechicPyproject = Join-Path $BASEDIR "submodules" "claudechic" "pyproject.toml"
+            $claudechicPyproject = Join-Path (Join-Path (Join-Path $BASEDIR "submodules") "claudechic") "pyproject.toml"
             if (Test-Path $claudechicPyproject) {
                 Write-Host "✔ Submodules initialized successfully" -ForegroundColor Green
                 Write-Host ""
@@ -238,7 +241,7 @@ if ($installedEnvs.Count -gt 0) {
     foreach ($env in $installedEnvs) {
         Write-Host "    ✔ $env" -ForegroundColor Green
     }
-    Write-Host "  Activate with: conda activate <name>"
+    Write-Host '  Activate with: conda activate <name>'
 }
 
 if ($availableEnvs.Count -gt 0) {
@@ -247,7 +250,7 @@ if ($availableEnvs.Count -gt 0) {
     foreach ($env in $availableEnvs) {
         Write-Host "    ○ $env"
     }
-    Write-Host "  Install with: python $BASEDIR\install_env.py <name>"
+    Write-Host ('  Install with: python ' + $BASEDIR + '\install_env.py <name>')
 }
 
 # --- Show CLI commands ---
@@ -276,7 +279,7 @@ if (Test-Path $commandsDir) {
 }
 
 # --- Show Claude Code skills ---
-$claudeCommandsDir = Join-Path $BASEDIR ".claude" "commands"
+$claudeCommandsDir = Join-Path (Join-Path $BASEDIR ".claude") "commands"
 if (Test-Path $claudeCommandsDir) {
     $claudeSkills = @()
     $skillFiles = Get-ChildItem -Path $claudeCommandsDir -Filter "*.md" -File -ErrorAction SilentlyContinue

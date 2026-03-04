@@ -315,7 +315,12 @@ def install_pip_deps():
         print("📦 Installing local editable packages...")
         for dep in editable_deps:
             print("   {}".format(dep))
-        subprocess.run([str(pip_bin_new_env), "install"] + editable_deps, check=True, env=pip_env)
+            # Split "-e /path" into two args: subprocess doesn't parse shell strings
+            if dep.startswith("-e "):
+                dep_args = ["-e", dep[3:].strip()]
+            else:
+                dep_args = [dep]
+            subprocess.run([str(pip_bin_new_env), "install"] + dep_args, check=True, env=pip_env)
         print("✔ Local editable packages installed!")
 
 # Run pip installation

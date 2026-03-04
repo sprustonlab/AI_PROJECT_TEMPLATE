@@ -119,6 +119,12 @@ Phase 2: Leadership Spawn
 ## Agents Active
 - (pending Leadership spawn)
 
+## Optional Agents
+| Agent | Status | Notes |
+|-------|--------|-------|
+| Researcher | not spawned | Spawn if project involves prior art, external libraries, or scientific methods |
+| LabNotebook | not spawned | Spawn if project involves experiments, ablations, or iterative hypothesis testing |
+
 ## Completed
 - Phase 0: Vision confirmed ✓
 - Phase 1: Setup complete ✓
@@ -168,6 +174,16 @@ RECORD in STATUS.md:
 - UserAlignment: spawned ✓
 ```
 
+**Conditionally spawn supporting agents** based on project type:
+
+- **Spawn Researcher** if the project involves: prior art search, external libraries, scientific methods, or any domain where external evidence would improve decisions.
+  - name: `Researcher`
+  - prompt: `You are Researcher. Read your role file: {monorepo_root}/AI_agents/project_team/RESEARCHER.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Stand by for research requests from Leadership and Coordinator. Report findings to the requesting agent.`
+
+- **Spawn LabNotebook** if the project involves: experiments, ablations, iterative hypothesis testing, or scientific/ML work where results need to be tracked.
+  - name: `LabNotebook`
+  - prompt: `You are LabNotebook. Read your role file: {monorepo_root}/AI_agents/project_team/LAB_NOTEBOOK.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Stand by to create and maintain experiment entries. Coordinator will trigger you at experiment milestones.`
+
 CONTINUE to Phase 3.
 
 ---
@@ -188,7 +204,8 @@ Proceed automatically between phases. Stop only at User Checkpoints 👤.
 
 1. Wait for all Leadership agents to report their findings
 2. If UI-heavy project → spawn UIDesigner
-3. Composability spawns axis-agents based on project needs
+3. If Researcher is active → ask Researcher to investigate prior art and validate design decisions against real-world implementations
+4. Composability spawns axis-agents based on project needs
 4. Each axis-agent does relevance check:
    - Relevant → deep review → write to specification/
    - Not relevant → declare N/A → close
@@ -206,12 +223,14 @@ Proceed automatically between phases. Stop only at User Checkpoints 👤.
 ## Phase 4: Implementation
 1. Spawn one Implementer agent per file, up to 6 implementer agents.
 2. Inform Leadership about how many implementation agents have been started and what their names are, and that it is Leadership role to guide.
-3. Exit when all Leadership approve.
+3. If Researcher is active → ask Researcher to find reference implementations, API examples, and known pitfalls relevant to what Implementers are building.
+4. Exit when all Leadership approve.
 
 ---
 
 ## Phase 5: Testing
 Spawn TestEngineer. Run tests. Fix failures. Exit when all pass.
+If Researcher is active → ask Researcher to find testing patterns, known edge cases, and benchmark data relevant to the project.
 
 ---
 

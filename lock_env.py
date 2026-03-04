@@ -80,6 +80,33 @@ def atomic_write(path: Path, content: str):
         raise
 
 
+def get_editable_packages(env_prefix: Path) -> dict[str, Path]:
+    """Get mapping of normalized package name -> editable location for editable installs.
+
+    Returns dict like {'claudechic': Path('/abs/path/to/submodules/claudechic')}
+    """
+    pip_path = env_prefix / "bin" / "pip"
+    if not pip_path.exists():
+        pip_path = env_prefix / "Scripts" / "pip.exe"
+    if not pip_path.exists():
+        return {}
+
+    import json as _json
+    result = subprocess.run(
+        [str(pip_path), "list", "--format=json"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return {}
+
+    packages = _json.loads(result.stdout)
+    return {
+        pkg["name"].lower().replace("-", "_"): Path(pkg["editable_project_location"])
+        for pkg in packages
+        if "editable_project_location" in pkg
+    }
+
+
 def get_pip_package_hashes(env_prefix: Path) -> dict[str, str]:
     """Get SHA256 hashes for installed pip packages.
 
@@ -164,18 +191,42 @@ def generate_lockfile(env_name: str, env_prefix: Path | None = None):
     env_data["name"] = env_name
     env_data["channels"] = [c for c in env_data.get("channels", []) if c != "defaults"]
 
-    # Add hashes to pip packages for reproducibility
+    # Add hashes to pip packages for reproducibility; preserve editable installs
     if env_prefix.exists():
         print(f"🔐 Computing pip package hashes...")
         pip_hashes = get_pip_package_hashes(env_prefix)
+        editable_pkgs = get_editable_packages(env_prefix)  # {norm_name: abs_path}
 
-        # Update pip dependencies with hashes
+        # Build map: resolved editable path -> original "-e <spec_path>" entry
+        spec_editable_map: dict[Path, str] = {}
+        if origin_path.exists():
+            with open(origin_path) as f:
+                spec = yaml.safe_load(f)
+            spec_dir = origin_path.parent
+            for sdep in spec.get("dependencies", []):
+                if isinstance(sdep, dict) and "pip" in sdep:
+                    for pip_dep in sdep["pip"]:
+                        if pip_dep.startswith("-e "):
+                            rel = pip_dep[3:].strip()
+                            resolved = (spec_dir / rel).resolve()
+                            spec_editable_map[resolved] = pip_dep
+
+        # Update pip dependencies: preserve editable form or add hash
         for i, dep in enumerate(env_data.get("dependencies", [])):
             if isinstance(dep, dict) and "pip" in dep:
                 new_pip_deps = []
                 for pip_dep in dep["pip"]:
-                    # pip_dep is like "package==1.2.3"
-                    if pip_dep in pip_hashes:
+                    # Normalize package name to check if editable
+                    pkg_name = pip_dep.split("==")[0].lower().replace("-", "_") if "==" in pip_dep else ""
+
+                    if pkg_name and pkg_name in editable_pkgs:
+                        # Package installed in editable mode — preserve -e form
+                        editable_path = editable_pkgs[pkg_name]
+                        if editable_path in spec_editable_map:
+                            new_pip_deps.append(spec_editable_map[editable_path])
+                        else:
+                            new_pip_deps.append(f"-e {editable_path}")
+                    elif pip_dep in pip_hashes:
                         new_pip_deps.append(f"{pip_dep} --hash={pip_hashes[pip_dep]}")
                     else:
                         new_pip_deps.append(pip_dep)

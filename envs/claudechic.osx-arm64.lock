@@ -52,7 +52,7 @@ dependencies:
   - certifi==2026.2.25 --hash=sha256:6388be7a0989d99a
   - cffi==2.0.0 --hash=sha256:2960d54d2d33d581
   - claude-agent-sdk==0.1.45 --hash=sha256:f2297bdac8f0a30a
-  - claudechic==0.1.0 --hash=sha256:4c1e97fe035cb8f2
+  - -e ../submodules/claudechic
   - click==8.3.1 --hash=sha256:7dbe8bf789797928
   - cryptography==46.0.5 --hash=sha256:745609a5848f3bc1
   - distro==1.9.0 --hash=sha256:be70a0d75b65d354

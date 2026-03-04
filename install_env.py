@@ -235,6 +235,13 @@ for dep in env_data.get("dependencies", []):
             # Remove --hash suffix if present (used for verification, not install)
             if " --hash=" in pip_dep:
                 pip_dep = pip_dep.split(" --hash=")[0]
+            # Resolve relative editable install paths to absolute
+            # Paths in lockfile are relative to envs/ dir (same as the spec)
+            if pip_dep.startswith("-e "):
+                rel_path = pip_dep[3:].strip()
+                if not os.path.isabs(rel_path):
+                    abs_path = (ENVS_DIR / rel_path).resolve()
+                    pip_dep = f"-e {abs_path}"
             pip_deps.append(pip_dep)
 
 # ✅ Determine Online vs Offline Mode
@@ -290,15 +297,26 @@ def install_pip_deps():
 
     PIP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Separate editable (local) installs from regular (cached) deps
+    editable_deps = [dep for dep in pip_deps if dep.startswith("-e ")]
+    regular_deps = [dep for dep in pip_deps if not dep.startswith("-e ")]
+
     if not offline_mode:
-        for pkg in ["setuptools", "wheel"] + pip_deps:
+        for pkg in ["setuptools", "wheel"] + regular_deps:
             print("🌍 Downloading {}...".format(pkg))
             subprocess.run([str(pip_bin_new_env), "download", "--no-deps", "-d", str(PIP_CACHE_DIR), pkg], check=True, env=pip_env)
         print("✔ Pip packages downloaded.")
 
     print("📦 Installing pip dependencies from cache...")
-    subprocess.run([str(pip_bin_new_env), "install", "--no-index", "--find-links", str(PIP_CACHE_DIR)] + pip_deps, check=True, env=pip_env)
+    subprocess.run([str(pip_bin_new_env), "install", "--no-index", "--find-links", str(PIP_CACHE_DIR)] + regular_deps, check=True, env=pip_env)
     print("✔ Pip dependencies installed!")
+
+    if editable_deps:
+        print("📦 Installing local editable packages...")
+        for dep in editable_deps:
+            print("   {}".format(dep))
+        subprocess.run([str(pip_bin_new_env), "install"] + editable_deps, check=True, env=pip_env)
+        print("✔ Local editable packages installed!")
 
 # Run pip installation
 install_pip_deps()

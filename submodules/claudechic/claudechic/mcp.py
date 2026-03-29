@@ -135,7 +135,7 @@ def _make_spawn_agent(caller_name: str | None = None):
     @tool(
         "spawn_agent",
         "Create a new Claude agent in claudechic. The agent gets its own chat view and can work independently.",
-        {"name": str, "path": str, "prompt": str},
+        {"name": str, "path": str, "prompt": str, "model": str, "type": str},
     )
     async def spawn_agent(args: dict[str, Any]) -> dict[str, Any]:
         """Spawn a new agent, optionally with an initial prompt."""
@@ -144,10 +144,19 @@ def _make_spawn_agent(caller_name: str | None = None):
         _track_mcp_tool("spawn_agent")
 
         name = args["name"]
+        agent_type = args.get("type")
         # Default to active agent's cwd (so agents inherit creator's directory)
         default_cwd = _app.agent_mgr.active.cwd if _app.agent_mgr.active else Path.cwd()
         path = Path(args.get("path", str(default_cwd))).resolve()
         prompt = args.get("prompt")
+
+        # Inherit caller's model if not explicitly specified
+        caller_model = None
+        if caller_name:
+            caller_agent = _app.agent_mgr.find_by_name(caller_name)
+            if caller_agent:
+                caller_model = caller_agent.model
+        model = args.get("model") or caller_model
 
         if not path.exists():
             return _error_response(f"Path '{path}' does not exist")
@@ -158,7 +167,10 @@ def _make_spawn_agent(caller_name: str | None = None):
 
         try:
             # Create agent via AgentManager (handles SDK connection)
-            agent = await _app.agent_mgr.create(name=name, cwd=path, switch_to=False)
+            agent = await _app.agent_mgr.create(
+                name=name, cwd=path, switch_to=False, model=model,
+                agent_type=agent_type,
+            )
         except Exception as e:
             return _error_response(f"Error creating agent: {e}")
 

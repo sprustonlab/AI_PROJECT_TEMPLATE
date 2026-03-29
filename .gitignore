@@ -9,6 +9,12 @@ __pycache__/
 .claude/cache/
 .claude/logs/
 
+# Guardrail runtime artifacts (generated at runtime, not tracked)
+.claude/guardrails/acks/
+.claude/guardrails/sessions/
+.claude/guardrails/session_names.json
+.claude/guardrails/hits.jsonl
+
 # Project team state (optional - keep or ignore)
 .ao_project_team/*/specification/*.md
 # But always keep STATUS.md tracked for continuity

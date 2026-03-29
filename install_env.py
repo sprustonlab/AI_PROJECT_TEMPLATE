@@ -153,6 +153,11 @@ if source_type == "spec":
 
     INSTALL_DIR = ENVS_DIR / env_name
 
+    # For claudechic environment, set fake version for setuptools-scm
+    # (needed here because conda runs pip internally during env create)
+    if env_name == "claudechic":
+        os.environ["SETUPTOOLS_SCM_PRETEND_VERSION_FOR_CLAUDECHIC"] = "0.1.0"
+
     # Check if already exists
     if INSTALL_DIR.exists():
         print(f"✔ Environment '{env_name}' already exists at {INSTALL_DIR}.")

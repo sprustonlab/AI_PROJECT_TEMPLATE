@@ -192,6 +192,7 @@ def generate_lockfile(env_name: str, env_prefix: Path | None = None):
     env_data["channels"] = [c for c in env_data.get("channels", []) if c != "defaults"]
 
     # Add hashes to pip packages for reproducibility; preserve editable installs
+    origin_path = envs_dir / f"{env_name}.yml"
     if env_prefix.exists():
         print(f"🔐 Computing pip package hashes...")
         pip_hashes = get_pip_package_hashes(env_prefix)
@@ -233,7 +234,6 @@ def generate_lockfile(env_name: str, env_prefix: Path | None = None):
                 env_data["dependencies"][i]["pip"] = new_pip_deps
 
     # Build header with _meta: prefix for SLC coordination
-    origin_path = envs_dir / f"{env_name}.yml"
     origin_hash = get_origin_hash(origin_path)
     timestamp = datetime.datetime.utcnow().isoformat()
 

@@ -125,6 +125,7 @@ class AgentManager:
         resume: str | None = None,
         switch_to: bool = True,
         model: str | None = None,
+        agent_type: str | None = None,
     ) -> Agent:
         """Create and connect a new agent.
 
@@ -135,6 +136,7 @@ class AgentManager:
             resume: Session ID to resume
             switch_to: Whether to make this the active agent
             model: Model override (None = SDK default)
+            agent_type: Role type (e.g. "Implementer") — injected as CLAUDE_AGENT_ROLE
 
         Returns:
             The created agent (connected and ready)
@@ -149,7 +151,8 @@ class AgentManager:
 
         # Create options and connect
         options = self._options_factory(
-            cwd=cwd, resume=resume, agent_name=agent.name, model=model
+            cwd=cwd, resume=resume, agent_name=agent.name, model=model,
+            agent_type=agent_type,
         )
         await agent.connect(options, resume=resume)
 

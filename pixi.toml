@@ -3,13 +3,13 @@ name = "my-project"
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "win-64"]
 
-# ── Base environment (always present) ──────────────────────────
-[feature.claudechic.dependencies]
+# ── Base (always present — claudechic is the foundation) ──────
+[dependencies]
 python = ">=3.10"
 pip = "*"
 pytest = ">=9.0.2,<10"
 
-[feature.claudechic.pypi-dependencies]
+[pypi-dependencies]
 claudechic = { path = "submodules/claudechic", editable = true }
 
 # ── Optional environments (added by user or Copier) ───────────
@@ -17,18 +17,15 @@ claudechic = { path = "submodules/claudechic", editable = true }
 python = ">=3.10"
 jupyterlab = "*"
 
-# ── Pixi tasks (cross-platform command equivalents) ───────────
-[feature.claudechic.tasks]
+# ── Pixi tasks ───────────────────────────────────────────────
+[tasks]
 claudechic = "claudechic"
+generate-hooks = "python3 .claude/guardrails/generate_hooks.py"
 
 [feature.jupyter.tasks]
 jupyter = "jupyter lab"
 
-# Infrastructure tasks (not env-specific)
-[tasks]
-generate-hooks = "python3 .claude/guardrails/generate_hooks.py"
-
 # ── Environment mappings ──────────────────────────────────────
+# Default env has claudechic (base). Named envs add optional features.
 [environments]
-claudechic = ["claudechic"]
 jupyter = ["jupyter"]

@@ -37,7 +37,7 @@ try:
 except ImportError:
     sys.exit(
         "ERROR: PyYAML is required. Install via: pip install pyyaml\n"
-        "Or use: pixi run -e claudechic python3 scripts/import_env.py"
+        "Or use: pixi run python3 scripts/import_env.py"
     )
 
 

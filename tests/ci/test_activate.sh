@@ -136,12 +136,12 @@ fi
 # Test 6: pixi.toml contains expected features
 # --------------------------------------------------------------------------
 
-blue "Checking: pixi.toml contains claudechic feature..."
+blue "Checking: pixi.toml contains claudechic in base dependencies..."
 
-if grep -q '\[feature\.claudechic\.' "$PROJECT_ROOT/pixi.toml"; then
-    pass "pixi.toml contains [feature.claudechic.*] section"
+if grep -q '\[pypi-dependencies\]' "$PROJECT_ROOT/pixi.toml" && grep -q 'claudechic' "$PROJECT_ROOT/pixi.toml"; then
+    pass "pixi.toml contains claudechic in base [pypi-dependencies]"
 else
-    fail "pixi.toml missing claudechic feature"
+    fail "pixi.toml missing claudechic in base dependencies"
 fi
 
 # --------------------------------------------------------------------------

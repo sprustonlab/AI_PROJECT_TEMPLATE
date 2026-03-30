@@ -1,4 +1,4 @@
 #!/bin/bash
 # Launch claudechic via pixi
 cd "${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}" || exit 1
-exec pixi run -e claudechic claudechic "$@"
+exec pixi run claudechic "$@"

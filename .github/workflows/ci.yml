@@ -96,7 +96,7 @@ jobs:
           echo "Running unit tests via pixi..."
           export SETUPTOOLS_SCM_PRETEND_VERSION="0.0.0+test"
           pixi install -e claudechic
-          pixi run -e claudechic python -m pytest .claude/guardrails/test_framework.py scripts/tests/ -v
+          pixi run python -m pytest .claude/guardrails/test_framework.py scripts/tests/ -v
 
       # -----------------------------------------------------------------------
       # Summary
@@ -183,7 +183,7 @@ jobs:
           Write-Host "claudechic environment installed"
 
           Write-Host "Testing claudechic --help..."
-          $helpOutput = pixi run -e claudechic claudechic --help 2>&1 | Out-String
+          $helpOutput = pixi run claudechic --help 2>&1 | Out-String
           # --help may exit 0 or 2 (argparse), both are fine
           Write-Host $helpOutput
           if ($helpOutput -match "(?i)claude") {
@@ -194,7 +194,7 @@ jobs:
           }
 
           Write-Host "Testing claudechic module import..."
-          $importOutput = pixi run -e claudechic python -c "import claudechic; print(claudechic.__version__)" 2>&1 | Out-String
+          $importOutput = pixi run python -c "import claudechic; print(claudechic.__version__)" 2>&1 | Out-String
           if ($LASTEXITCODE -ne 0) {
             Write-Host "claudechic module import failed: $importOutput"
             exit 1
@@ -290,7 +290,7 @@ jobs:
           }
 
           Write-Host "Running unit tests..."
-          pixi run -e claudechic python -m pytest .claude/guardrails/test_framework.py scripts/tests/ -v
+          pixi run python -m pytest .claude/guardrails/test_framework.py scripts/tests/ -v
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Unit tests failed"
             exit 1

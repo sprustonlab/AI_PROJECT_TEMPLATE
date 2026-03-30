@@ -21,7 +21,7 @@ jupyterlab = "*"
 # ── Pixi tasks ───────────────────────────────────────────────
 [tasks]
 claudechic = "claudechic"
-generate-hooks = "python3 .claude/guardrails/generate_hooks.py"
+generate-hooks = "python .claude/guardrails/generate_hooks.py"
 
 [feature.jupyter.tasks]
 jupyter = "jupyter lab"

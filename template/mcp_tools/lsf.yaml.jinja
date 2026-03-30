@@ -1,0 +1,6 @@
+# SSH login node for LSF commands (leave empty if LSF is available locally)
+ssh_target: {{ cluster_ssh_target }}
+# Path to LSF profile script sourced before each command
+lsf_profile: /misc/lsf/conf/profile.lsf
+# Seconds between polls when watching a job for completion
+watch_poll_interval: 30

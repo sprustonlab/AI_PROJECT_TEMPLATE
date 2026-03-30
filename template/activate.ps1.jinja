@@ -4,7 +4,7 @@
 # Dot-source this file to activate the project environment:
 #   . .\activate.ps1
 #
-# Same seam registry as activate (bash) — discovers all five seams.
+# Same seam registry as activate (bash) — discovers all six seams.
 # =============================================================================
 
 $ErrorActionPreference = "Stop"
@@ -185,6 +185,16 @@ if (Test-Path "$BASEDIR\.claude\guardrails\rules.yaml") {
         if ($rulesdCount -gt 0) {
             Write-Host "    + $rulesdCount contributed rule sets in rules.d/"
         }
+    }
+}
+
+# --- Show MCP tools ---
+if (Test-Path "$BASEDIR\mcp_tools") {
+    $mcpCount = (Get-ChildItem "$BASEDIR\mcp_tools\*.py" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike "_*" }).Count
+    if ($mcpCount -gt 0) {
+        Write-Host ""
+        Write-Host "🔌 MCP tools: $mcpCount tool(s) in mcp_tools/"
     }
 }
 

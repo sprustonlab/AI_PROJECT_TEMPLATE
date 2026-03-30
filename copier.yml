@@ -69,6 +69,37 @@ autonomous_agents:
     If yes, scaffolds CLAUDE.md with research goals, CHANGELOG.md
     as agent memory, test oracle directories, and stricter guardrails.
 
+claudechic_mode:
+  type: str
+  choices:
+    "Standard — installs from git, updates via pixi update (recommended)": standard
+    "Developer — clones locally for hacking on claudechic itself": developer
+  default: "standard"
+  help: |
+    Standard mode: claudechic installed from git URL. You get updates with `pixi update`.
+    Developer mode: claudechic cloned into submodules/claudechic/ for local editing.
+    You can switch between modes later (see project docs).
+
+use_cluster:
+  type: bool
+  default: false
+  help: "Enable cluster job management (submit, monitor, kill jobs)?"
+
+cluster_scheduler:
+  type: str
+  default: lsf
+  choices:
+    "IBM LSF (bsub/bjobs)": lsf
+    "SLURM (sbatch/squeue)": slurm
+  when: "{{ use_cluster }}"
+  help: "Which cluster scheduler does your HPC use?"
+
+cluster_ssh_target:
+  type: str
+  default: ""
+  when: "{{ use_cluster }}"
+  help: "SSH login node (leave empty if scheduler is available locally)"
+
 existing_codebase:
   type: str
   default: ""
@@ -77,13 +108,24 @@ existing_codebase:
     The codebase will be linked/copied into the repos/ directory.
 
 _exclude:
+  - docs/
+  - .ao_project_team/
+  - submodules/
+  - tests/
   - "{% if not use_guardrails %}.claude/guardrails/{% endif %}"
   - "{% if not use_project_team %}AI_agents/{% endif %}"
   - "{% if not use_project_team %}.claude/commands/ao_project_team.md{% endif %}"
   - "{% if not use_pattern_miner %}scripts/mine_patterns.py{% endif %}"
   - "{% if not use_pattern_miner %}commands/mine-patterns{% endif %}"
+  - "{% if not use_cluster %}mcp_tools/_cluster.py{% endif %}"
+  - "{% if not use_cluster or cluster_scheduler != 'lsf' %}mcp_tools/lsf.py{% endif %}"
+  - "{% if not use_cluster or cluster_scheduler != 'lsf' %}mcp_tools/lsf.yaml{% endif %}"
+  - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.py{% endif %}"
+  - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.yaml{% endif %}"
 
 _tasks:
+  # Post-generation: clone claudechic for developer mode
+  - "{% if claudechic_mode == 'developer' %}git clone https://github.com/boazmohar/claudechic submodules/claudechic{% endif %}"
   # Post-generation: integrate existing codebase if path was provided
   - >-
     {% if existing_codebase %}

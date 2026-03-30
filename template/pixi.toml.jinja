@@ -9,7 +9,14 @@ python = ">=3.10"
 pip = "*"
 
 [feature.claudechic.pypi-dependencies]
+{% if claudechic_mode == "standard" %}
+claudechic = { git = "https://github.com/boazmohar/claudechic", branch = "main" }
+{% else %}
 claudechic = { path = "submodules/claudechic", editable = true }
+{% endif %}
+{% if use_cluster %}
+pyyaml = "*"
+{% endif %}
 
 # ── Environment mappings ──────────────────────────────────────
 [environments]

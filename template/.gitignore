@@ -23,3 +23,6 @@ Thumbs.db
 # Project
 .patterns_mining_state.json
 corrections_report.json
+
+# Developer mode claudechic clone (not tracked by parent project)
+submodules/claudechic/

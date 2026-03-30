@@ -11,13 +11,14 @@
 # 4. Sets up PATH and PYTHONPATH
 # 5. Shows available environments, commands, and skills
 #
-# This script is the SEAM REGISTRY — it discovers all five seams:
+# This script is the SEAM REGISTRY — it discovers all six seams:
 #   - Environments: pixi.toml features → pixi info
 #   - Commands: commands/* → added to PATH
 #   - Skills: .claude/commands/*.md → displayed
 #   - Agent Roles: AI_agents/**/*.md → displayed (if present)
 #   - Guardrail Rules: .claude/guardrails/ → displayed (if present)
-# Adding a sixth seam requires updating this script.
+#   - MCP Tools: mcp_tools/*.py → displayed (if present)
+# Adding a seventh seam requires updating this script.
 # =============================================================================
 
 PROJECT_NAME="{{ project_name }}"
@@ -215,6 +216,18 @@ if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
     echo "🛡  Guardrails: $rule_count core rules"
     if [[ $rulesd_count -gt 0 ]]; then
         echo "    + $rulesd_count contributed rule sets in rules.d/"
+    fi
+fi
+
+# --- Show MCP tools ---
+if [[ -d "$BASEDIR/mcp_tools" ]]; then
+    mcp_count=0
+    for f in "$BASEDIR/mcp_tools"/*.py; do
+        [[ -f "$f" ]] && [[ "$(basename "$f")" != _* ]] && ((mcp_count++))
+    done
+    if [[ $mcp_count -gt 0 ]]; then
+        echo ""
+        echo "🔌 MCP tools: $mcp_count tool(s) in mcp_tools/"
     fi
 fi
 

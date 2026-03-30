@@ -12,6 +12,9 @@ pyyaml = "*"
 
 [pypi-dependencies]
 claudechic = { path = "submodules/claudechic", editable = true }
+copier = ">=9,<10"
+pytest-asyncio = "*"
+pexpect = "*"
 
 # ── Optional environments (added by user or Copier) ───────────
 [feature.jupyter.dependencies]

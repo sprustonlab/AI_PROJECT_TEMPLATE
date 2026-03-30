@@ -1,22 +1,20 @@
 # =============================================================================
 # Unified Test Workflow
 # =============================================================================
-# CI runs pytest — all test logic lives in Python test files, not shell scripts.
+# CI runs pytest via pixi — all test logic lives in Python, not shell scripts.
 #
 # Jobs:
-#   fast: Runs "pytest -m 'not slow'" on 3 OSes (every push/PR)
-#   slow: Runs "pytest -m ''" on Linux/macOS (weekly / manual dispatch)
+#   fast: Runs "pytest" (default = not slow) on 3 OSes (every push/PR)
+#   slow: Runs "pytest -m ''" on 3 OSes (manual dispatch only)
 # =============================================================================
 
 name: Tests
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, composable-onboarding]
   pull_request:
-    branches: [main, master]
-  schedule:
-    - cron: "0 6 * * 1"  # Weekly Monday 6am UTC
+    branches: [main, composable-onboarding]
   workflow_dispatch:
     inputs:
       run_slow:
@@ -46,26 +44,17 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest pyyaml copier pytest-asyncio pytest-timeout
+      - uses: prefix-dev/setup-pixi@v0.8.8
 
       - name: Run fast tests
-        run: python -m pytest -v --tb=short
+        run: pixi run pytest -v --tb=short
 
   # ─── Slow tests: pixi install, network, E2E ─────────────────
   slow:
     name: E2E Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: fast
-    if: >-
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_slow)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_slow
     strategy:
       fail-fast: false
       matrix:
@@ -77,21 +66,8 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - uses: prefix-dev/setup-pixi@v0.8.8
-        with:
-          run-install: false
-
-      - name: Install test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest pyyaml copier pytest-asyncio pytest-timeout pexpect
 
       - name: Run all tests (including slow)
-        run: python -m pytest -m "" -v --tb=short --timeout=300
-        env:
-          SETUPTOOLS_SCM_PRETEND_VERSION: "0.0.1"
+        run: pixi run pytest -m "" -v --tb=short --timeout=300
         timeout-minutes: 10

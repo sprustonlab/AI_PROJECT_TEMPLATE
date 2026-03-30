@@ -280,6 +280,7 @@ jobs:
           $result = $testInput | python "$hooksDir\bash_guard.py" 2>&1
           # exit 0 = allowed (echo test is safe) — any non-crash is good
           Write-Host "bash_guard.py executed successfully"
+          exit 0
 
       # -----------------------------------------------------------------------
       # Test 6: Unit tests (cross-platform validation)

@@ -10,7 +10,7 @@ pip = "*"
 
 [feature.claudechic.pypi-dependencies]
 {% if claudechic_mode == "standard" %}
-claudechic = { git = "https://github.com/boazmohar/claudechic", branch = "main" }
+claudechic = { git = "https://github.com/sprustonlab/claudechic", branch = "main" }
 {% else %}
 claudechic = { path = "submodules/claudechic", editable = true }
 {% endif %}

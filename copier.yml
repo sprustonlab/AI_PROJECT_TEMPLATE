@@ -125,7 +125,7 @@ _exclude:
 
 _tasks:
   # Post-generation: clone claudechic for developer mode
-  - "{% if claudechic_mode == 'developer' %}git clone https://github.com/boazmohar/claudechic submodules/claudechic{% endif %}"
+  - "{% if claudechic_mode == 'developer' %}git clone https://github.com/sprustonlab/claudechic submodules/claudechic{% endif %}"
   # Post-generation: integrate existing codebase if path was provided
   - >-
     {% if existing_codebase %}

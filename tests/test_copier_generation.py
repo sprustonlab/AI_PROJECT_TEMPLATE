@@ -52,7 +52,7 @@ class TestClaudechicMode:
         pixi_toml = dest / "pixi.toml"
         assert pixi_toml.exists(), "pixi.toml not generated"
         content = pixi_toml.read_text()
-        assert 'git = "https://github.com/boazmohar/claudechic"' in content
+        assert 'git = "https://github.com/sprustonlab/claudechic"' in content
         assert "editable" not in content
 
     def test_developer_mode_has_editable_path(self, copier_output):
@@ -67,7 +67,7 @@ class TestClaudechicMode:
         content = pixi_toml.read_text()
         assert 'path = "submodules/claudechic"' in content
         assert "editable = true" in content
-        assert "github.com/boazmohar/claudechic" not in content
+        assert "github.com/sprustonlab/claudechic" not in content
 
 
 # ---------------------------------------------------------------------------

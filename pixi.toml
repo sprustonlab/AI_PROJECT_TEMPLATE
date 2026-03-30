@@ -8,6 +8,7 @@ platforms = ["linux-64", "osx-arm64", "win-64"]
 python = ">=3.10"
 pip = "*"
 pytest = ">=9.0.2,<10"
+pyyaml = "*"
 
 [pypi-dependencies]
 claudechic = { path = "submodules/claudechic", editable = true }

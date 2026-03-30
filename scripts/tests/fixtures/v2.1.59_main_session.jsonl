@@ -1,0 +1,8 @@
+{"type":"system","version":"2.1.59","timestamp":"2026-03-15T10:00:00Z","sessionId":"sess-main-001"}
+{"type":"user","timestamp":"2026-03-15T10:00:01Z","sessionId":"sess-main-001","message":{"content":"Please refactor the data loading module to use lazy evaluation."}}
+{"type":"assistant","timestamp":"2026-03-15T10:00:05Z","sessionId":"sess-main-001","message":{"content":"I'll refactor the data loading module. Let me start by converting the eager loading calls to generators."}}
+{"type":"user","timestamp":"2026-03-15T10:01:00Z","sessionId":"sess-main-001","toolUseResult":{"tool":"Read","result":"file contents here"}}
+{"type":"user","timestamp":"2026-03-15T10:02:00Z","sessionId":"sess-main-001","message":{"content":"No, that's not what I asked for. I want lazy evaluation using itertools, not generators."}}
+{"type":"assistant","timestamp":"2026-03-15T10:02:10Z","sessionId":"sess-main-001","message":{"content":"I apologize for the misunderstanding. Let me use itertools instead."}}
+{"type":"user","timestamp":"2026-03-15T10:03:00Z","sessionId":"sess-main-001","message":{"content":"That looks correct now, thank you."}}
+{"type":"assistant","timestamp":"2026-03-15T10:03:05Z","sessionId":"sess-main-001","message":{"content":"Great, the refactoring is complete. The data loading now uses itertools for lazy evaluation."}}

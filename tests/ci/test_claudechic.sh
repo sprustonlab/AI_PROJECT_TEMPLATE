@@ -2,15 +2,10 @@
 # =============================================================================
 # test_claudechic.sh - E2E test for `claudechic` command
 # =============================================================================
-# Tests that claudechic can be launched and produces expected output:
-# 1. Environment activation (prerequisite)
-# 2. Claudechic conda env installation
-# 3. Process launches and produces TUI output
-#
-# Strategy:
-# - Run claudechic with timeout, capture stdout/stderr
-# - Verify expected output appears (TUI elements)
-# - Kill process cleanly after verification
+# Tests that claudechic can be installed and launched via pixi:
+# 1. pixi install -e claudechic
+# 2. claudechic --help
+# 3. claudechic module imports in Python
 #
 # Exit codes:
 #   0 - All tests passed
@@ -34,7 +29,7 @@ yellow() { echo -e "\033[0;33m$*\033[0m"; }
 
 echo ""
 blue "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-blue "  TEST: claudechic"
+blue "  TEST: claudechic (pixi)"
 blue "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -51,166 +46,86 @@ fail() {
     ((++TESTS_FAILED))
 }
 
-# --------------------------------------------------------------------------
-# Prerequisite: Activate environment
-# --------------------------------------------------------------------------
-
-blue "Step 1: Activating project environment..."
-
 cd "$PROJECT_ROOT"
 
-set +e
-source ./activate
-ACTIVATE_EXIT=$?
-set -e
-
-if [[ $ACTIVATE_EXIT -ne 0 ]]; then
-    fail "activate script failed (prerequisite)"
-    exit 1
-fi
-pass "Project environment activated"
-
-# --------------------------------------------------------------------------
-# Test 1: Claudechic command exists in PATH
-# --------------------------------------------------------------------------
-
-blue "Step 2: Checking claudechic command availability..."
-
-if command -v claudechic &> /dev/null; then
-    pass "claudechic command is in PATH"
-else
-    fail "claudechic command not found in PATH"
-    exit 1
-fi
-
-# --------------------------------------------------------------------------
-# Test 2: Run claudechic command (triggers env installation via require_env)
-# --------------------------------------------------------------------------
-
-blue "Step 3: Running claudechic command (E2E test - triggers env installation)..."
-
-# Check if environment already exists
-ENV_PREEXISTED=false
-if [[ -d "$PROJECT_ROOT/envs/claudechic" ]]; then
-    yellow "    Note: claudechic environment already exists"
-    ENV_PREEXISTED=true
-else
-    yellow "    Environment not installed - claudechic will trigger installation..."
-fi
-
-# Create temp files for output capture
-OUTPUT_FILE=$(mktemp)
-ERROR_FILE=$(mktemp)
-
-# Cleanup function
-cleanup() {
-    rm -f "$OUTPUT_FILE" "$ERROR_FILE"
-}
-trap cleanup EXIT
-
-# Set SETUPTOOLS_SCM_PRETEND_VERSION to work around submodule version detection issue
-# when installing claudechic in editable mode (git submodules don't have full .git history)
+# Set SETUPTOOLS_SCM_PRETEND_VERSION for git submodule editable installs
 export SETUPTOOLS_SCM_PRETEND_VERSION="0.0.0+test"
 
-# Run claudechic --help with a long timeout (5 minutes) to allow for:
-# 1. require_env to detect missing environment
-# 2. conda environment installation (can take several minutes)
-# 3. pip install -e for claudechic package
-# 4. Actually running --help
+# --------------------------------------------------------------------------
+# Test 1: pixi install -e claudechic
+# --------------------------------------------------------------------------
 
-blue "    Running: claudechic --help (timeout: 5 minutes)"
-echo ""
+blue "Step 1: Installing claudechic environment via pixi..."
 
 set +e
-# Use gtimeout on macOS if available, otherwise fall back to perl-based timeout
-# Use tee to show output in CI logs AND capture it for verification
-if command -v gtimeout &> /dev/null; then
-    gtimeout 300s "$PROJECT_ROOT/commands/claudechic" --help 2>&1 | tee "$OUTPUT_FILE"
-elif command -v timeout &> /dev/null; then
-    timeout 300s "$PROJECT_ROOT/commands/claudechic" --help 2>&1 | tee "$OUTPUT_FILE"
-else
-    # Perl-based timeout for macOS without coreutils
-    perl -e 'alarm shift; exec @ARGV' 300 "$PROJECT_ROOT/commands/claudechic" --help 2>&1 | tee "$OUTPUT_FILE"
-fi
-CLAUDECHIC_EXIT=${PIPESTATUS[0]:-$?}
+pixi install -e claudechic
+INSTALL_EXIT=$?
 set -e
 
-echo ""
+if [[ $INSTALL_EXIT -eq 0 ]]; then
+    pass "pixi install -e claudechic succeeded"
+else
+    fail "pixi install -e claudechic failed with exit code $INSTALL_EXIT"
+    exit 1
+fi
 
-# Check if claudechic responded to --help
-if [[ $CLAUDECHIC_EXIT -eq 0 ]] || [[ $CLAUDECHIC_EXIT -eq 2 ]]; then
-    # Exit 0 = success, Exit 2 = argparse help (normal)
+# --------------------------------------------------------------------------
+# Test 2: claudechic --help
+# --------------------------------------------------------------------------
+
+blue "Step 2: Running claudechic --help..."
+
+OUTPUT_FILE=$(mktemp)
+cleanup() { rm -f "$OUTPUT_FILE"; }
+trap cleanup EXIT
+
+set +e
+pixi run -e claudechic claudechic --help > "$OUTPUT_FILE" 2>&1
+HELP_EXIT=$?
+set -e
+
+cat "$OUTPUT_FILE"
+
+# --help may exit 0 or 2 (argparse), both are fine
+if [[ $HELP_EXIT -eq 0 ]] || [[ $HELP_EXIT -eq 2 ]]; then
     if [[ -s "$OUTPUT_FILE" ]]; then
         pass "claudechic --help executed successfully"
     else
         fail "claudechic --help produced no output"
     fi
-elif [[ $CLAUDECHIC_EXIT -eq 124 ]] || [[ $CLAUDECHIC_EXIT -eq 142 ]]; then
-    # 124 = timeout exit code, 142 = SIGALRM (perl timeout)
-    fail "claudechic --help timed out after 5 minutes"
-    echo "  This may indicate environment installation is hanging"
 else
-    fail "claudechic --help failed with exit code $CLAUDECHIC_EXIT"
-    echo "  Output was shown above"
+    fail "claudechic --help failed with exit code $HELP_EXIT"
 fi
 
 # --------------------------------------------------------------------------
-# Test 3: Verify claudechic environment was created by running the command
+# Test 3: claudechic module imports
 # --------------------------------------------------------------------------
 
-blue "Step 4: Verifying claudechic environment was installed..."
+blue "Step 3: Verifying claudechic Python module imports..."
 
-CLAUDECHIC_ENV="$PROJECT_ROOT/envs/claudechic"
-if [[ -d "$CLAUDECHIC_ENV" ]]; then
-    if [[ "$ENV_PREEXISTED" == "true" ]]; then
-        pass "claudechic conda environment exists (was pre-existing)"
-    else
-        pass "claudechic conda environment was installed by running claudechic command"
-    fi
+set +e
+IMPORT_OUTPUT=$(pixi run -e claudechic python -c "import claudechic; print(f'claudechic version: {claudechic.__version__}')" 2>&1)
+IMPORT_EXIT=$?
+set -e
+
+if [[ $IMPORT_EXIT -eq 0 ]]; then
+    echo "    $IMPORT_OUTPUT"
+    pass "claudechic Python module imports successfully"
 else
-    fail "claudechic conda environment not found at $CLAUDECHIC_ENV"
-    echo "  The claudechic command should have triggered installation via require_env"
+    fail "claudechic Python module failed to import"
+    echo "    Error: $IMPORT_OUTPUT"
 fi
 
 # --------------------------------------------------------------------------
-# Step 4b: Show environment contents in CI logs
+# Test 4: .pixi/envs/claudechic/ directory exists
 # --------------------------------------------------------------------------
 
-blue "Step 4b: Listing claudechic environment contents..."
-if [[ -d "$CLAUDECHIC_ENV" ]]; then
-    echo "    Environment directory: $CLAUDECHIC_ENV"
-    echo "    Contents (top-level):"
-    ls -la "$CLAUDECHIC_ENV/" | head -20 | sed 's/^/    /'
-    echo ""
-    echo "    Bin directory (first 15 entries):"
-    ls "$CLAUDECHIC_ENV/bin/" | head -15 | sed 's/^/    /'
-fi
+blue "Step 4: Verifying pixi environment directory..."
 
-# --------------------------------------------------------------------------
-# Test 4: Verify claudechic module can be imported
-# --------------------------------------------------------------------------
-
-blue "Step 5: Verifying claudechic Python module imports..."
-
-if [[ -d "$CLAUDECHIC_ENV" ]]; then
-    # Use the conda from SLCenv to activate claudechic env
-    source "$PROJECT_ROOT/envs/SLCenv/etc/profile.d/conda.sh"
-    conda activate "$CLAUDECHIC_ENV" 2>/dev/null || true
-
-    set +e
-    IMPORT_OUTPUT=$(python -c "import claudechic; print(f'claudechic version: {claudechic.__version__}')" 2>&1)
-    IMPORT_EXIT=$?
-    set -e
-
-    if [[ $IMPORT_EXIT -eq 0 ]]; then
-        echo "    $IMPORT_OUTPUT"
-        pass "claudechic Python module imports successfully"
-    else
-        fail "claudechic Python module failed to import"
-        echo "    Error: $IMPORT_OUTPUT"
-    fi
+if [[ -d "$PROJECT_ROOT/.pixi/envs/claudechic" ]]; then
+    pass ".pixi/envs/claudechic/ directory exists"
 else
-    fail "Cannot test import - claudechic environment not found"
+    fail ".pixi/envs/claudechic/ directory not found"
 fi
 
 # --------------------------------------------------------------------------

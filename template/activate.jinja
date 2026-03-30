@@ -20,8 +20,8 @@
 # Adding a sixth seam requires updating this script.
 # =============================================================================
 
-PROJECT_NAME="my-project"
-
+PROJECT_NAME="{{ project_name }}"
+{% raw %}
 # ─── Section 1: Path Resolution ──────────────────────────────────────────────
 if [[ -n "${BASH_SOURCE[0]}" ]]; then
     _SCRIPT_PATH="${BASH_SOURCE[0]}"
@@ -145,7 +145,7 @@ if [[ -f "$BASEDIR/pixi.toml" ]]; then
         else
             available_envs+=("$envname")
         fi
-    done < <(sed -n 's/^\[feature\.\([^.]*\)\..*/\1/p' "$BASEDIR/pixi.toml" | sort -u)
+    done < <(grep -oP '^\[feature\.\K[^]]+(?=\])' "$BASEDIR/pixi.toml" | sort -u)
 
     if [[ ${#installed_envs[@]} -gt 0 ]]; then
         echo ""
@@ -227,3 +227,4 @@ if [[ ${#_WARNINGS[@]} -gt 0 ]]; then
 fi
 
 echo ""
+{% endraw %}

@@ -1,32 +1,4 @@
 #!/bin/bash
-# Launch claudechic
-
-# Get project root
-if [[ -z "$PROJECT_ROOT" ]]; then
-    PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-fi
-
-cd "$PROJECT_ROOT" || exit 1
-
-# Check if claudechic submodule is initialized
-CLAUDECHIC_DIR="$PROJECT_ROOT/submodules/claudechic"
-if [[ ! -f "$CLAUDECHIC_DIR/pyproject.toml" ]]; then
-    echo "⚠️  claudechic submodule not initialized"
-    echo "Initializing submodule..."
-    git submodule update --init submodules/claudechic || {
-        echo "❌ Failed to initialize claudechic submodule"
-        exit 1
-    }
-    echo "✔ Submodule initialized"
-fi
-
-# Ensure claudechic environment is installed and activated
-source "$PROJECT_ROOT/commands/require_env" claudechic || exit 1
-
-# Install claudechic in editable mode if not already installed
-if ! python -c "import claudechic" 2>/dev/null; then
-    echo "Installing claudechic in editable mode..."
-    pip install -e "$CLAUDECHIC_DIR" --quiet || exit 1
-fi
-
-python -m claudechic "$@"
+# Launch claudechic via pixi
+cd "${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}" || exit 1
+exec pixi run -e claudechic claudechic "$@"

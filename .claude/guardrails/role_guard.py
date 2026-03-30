@@ -11,19 +11,20 @@ Key entry points:
     check_write_ack(): Validate a TTL-scoped ack token for Write/Edit tools.
     __main__ ack: Write an ack token from the CLI for warn-level Write/Edit hooks.
 
-Two env vars — distinct purposes, no fallback between them:
+Key env vars:
 
     CLAUDE_AGENT_NAME  — agent instance identity (set by claudechic for all agents).
                          Used by: Coordinator mapping, ack token filenames, routing.
     CLAUDE_AGENT_ROLE  — agent type for role matching (set from spawn_agent(type=...)).
                          Used by: allow/block list matching in check_role().
                          Not set → role checks are inactive for that agent. No fallback.
+    AGENT_SESSION_PID  — session PID (replaces CLAUDECHIC_APP_PID, with fallback).
 
     Exception: the Coordinator (main session agent) has no CLAUDE_AGENT_ROLE — it is
     identified by get_my_role() returning "Coordinator" via the session marker.
 
 Team mode: active when a session marker exists at
-    .claude/guardrails/sessions/ao_<CLAUDECHIC_APP_PID>
+    .claude/guardrails/sessions/ao_<AGENT_SESSION_PID>
 written by setup_ao_mode.sh. Path is configurable via the GUARDRAILS_DIR env var.
 
 Message prefix conventions (all diagnostic output goes to stderr):
@@ -74,10 +75,13 @@ def get_my_role() -> 'str | None':
     """Return the current agent's role type, or None when not in team mode.
 
     Team mode is active when a session marker exists at
-    ``<GUARDRAILS_DIR>/sessions/ao_<CLAUDECHIC_APP_PID>``. The marker is written
+    ``<GUARDRAILS_DIR>/sessions/ao_<AGENT_SESSION_PID>``. The marker is written
     by ``setup_ao_mode.sh`` when a team skill activates and deleted by
     ``teardown_ao_mode.sh`` on clean exit. Markers from prior sessions are
     automatically ignored — each claudechic session has a distinct PID.
+
+    Reads ``AGENT_SESSION_PID`` with fallback to ``CLAUDECHIC_APP_PID``
+    for backward compatibility.
 
     The main session agent (whose ``CLAUDE_AGENT_NAME`` equals the ``coordinator``
     field in the session marker) is mapped to ``"Coordinator"``. Spawned sub-agents
@@ -88,7 +92,7 @@ def get_my_role() -> 'str | None':
     Returns:
         ``None`` in any of these cases:
             - ``CLAUDE_AGENT_NAME`` is unset (not under claudechic)
-            - ``CLAUDECHIC_APP_PID`` is unset
+            - ``AGENT_SESSION_PID`` (and ``CLAUDECHIC_APP_PID``) is unset
             - Session marker is absent (solo / non-team session)
             - Session marker is unreadable or invalid JSON (fail-open)
         ``"Coordinator"`` when the marker's ``coordinator`` field matches
@@ -98,7 +102,7 @@ def get_my_role() -> 'str | None':
     name = os.environ.get('CLAUDE_AGENT_NAME')
     if not name:
         return None  # not under claudechic
-    app_pid = os.environ.get('CLAUDECHIC_APP_PID')
+    app_pid = os.environ.get('AGENT_SESSION_PID') or os.environ.get('CLAUDECHIC_APP_PID')
     if not app_pid:
         return None  # not running under claudechic
     guardrails_dir = Path(os.environ.get('GUARDRAILS_DIR', '.claude/guardrails'))

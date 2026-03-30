@@ -1,17 +1,26 @@
 # =============================================================================
 # CI Workflow - End-to-End Tests
 # =============================================================================
-# Runs the E2E test suite on both Ubuntu and macOS.
+# Runs the E2E test suite on Ubuntu, macOS, and Windows.
 #
 # Tests:
-#   1. test_activate.sh - Verifies SLCenv bootstrap and environment activation
-#   2. test_claudechic.sh - Verifies claudechic installation and launch
-#   3. test_skill_available.sh - Verifies /ao_project_team skill is available
+#   Linux/macOS:
+#     1. test_activate.sh - Verifies pixi-based environment activation
+#     2. test_claudechic.sh - Verifies claudechic installation and launch
+#     3. test_skill_available.sh - Verifies /ao_project_team skill is available
+#     4. Unit tests (test_framework.py, scripts/tests/)
+#   Windows:
+#     1. Pixi install succeeds
+#     2. activate.ps1 sets PROJECT_ROOT and adds commands/ to PATH
+#     3. Claudechic env install, --help, module import
+#     4. Skill files exist and have correct format
+#     5. Generate hooks produces .py files
+#     6. Unit tests (test_framework.py, scripts/tests/)
 #
 # Platform notes:
 #   - Ubuntu: Uses bash 5.x, x86_64 architecture
 #   - macOS: Uses bash 3.2, ARM64 architecture (macos-latest = M1)
-#   - Both platforms run tests with explicit bash shell
+#   - Windows: Uses PowerShell, pixi + pure Python hooks
 # =============================================================================
 
 name: CI
@@ -24,7 +33,10 @@ on:
   workflow_dispatch: # Allow manual triggering
 
 jobs:
-  test:
+  # =========================================================================
+  # Linux & macOS tests (bash)
+  # =========================================================================
+  test-unix:
     name: E2E Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
@@ -44,10 +56,8 @@ jobs:
           submodules: recursive  # Critical: Initialize submodules (claudechic)
           fetch-depth: 0         # Full history for submodule checkout
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
 
       - name: Make test scripts executable
         run: chmod +x tests/ci/*.sh
@@ -79,6 +89,16 @@ jobs:
           bash tests/ci/test_skill_available.sh
 
       # -----------------------------------------------------------------------
+      # Test 4: Unit tests (guardrail framework + scripts)
+      # -----------------------------------------------------------------------
+      - name: Test 4 - Unit Tests
+        run: |
+          echo "Running unit tests via pixi..."
+          export SETUPTOOLS_SCM_PRETEND_VERSION="0.0.0+test"
+          pixi install -e claudechic
+          pixi run -e claudechic python -m pytest .claude/guardrails/test_framework.py scripts/tests/ -v
+
+      # -----------------------------------------------------------------------
       # Summary
       # -----------------------------------------------------------------------
       - name: Test Summary
@@ -88,3 +108,202 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  CI Tests completed on ${{ matrix.os }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # =========================================================================
+  # Windows tests (PowerShell)
+  # =========================================================================
+  test-windows:
+    name: E2E Tests (windows-latest)
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh  # Use PowerShell on Windows
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+
+      # -----------------------------------------------------------------------
+      # Test 1: Pixi install
+      # -----------------------------------------------------------------------
+      - name: Test 1 - Pixi install succeeds
+        run: |
+          Write-Host "Testing pixi install..."
+          pixi install
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "pixi install failed"
+            exit 1
+          }
+          Write-Host "pixi install succeeded"
+
+      # -----------------------------------------------------------------------
+      # Test 2: activate.ps1
+      # -----------------------------------------------------------------------
+      - name: Test 2 - Activate PowerShell script
+        run: |
+          Write-Host "Testing activate.ps1..."
+          if (-not (Test-Path ".\activate.ps1")) {
+            Write-Host "activate.ps1 not found"
+            exit 1
+          }
+          . .\activate.ps1
+          if (-not $env:PROJECT_ROOT) {
+            Write-Host "PROJECT_ROOT not set"
+            exit 1
+          }
+          Write-Host "PROJECT_ROOT set to: $env:PROJECT_ROOT"
+
+          if ($env:PATH -match "commands") {
+            Write-Host "commands/ found in PATH"
+          } else {
+            Write-Host "commands/ not found in PATH"
+            exit 1
+          }
+
+      # -----------------------------------------------------------------------
+      # Test 3: Claudechic via pixi
+      # -----------------------------------------------------------------------
+      - name: Test 3 - Claudechic
+        run: |
+          $env:SETUPTOOLS_SCM_PRETEND_VERSION = "0.0.0+test"
+
+          Write-Host "Installing claudechic environment..."
+          pixi install -e claudechic
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "pixi install -e claudechic failed"
+            exit 1
+          }
+          Write-Host "claudechic environment installed"
+
+          Write-Host "Testing claudechic --help..."
+          $helpOutput = pixi run -e claudechic claudechic --help 2>&1 | Out-String
+          # --help may exit 0 or 2 (argparse), both are fine
+          Write-Host $helpOutput
+          if ($helpOutput -match "(?i)claude") {
+            Write-Host "claudechic --help contains expected output"
+          } else {
+            Write-Host "claudechic --help output missing expected content"
+            exit 1
+          }
+
+          Write-Host "Testing claudechic module import..."
+          $importOutput = pixi run -e claudechic python -c "import claudechic; print(claudechic.__version__)" 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "claudechic module import failed: $importOutput"
+            exit 1
+          }
+          Write-Host "claudechic version: $importOutput"
+          Write-Host "claudechic module imports successfully"
+        timeout-minutes: 15
+
+      # -----------------------------------------------------------------------
+      # Test 4: Skill files available
+      # -----------------------------------------------------------------------
+      - name: Test 4 - Skill files
+        run: |
+          # ao_project_team.md
+          $skillFile = ".claude\commands\ao_project_team.md"
+          if (-not (Test-Path $skillFile)) {
+            Write-Host "ao_project_team.md not found"
+            exit 1
+          }
+          $content = Get-Content $skillFile -Raw
+          if ([string]::IsNullOrWhiteSpace($content)) {
+            Write-Host "ao_project_team.md is empty"
+            exit 1
+          }
+          if ($content -notmatch '^# ') {
+            Write-Host "ao_project_team.md missing H1 heading"
+            exit 1
+          }
+          Write-Host "ao_project_team.md: valid skill file"
+
+          # init_project.md
+          $initSkill = ".claude\commands\init_project.md"
+          if (-not (Test-Path $initSkill)) {
+            Write-Host "init_project.md not found"
+            exit 1
+          }
+          Write-Host "init_project.md: exists"
+          Write-Host "All skill files verified"
+
+      # -----------------------------------------------------------------------
+      # Test 5: Generate hooks produces .py files
+      # -----------------------------------------------------------------------
+      - name: Test 5 - Generate hooks
+        run: |
+          # Copy rules.yaml.example as rules.yaml for generation
+          Copy-Item ".claude\guardrails\rules.yaml.example" ".claude\guardrails\rules.yaml"
+
+          Write-Host "Running generate_hooks.py..."
+          pixi run generate-hooks
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "generate_hooks.py failed"
+            exit 1
+          }
+
+          $hooksDir = ".claude\guardrails\hooks"
+          if (-not (Test-Path $hooksDir)) {
+            Write-Host "hooks/ directory not created"
+            exit 1
+          }
+
+          $pyHooks = Get-ChildItem "$hooksDir\*.py" -ErrorAction SilentlyContinue
+          if ($pyHooks.Count -eq 0) {
+            Write-Host "No .py hook scripts generated"
+            exit 1
+          }
+
+          $shHooks = Get-ChildItem "$hooksDir\*.sh" -ErrorAction SilentlyContinue
+          if ($shHooks.Count -gt 0) {
+            Write-Host "Found .sh hook scripts — should be .py only"
+            exit 1
+          }
+
+          Write-Host "Generated $($pyHooks.Count) .py hook scripts:"
+          $pyHooks | ForEach-Object { Write-Host "  $($_.Name)" }
+
+          # Smoke-test a hook with valid JSON
+          Write-Host "Smoke-testing bash_guard.py..."
+          $testInput = '{"tool_input": {"command": "echo test"}, "session_id": "test", "cwd": "."}'
+          $result = $testInput | python "$hooksDir\bash_guard.py" 2>&1
+          # exit 0 = allowed (echo test is safe) — any non-crash is good
+          Write-Host "bash_guard.py executed successfully"
+
+      # -----------------------------------------------------------------------
+      # Test 6: Unit tests (cross-platform validation)
+      # -----------------------------------------------------------------------
+      - name: Test 6 - Unit tests
+        run: |
+          $env:SETUPTOOLS_SCM_PRETEND_VERSION = "0.0.0+test"
+
+          # Copy rules.yaml.example as rules.yaml if not already there
+          if (-not (Test-Path ".claude\guardrails\rules.yaml")) {
+            Copy-Item ".claude\guardrails\rules.yaml.example" ".claude\guardrails\rules.yaml"
+          }
+
+          Write-Host "Running unit tests..."
+          pixi run -e claudechic python -m pytest .claude/guardrails/test_framework.py scripts/tests/ -v
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Unit tests failed"
+            exit 1
+          }
+          Write-Host "All unit tests passed"
+
+      # -----------------------------------------------------------------------
+      # Summary
+      # -----------------------------------------------------------------------
+      - name: Test Summary
+        if: always()
+        run: |
+          Write-Host ""
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "  CI Tests completed on windows-latest"
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

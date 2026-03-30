@@ -1,0 +1,9 @@
+# Claudechic environment specification
+# This file is a contributor-friendly entry point.
+# Source of truth is pixi.toml — use scripts/import_env.py to convert.
+name: claudechic
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - pip

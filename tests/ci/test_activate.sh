@@ -2,10 +2,10 @@
 # =============================================================================
 # test_activate.sh - E2E test for `source ./activate`
 # =============================================================================
-# Tests the complete activation workflow as a user would experience it:
-# 1. SLCenv bootstrap (Miniforge installation)
+# Tests the pixi-based activation workflow as a user would experience it:
+# 1. Pixi bootstrap (if needed)
 # 2. Submodule initialization
-# 3. Environment activation
+# 3. Environment activation and seam registry display
 #
 # Exit codes:
 #   0 - All tests passed
@@ -18,7 +18,6 @@ set -e
 # Setup
 # --------------------------------------------------------------------------
 
-# Get script location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
@@ -57,7 +56,6 @@ echo ""
 cd "$PROJECT_ROOT"
 
 # Source the activate script
-# Note: We use set +e temporarily to capture errors gracefully
 set +e
 source ./activate
 ACTIVATE_EXIT=$?
@@ -75,40 +73,39 @@ fi
 echo ""
 
 # --------------------------------------------------------------------------
-# Test 1: SLCenv conda binary exists
+# Test 1: pixi is available
 # --------------------------------------------------------------------------
 
-blue "Checking: SLCenv bootstrap completed..."
+blue "Checking: pixi is available..."
 
-if [[ -x "$PROJECT_ROOT/envs/SLCenv/bin/conda" ]]; then
-    pass "envs/SLCenv/bin/conda exists and is executable"
+if command -v pixi &> /dev/null; then
+    pass "pixi command is available: $(pixi --version 2>/dev/null || echo 'version unknown')"
 else
-    fail "envs/SLCenv/bin/conda does not exist or is not executable"
+    fail "pixi command not found"
 fi
 
 # --------------------------------------------------------------------------
-# Test 2: Submodules are checked out (not empty)
+# Test 2: pixi.toml exists
+# --------------------------------------------------------------------------
+
+blue "Checking: pixi.toml exists..."
+
+if [[ -f "$PROJECT_ROOT/pixi.toml" ]]; then
+    pass "pixi.toml exists"
+else
+    fail "pixi.toml not found"
+fi
+
+# --------------------------------------------------------------------------
+# Test 3: Submodules are checked out (not empty)
 # --------------------------------------------------------------------------
 
 blue "Checking: Submodules initialized..."
 
-# Check for claudechic specifically (main submodule)
 if [[ -f "$PROJECT_ROOT/submodules/claudechic/pyproject.toml" ]]; then
     pass "submodules/claudechic/ is not empty (pyproject.toml exists)"
 else
     fail "submodules/claudechic/ is empty or pyproject.toml missing"
-fi
-
-# --------------------------------------------------------------------------
-# Test 3: CONDA_PREFIX is set (environment activated)
-# --------------------------------------------------------------------------
-
-blue "Checking: Environment activated..."
-
-if [[ -n "$CONDA_PREFIX" ]]; then
-    pass "CONDA_PREFIX is set: $CONDA_PREFIX"
-else
-    fail "CONDA_PREFIX is not set"
 fi
 
 # --------------------------------------------------------------------------
@@ -124,19 +121,7 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Test 5: SLC_BASE is set
-# --------------------------------------------------------------------------
-
-blue "Checking: SLC_BASE set..."
-
-if [[ -n "$SLC_BASE" ]]; then
-    pass "SLC_BASE is set: $SLC_BASE"
-else
-    fail "SLC_BASE is not set"
-fi
-
-# --------------------------------------------------------------------------
-# Test 6: commands/ is in PATH
+# Test 5: commands/ is in PATH
 # --------------------------------------------------------------------------
 
 blue "Checking: commands/ in PATH..."
@@ -145,6 +130,18 @@ if echo "$PATH" | grep -q "$PROJECT_ROOT/commands"; then
     pass "commands/ directory is in PATH"
 else
     fail "commands/ directory is not in PATH"
+fi
+
+# --------------------------------------------------------------------------
+# Test 6: pixi.toml contains expected features
+# --------------------------------------------------------------------------
+
+blue "Checking: pixi.toml contains claudechic feature..."
+
+if grep -q '\[feature\.claudechic\.' "$PROJECT_ROOT/pixi.toml"; then
+    pass "pixi.toml contains [feature.claudechic.*] section"
+else
+    fail "pixi.toml missing claudechic feature"
 fi
 
 # --------------------------------------------------------------------------

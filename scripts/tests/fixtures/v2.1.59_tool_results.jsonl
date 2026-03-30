@@ -1,0 +1,10 @@
+{"type":"system","version":"2.1.59","timestamp":"2026-03-15T16:00:00Z","sessionId":"sess-tools-001"}
+{"type":"user","timestamp":"2026-03-15T16:00:01Z","sessionId":"sess-tools-001","message":{"content":"Run the tests and fix any failures."}}
+{"type":"assistant","timestamp":"2026-03-15T16:00:05Z","sessionId":"sess-tools-001","message":{"content":"I'll run the test suite now."}}
+{"type":"user","timestamp":"2026-03-15T16:01:00Z","sessionId":"sess-tools-001","toolUseResult":{"tool":"Bash","result":"FAILED test_loader.py::test_lazy - AssertionError"}}
+{"type":"user","timestamp":"2026-03-15T16:01:30Z","sessionId":"sess-tools-001","toolUseResult":{"tool":"Read","result":"def test_lazy(): ..."}}
+{"type":"assistant","timestamp":"2026-03-15T16:02:00Z","sessionId":"sess-tools-001","message":{"content":"The test is failing because the lazy loader returns an iterator instead of a list. Let me fix it."}}
+{"type":"user","timestamp":"2026-03-15T16:03:00Z","sessionId":"sess-tools-001","message":{"content":"That's wrong. The test expects an iterator. The bug is in the loader, not the test."}}
+{"type":"assistant","timestamp":"2026-03-15T16:03:10Z","sessionId":"sess-tools-001","message":{"content":"You're right, I'll fix the loader instead."}}
+{"type":"user","timestamp":"2026-03-15T16:04:00Z","sessionId":"sess-tools-001","message":{"content":[{"type":"text","text":"Good, now run the tests again to verify."}]}}
+{"type":"assistant","timestamp":"2026-03-15T16:04:05Z","sessionId":"sess-tools-001","message":{"content":"Running tests again..."}}

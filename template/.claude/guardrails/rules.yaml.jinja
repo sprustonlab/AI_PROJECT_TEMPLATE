@@ -1,0 +1,22 @@
+# Guardrail rules for {{ project_name }}
+#
+# Each rule defines permission checks for Claude Code tool calls.
+# Run: python3 .claude/guardrails/generate_hooks.py
+# to regenerate hook scripts after editing.
+#
+# See .claude/guardrails/README.md for documentation.
+# ID namespace: Core R01-R99, contributed rule sets use own prefix.
+
+catalog_version: "1"
+ack_ttl_seconds: 60
+
+rules:
+
+  - id: R01
+    name: deny-dangerous-ops
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    detect:
+      type: regex_match
+      pattern: 'rm\s+-rf\s+/|git\s+push\s+--force|git\s+reset\s+--hard'
+    message: "[R01] Dangerous operation blocked. Use explicit approval."

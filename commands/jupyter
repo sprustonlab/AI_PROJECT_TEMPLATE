@@ -1,15 +1,4 @@
 #!/bin/bash
-# Launch Jupyter Lab locally
-
-# Get the directory where this script is located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-# Ensure jupyter environment is installed and activated
-source "$SCRIPT_DIR/require_env" jupyter || exit 1
-
-# Launch Jupyter Lab
-echo "🚀 Starting Jupyter Lab..."
-echo "   Press Ctrl+C to stop the server"
-echo ""
-
-jupyter lab "$@"
+# Launch Jupyter Lab via pixi
+cd "${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}" || exit 1
+exec pixi run -e jupyter jupyter lab "$@"

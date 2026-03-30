@@ -58,6 +58,8 @@ jobs:
 
       - name: Install pixi
         uses: prefix-dev/setup-pixi@v0.8.1
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: "0.0.0+ci"
 
       - name: Make test scripts executable
         run: chmod +x tests/ci/*.sh
@@ -129,6 +131,8 @@ jobs:
 
       - name: Install pixi
         uses: prefix-dev/setup-pixi@v0.8.1
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: "0.0.0+ci"
 
       # -----------------------------------------------------------------------
       # Test 1: Pixi install

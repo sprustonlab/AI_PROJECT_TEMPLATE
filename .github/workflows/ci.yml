@@ -97,7 +97,7 @@ jobs:
         run: |
           echo "Running unit tests via pixi..."
           export SETUPTOOLS_SCM_PRETEND_VERSION="0.0.0+test"
-          pixi install -e claudechic
+          pixi install
           pixi run python -m pytest .claude/guardrails/test_framework.py scripts/tests/ -v
 
       # -----------------------------------------------------------------------
@@ -179,9 +179,9 @@ jobs:
           $env:SETUPTOOLS_SCM_PRETEND_VERSION = "0.0.0+test"
 
           Write-Host "Installing claudechic environment..."
-          pixi install -e claudechic
+          pixi install
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "pixi install -e claudechic failed"
+            Write-Host "pixi install failed"
             exit 1
           }
           Write-Host "claudechic environment installed"

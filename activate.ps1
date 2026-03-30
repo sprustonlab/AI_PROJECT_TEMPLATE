@@ -55,7 +55,10 @@ $env:PROJECT_ROOT = $BASEDIR
 
 # Activate default pixi environment via shell-hook
 Push-Location $BASEDIR
-pixi shell-hook -s powershell | Invoke-Expression
+$hookOutput = pixi shell-hook -s powershell 2>$null
+if ($hookOutput) {
+    $hookOutput | Invoke-Expression
+}
 Pop-Location
 
 # Add repos/ subdirectories to PYTHONPATH

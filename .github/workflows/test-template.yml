@@ -1,307 +1,97 @@
 # =============================================================================
-# Template Generation & Plugin Test Workflow
+# Unified Test Workflow
 # =============================================================================
-# Tests the Copier template generation with various configurations, MCP
-# tool discovery, and cluster tool parsers across platforms.
+# CI runs pytest — all test logic lives in Python test files, not shell scripts.
 #
-# Matrix:
-#   - ubuntu-latest, macos-latest, windows-latest
-#
-# Test categories:
-#   1. Local pytest suite (tests/ at repo root)
-#      - Copier generation tests (standard, developer, LSF, SLURM, no-cluster)
-#      - MCP discovery tests (discover_mcp_tools from claudechic)
-#      - Cluster tool parser tests (LSF + SLURM output parsing)
-#   2. Copier generation smoke tests
-#      - Standard mode → pixi install succeeds
-#      - Developer mode → pixi install succeeds
-#   3. Cross-platform copier generation
+# Jobs:
+#   fast: Runs "pytest -m 'not slow'" on 3 OSes (every push/PR)
+#   slow: Runs "pytest -m ''" on Linux/macOS (weekly / manual dispatch)
 # =============================================================================
 
-name: Template Tests
+name: Tests
 
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  schedule:
+    - cron: "0 6 * * 1"  # Weekly Monday 6am UTC
   workflow_dispatch:
+    inputs:
+      run_slow:
+        type: boolean
+        default: true
+        description: "Run slow E2E tests"
 
 env:
-  # Prevent interactive prompts
-  COPIER_DEFAULTS: "true"
   GIT_AUTHOR_NAME: "CI"
   GIT_AUTHOR_EMAIL: "ci@test.com"
   GIT_COMMITTER_NAME: "CI"
   GIT_COMMITTER_EMAIL: "ci@test.com"
 
 jobs:
-  # =========================================================================
-  # Job 1: Run the local pytest suite (fast, no pixi install needed)
-  # =========================================================================
-  pytest-suite:
-    name: Pytest (${{ matrix.os }})
+  # ─── Fast tests: run on every push ───────────────────────────
+  fast:
+    name: Fast Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: Checkout with submodules
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pyyaml copier
+          pip install pytest pyyaml copier pytest-asyncio pytest-timeout
 
-      - name: Run pytest suite
-        run: |
-          python -m pytest tests/ -v --tb=short -x
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
+      - name: Run fast tests
+        run: python -m pytest -v --tb=short
 
-  # =========================================================================
-  # Job 2: Copier generation + pixi install smoke tests
-  # =========================================================================
-  copier-smoke:
-    name: Copier + Pixi (${{ matrix.os }} / ${{ matrix.mode }})
+  # ─── Slow tests: pixi install, network, E2E ─────────────────
+  slow:
+    name: E2E Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: pytest-suite
-
+    needs: fast
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_slow)
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        mode: [standard, developer]
-        exclude:
-          # Developer mode requires git clone of claudechic — skip on Windows
-          # where git clone in post-tasks can be flaky
-          - os: windows-latest
-            mode: developer
 
     steps:
-      - name: Checkout with submodules
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install pixi
-        uses: prefix-dev/setup-pixi@v0.8.8
+      - uses: prefix-dev/setup-pixi@v0.8.8
         with:
           run-install: false
 
-      - name: Install copier
-        run: pip install copier
-
-      # --- Generate project with copier ---
-
-      - name: Create output directory
+      - name: Install test dependencies
         run: |
-          mkdir -p /tmp/generated_project
-          cd /tmp/generated_project
-          git init
-          git commit --allow-empty -m "init"
-        shell: bash
+          python -m pip install --upgrade pip
+          pip install pytest pyyaml copier pytest-asyncio pytest-timeout pexpect
 
-      - name: Run copier copy (${{ matrix.mode }} mode)
-        run: |
-          copier copy \
-            --defaults \
-            --UNSAFE \
-            -d project_name=ci_test_project \
-            -d claudechic_mode=${{ matrix.mode }} \
-            -d use_cluster=false \
-            -d use_guardrails=true \
-            -d use_project_team=true \
-            ${{ github.workspace }} \
-            /tmp/generated_project
-        shell: bash
-
-      - name: Verify pixi.toml content
-        run: |
-          cd /tmp/generated_project
-          echo "=== pixi.toml ==="
-          cat pixi.toml
-          echo ""
-
-          if [ "${{ matrix.mode }}" = "standard" ]; then
-            grep -q "github.com/boazmohar/claudechic" pixi.toml \
-              && echo "✅ Standard mode: git URL found" \
-              || (echo "❌ Standard mode: git URL NOT found" && exit 1)
-          else
-            grep -q 'editable = true' pixi.toml \
-              && echo "✅ Developer mode: editable path found" \
-              || (echo "❌ Developer mode: editable path NOT found" && exit 1)
-          fi
-        shell: bash
-
-      - name: Verify excluded directories absent
-        run: |
-          cd /tmp/generated_project
-          for dir in docs .ao_project_team tests; do
-            if [ -d "$dir" ]; then
-              echo "❌ $dir/ should be excluded but exists"
-              exit 1
-            fi
-          done
-          echo "✅ All excluded directories verified absent"
-        shell: bash
-
-      - name: Run pixi install
-        run: |
-          cd /tmp/generated_project
-          pixi install
-        shell: bash
+      - name: Run all tests (including slow)
+        run: python -m pytest -m "" -v --tb=short --timeout=300
         env:
           SETUPTOOLS_SCM_PRETEND_VERSION: "0.0.1"
-        # pixi install may fail if claudechic git clone is not accessible
-        # from CI; mark as soft failure
-        continue-on-error: true
-
-  # =========================================================================
-  # Job 3: Cluster configuration generation tests
-  # =========================================================================
-  copier-cluster:
-    name: Cluster Config (${{ matrix.scheduler }})
-    runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        scheduler: [lsf, slurm]
-
-    steps:
-      - name: Checkout with submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install copier
-        run: pip install copier
-
-      - name: Create output directory
-        run: |
-          mkdir -p /tmp/cluster_project
-          cd /tmp/cluster_project
-          git init
-          git commit --allow-empty -m "init"
-
-      - name: Run copier copy (cluster=${{ matrix.scheduler }})
-        run: |
-          copier copy \
-            --defaults \
-            --UNSAFE \
-            -d project_name=cluster_test \
-            -d claudechic_mode=standard \
-            -d use_cluster=true \
-            -d cluster_scheduler=${{ matrix.scheduler }} \
-            -d cluster_ssh_target=login.example.com \
-            ${{ github.workspace }} \
-            /tmp/cluster_project
-
-      - name: Verify cluster files
-        run: |
-          cd /tmp/cluster_project
-
-          if [ "${{ matrix.scheduler }}" = "lsf" ]; then
-            test -f mcp_tools/lsf.py && echo "✅ lsf.py present" || (echo "❌ lsf.py missing" && exit 1)
-            test -f mcp_tools/lsf.yaml && echo "✅ lsf.yaml present" || (echo "❌ lsf.yaml missing" && exit 1)
-            test -f mcp_tools/_cluster.py && echo "✅ _cluster.py present" || (echo "❌ _cluster.py missing" && exit 1)
-            test ! -f mcp_tools/slurm.py && echo "✅ slurm.py absent" || (echo "❌ slurm.py should not exist" && exit 1)
-            test ! -f mcp_tools/slurm.yaml && echo "✅ slurm.yaml absent" || (echo "❌ slurm.yaml should not exist" && exit 1)
-          else
-            test -f mcp_tools/slurm.py && echo "✅ slurm.py present" || (echo "❌ slurm.py missing" && exit 1)
-            test -f mcp_tools/slurm.yaml && echo "✅ slurm.yaml present" || (echo "❌ slurm.yaml missing" && exit 1)
-            test -f mcp_tools/_cluster.py && echo "✅ _cluster.py present" || (echo "❌ _cluster.py missing" && exit 1)
-            test ! -f mcp_tools/lsf.py && echo "✅ lsf.py absent" || (echo "❌ lsf.py should not exist" && exit 1)
-            test ! -f mcp_tools/lsf.yaml && echo "✅ lsf.yaml absent" || (echo "❌ lsf.yaml should not exist" && exit 1)
-          fi
-
-      - name: Verify SSH target in YAML config
-        run: |
-          cd /tmp/cluster_project
-          config_file="mcp_tools/${{ matrix.scheduler }}.yaml"
-          grep -q "login.example.com" "$config_file" \
-            && echo "✅ SSH target found in $config_file" \
-            || (echo "❌ SSH target missing from $config_file" && exit 1)
-
-      - name: Verify pyyaml in pixi.toml
-        run: |
-          cd /tmp/cluster_project
-          grep -qi "pyyaml" pixi.toml \
-            && echo "✅ pyyaml dependency present" \
-            || (echo "❌ pyyaml dependency missing" && exit 1)
-
-  # =========================================================================
-  # Job 4: No-cluster generation test
-  # =========================================================================
-  copier-no-cluster:
-    name: No Cluster Config
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout with submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install copier
-        run: pip install copier
-
-      - name: Create output directory
-        run: |
-          mkdir -p /tmp/nocluster_project
-          cd /tmp/nocluster_project
-          git init
-          git commit --allow-empty -m "init"
-
-      - name: Run copier copy (no cluster)
-        run: |
-          copier copy \
-            --defaults \
-            --UNSAFE \
-            -d project_name=nocluster_test \
-            -d claudechic_mode=standard \
-            -d use_cluster=false \
-            ${{ github.workspace }} \
-            /tmp/nocluster_project
-
-      - name: Verify no cluster files
-        run: |
-          cd /tmp/nocluster_project
-          for f in lsf.py slurm.py _cluster.py lsf.yaml slurm.yaml; do
-            if [ -f "mcp_tools/$f" ]; then
-              echo "❌ mcp_tools/$f should not exist when use_cluster=false"
-              exit 1
-            fi
-          done
-          echo "✅ No cluster files present"
+        timeout-minutes: 10

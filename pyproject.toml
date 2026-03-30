@@ -1,0 +1,13 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: tests that take >30s (copier+pixi install, E2E)",
+    "copier: tests that run copier copy",
+    "pixi: tests that require pixi installed",
+    "network: tests requiring network access",
+    "tui: Textual TUI tests using App.run_test()",
+    "unix_only: tests that only work on Linux/macOS (pexpect)",
+]
+# Default: skip slow tests locally
+addopts = "-m 'not slow'"
+timeout = 30

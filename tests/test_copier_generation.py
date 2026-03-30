@@ -25,10 +25,13 @@ def _copier_available():
 
 
 # Skip entire module if copier is not available
-pytestmark = pytest.mark.skipif(
-    not _copier_available(),
-    reason="copier not installed",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        not _copier_available(),
+        reason="copier not installed",
+    ),
+    pytest.mark.copier,
+]
 
 
 # ---------------------------------------------------------------------------

@@ -36,6 +36,8 @@ pytestmark = [
         reason="pixi not installed",
     ),
     pytest.mark.slow,
+    pytest.mark.network,
+    pytest.mark.unix_only,
 ]
 
 TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
@@ -151,6 +153,7 @@ class TestCopierGeneration:
 class TestPixiInstall:
     """Run pixi install and verify it succeeds."""
 
+    @pytest.mark.timeout(300)
     @pytest.mark.skipif(
         os.environ.get("CI_SKIP_PIXI_INSTALL") == "1",
         reason="CI_SKIP_PIXI_INSTALL set",
@@ -250,6 +253,7 @@ class TestMCPServerCreation:
 class TestTUIStartup:
     """Verify claudechic TUI starts without crashing (pexpect)."""
 
+    @pytest.mark.timeout(60)
     @pytest.mark.skipif(
         not _pexpect_available(),
         reason="pexpect not installed",

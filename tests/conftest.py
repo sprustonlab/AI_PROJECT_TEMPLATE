@@ -18,11 +18,6 @@ TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
 CLAUDECHIC_MCP = TEMPLATE_ROOT / "submodules" / "claudechic" / "claudechic" / "mcp.py"
 
 
-def pytest_configure(config):
-    """Register custom markers."""
-    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
-
-
 @pytest.fixture
 def tmp_dir(tmp_path):
     """Provide a clean temporary directory."""

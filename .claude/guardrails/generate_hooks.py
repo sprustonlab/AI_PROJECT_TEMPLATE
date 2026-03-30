@@ -1005,6 +1005,7 @@ def generate_read_guard(rules: list[dict], catalog_version: str) -> str:
     lines.append("data = json.loads(sys.stdin.read())")
     lines.append("session_id = data.get('session_id', 'unknown')")
     lines.append("file_path = data.get('tool_input', {}).get('file_path', '')")
+    lines.append("file_path = file_path.replace(os.sep, '/')")
     lines.append("cwd = data.get('cwd', os.getcwd())")
     lines.append("ts = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')")
     lines.append("tool_name = 'Read'")
@@ -1312,6 +1313,7 @@ def generate_write_guard(write_rules: list[dict], edit_rules: list[dict],
     lines.append("        rel_path = str(_abs.relative_to(Path(cwd).resolve()))")
     lines.append("except (ValueError, TypeError, OSError):")
     lines.append("    pass")
+    lines.append("rel_path = rel_path.replace(os.sep, '/')")
     lines.append("")
 
     # Emit role_guard import if needed

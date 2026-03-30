@@ -220,9 +220,7 @@ class TestMCPServerCreation:
         """discover_mcp_tools() finds LSF tools in the generated project's mcp_tools/."""
         # We can test this directly using our test infrastructure
         # (no need for pixi — just import and point at the directory)
-        from tests.conftest import TEMPLATE_ROOT  # noqa: F401
-
-        # Re-import discover_mcp_tools (already loaded from conftest mock)
+        from pathlib import Path
         from claudechic.mcp import discover_mcp_tools
 
         mcp_dir = generated_project / "mcp_tools"

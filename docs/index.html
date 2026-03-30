@@ -41,9 +41,9 @@
 
   <div class="panel" id="panel-unix">
     <p>Run this in your terminal:</p>
-    <div class="code-block" id="code-unix">curl -fsSL https://sprustonlab.github.io/AI_PROJECT_TEMPLATE/install.sh | bash -s my-project<button class="copy-btn" onclick="copyCode('code-unix', this)">Copy</button></div>
+    <div class="code-block" id="code-unix">curl -fsSL https://sprustonlab.github.io/AI_PROJECT_TEMPLATE/install.sh | bash<button class="copy-btn" onclick="copyCode('code-unix', this)">Copy</button></div>
 
-    <p style="margin-top:16px;">Replace <code>my-project</code> with your project name. The script installs <a href="https://pixi.sh" style="color:#0066cc;">pixi</a> if needed, runs Copier, and sets up environments.</p>
+    <p style="margin-top:16px;">The script asks where to create the project, then walks you through setup. Installs <a href="https://pixi.sh" style="color:#0066cc;">pixi</a> if needed.</p>
   </div>
 
   <div class="panel" id="panel-win">
@@ -52,7 +52,9 @@
 
     <p style="margin-top:12px;">The script will prompt for your project name and install location.</p>
     <p style="margin-top:12px;">Or download and run manually:</p>
-    <a class="download-btn" href="install.ps1" download>Download install.ps1</a>
+    <a class="download-btn" href="#" onclick="downloadFile('install.ps1'); return false;">Download install.ps1</a>
+    <p style="margin-top:12px; font-size:0.9em; color:#555;">Steps: 1. Click download &nbsp;2. Right-click the file → <strong>"Run with PowerShell"</strong> &nbsp;3. Answer the setup questions</p>
+    <p style="font-size:0.85em; color:#888;">Do not double-click (opens Notepad). Use right-click → "Run with PowerShell".</p>
 
     <div class="note">Using WSL? Use the Linux/macOS command instead.</div>
   </div>
@@ -60,7 +62,7 @@
   <div class="section">
     <h2>Already have pixi?</h2>
     <p class="alt-heading">With pipx or pixi exec:</p>
-    <div class="code-block" id="code-alt">pixi exec --spec "copier>=9,<10" -- copier copy https://github.com/sprustonlab/AI_PROJECT_TEMPLATE my-project<button class="copy-btn" onclick="copyCode('code-alt', this)">Copy</button></div>
+    <div class="code-block" id="code-alt">pixi exec --spec "copier>=9,<10" --spec git -- copier copy https://github.com/sprustonlab/AI_PROJECT_TEMPLATE my-project<button class="copy-btn" onclick="copyCode('code-alt', this)">Copy</button></div>
 
     <p class="alt-heading">Then install environments:</p>
     <div class="code-block" id="code-install">cd my-project && pixi install<button class="copy-btn" onclick="copyCode('code-install', this)">Copy</button></div>
@@ -82,12 +84,42 @@
 
     function copyCode(blockId, btn) {
       var block = document.getElementById(blockId);
-      var text = block.childNodes[0].textContent;
-      navigator.clipboard.writeText(text.trim()).then(function() {
-        btn.textContent = 'Copied!';
-        btn.classList.add('copied');
-        setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-      });
+      var text = block.childNodes[0].textContent.trim();
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function() { showCopied(btn); });
+      } else {
+        // Fallback for non-secure contexts (HTTP, SSH forwarding)
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showCopied(btn);
+      }
+    }
+
+    function showCopied(btn) {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    }
+
+    function downloadFile(filename) {
+      fetch(filename)
+        .then(function(r) { return r.blob(); })
+        .then(function(blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
     }
 
     // Auto-detect OS

@@ -82,7 +82,9 @@ See [`.claude/guardrails/README.md`](.claude/guardrails/README.md) for full docu
 
 ### MCP Tools
 
-Drop Python files into `mcp_tools/` and they're automatically discovered by claudechic. Each tool implements `get_tools(**kwargs)` and can have a sibling YAML config file. See `mcp_tools/_cluster.py` for the shared infrastructure pattern.
+Drop Python files into `mcp_tools/` and they're automatically discovered by claudechic. Includes LSF and SLURM cluster backends for HPC job management.
+
+See [`mcp_tools/README.md`](template/mcp_tools/README.md) for full documentation on adding tools, cluster backends, and configuration.
 
 ### Multi-Agent Project Team
 

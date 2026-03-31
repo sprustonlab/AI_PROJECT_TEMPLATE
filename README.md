@@ -29,7 +29,8 @@ my-project/
 │   └── guardrails/         # Permission system (rules.yaml → generated hooks)
 ├── AI_agents/
 │   └── project_team/       # Multi-agent roles (Coordinator, Implementer, Skeptic, etc.)
-├── commands/               # CLI scripts (added to PATH by activate)
+├── commands/
+│   └── claudechic          # CLI wrapper (added to PATH by activate)
 ├── mcp_tools/              # MCP tool plugins (auto-discovered by claudechic)
 ├── repos/                  # Your codebases (added to PYTHONPATH by activate)
 ├── activate                # Source this to set up your environment

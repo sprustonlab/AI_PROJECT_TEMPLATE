@@ -46,6 +46,12 @@ echo "Installing environments..."
 cd "$PROJECT_DIR"
 pixi install
 
+# Generate guardrail hooks (needs pixi env for PyYAML)
+if [ -f .claude/guardrails/generate_hooks.py ]; then
+    echo "Generating guardrail hooks..."
+    pixi run -e claudechic python .claude/guardrails/generate_hooks.py
+fi
+
 echo ""
 echo "✔ Project is ready! Launching claudechic..."
 echo ""

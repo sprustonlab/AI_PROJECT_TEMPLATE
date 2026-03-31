@@ -139,14 +139,12 @@ class TestClusterScheduler:
         yaml_content = (dest / "mcp_tools" / "lsf.yaml").read_text()
         assert "mylogin.janelia.org" in yaml_content
 
-    def test_cluster_adds_pyyaml(self, copier_output):
-        """use_cluster=true → pixi.toml includes pyyaml dependency."""
+    def test_pyyaml_always_present(self, copier_output):
+        """pixi.toml always includes pyyaml (needed by guardrails)."""
         dest = copier_output({
             "project_name": "yaml_dep",
             "claudechic_mode": "standard",
-            "use_cluster": True,
-            "cluster_scheduler": "lsf",
-            "cluster_ssh_target": "",
+            "use_cluster": False,
         })
         content = (dest / "pixi.toml").read_text()
         assert "pyyaml" in content.lower()

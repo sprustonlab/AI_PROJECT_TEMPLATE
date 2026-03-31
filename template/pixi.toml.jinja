@@ -26,13 +26,14 @@ claudechic = { git = "https://github.com/sprustonlab/claudechic", branch = "main
 {% else %}
 claudechic = { path = "submodules/claudechic", editable = true }
 {% endif %}
-{% if use_cluster %}
 pyyaml = "*"
-{% endif %}
 
 # ── Tasks ─────────────────────────────────────────────────────
 [feature.claudechic.tasks]
 claudechic = "claudechic"
+{% if use_guardrails %}
+generate-hooks = "python .claude/guardrails/generate_hooks.py"
+{% endif %}
 
 # ── Environment mappings ──────────────────────────────────────
 [environments]

@@ -76,13 +76,9 @@ Our fork adds:
 
 ### Guardrails
 
-Rule-based permission system for Claude Code tool calls. Rules are defined in `.claude/guardrails/rules.yaml` and compiled into hook scripts:
+Rule-based permission system for Claude Code tool calls. Rules are defined in `.claude/guardrails/rules.yaml` and compiled into hook scripts. The default rule (R01) blocks dangerous operations like `rm -rf /` and `git push --force`.
 
-```bash
-python3 .claude/guardrails/generate_hooks.py  # Regenerate after editing rules
-```
-
-The default rule (R01) blocks dangerous operations like `rm -rf /` and `git push --force`.
+See [`.claude/guardrails/README.md`](.claude/guardrails/README.md) for full documentation on adding rules, roles, enforcement levels, and the ack flow.
 
 ### MCP Tools
 
@@ -90,7 +86,9 @@ Drop Python files into `mcp_tools/` and they're automatically discovered by clau
 
 ### Multi-Agent Project Team
 
-Run `/ao_project_team` in claudechic to start the structured workflow (orchestrated by `AI_agents/project_team/COORDINATOR.md`):
+Run `/ao_project_team` in claudechic to start the structured workflow. See [`AI_agents/project_team/README.md`](AI_agents/project_team/README.md) for full documentation.
+
+Summary (orchestrated by `AI_agents/project_team/COORDINATOR.md`):
 
 **1. Vision (1 agent)**
 You describe what you want. The agent spells out the vision in detail — what success and failure look like — and iterates with you until it's correct. Creates `.ao_project_team/{project_name}/` with `userprompt.md` and `STATUS.md`.

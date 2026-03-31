@@ -193,7 +193,7 @@ class TestIntegrateScript:
             [sys.executable, str(script)],
             cwd=tmp_path,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             timeout=10,
         )
         assert result.returncode == 0
@@ -205,7 +205,7 @@ class TestIntegrateScript:
             [sys.executable, str(script), "/nonexistent/path/foobar"],
             cwd=tmp_path,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             timeout=10,
         )
         assert result.returncode == 1
@@ -223,7 +223,7 @@ class TestIntegrateScript:
             [sys.executable, str(script), str(fake_codebase), "copy"],
             cwd=project_dir,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             timeout=10,
         )
         assert result.returncode == 0
@@ -249,7 +249,7 @@ class TestIntegrateScript:
             [sys.executable, str(script), str(fake_codebase), "symlink"],
             cwd=project_dir,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             timeout=10,
         )
         assert result.returncode == 0

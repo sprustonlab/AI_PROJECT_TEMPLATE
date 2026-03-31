@@ -11,8 +11,6 @@
 name: Tests
 
 on:
-  push:
-    branches: [main, composable-onboarding]
   pull_request:
     branches: [main, composable-onboarding]
   workflow_dispatch:

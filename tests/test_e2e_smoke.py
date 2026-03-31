@@ -256,6 +256,103 @@ class TestMCPServerCreation:
 # ---------------------------------------------------------------------------
 
 
+class TestExistingCodebaseImport:
+    """Verify that an existing codebase integrated via repos/ is importable after activate."""
+
+    @pytest.mark.timeout(300)
+    @pytest.mark.skipif(
+        os.environ.get("CI_SKIP_PIXI_INSTALL") == "1",
+        reason="CI_SKIP_PIXI_INSTALL set",
+    )
+    def test_import_existing_codebase_after_activate(self):
+        """Full E2E: copier + existing_codebase → source activate → import works."""
+        if not _copier_available():
+            pytest.skip("copier not installed")
+
+        from copier import run_copy
+
+        tmp = tempfile.mkdtemp(prefix="e2e_codebase_")
+        try:
+            # 1. Create a fake codebase with a Python package
+            fake_repo = Path(tmp) / "my_lib"
+            fake_repo.mkdir()
+            pkg_dir = fake_repo / "my_lib"
+            pkg_dir.mkdir()
+            (pkg_dir / "__init__.py").write_text("VERSION = '0.42'\n")
+            (pkg_dir / "core.py").write_text("def greet():\n    return 'hello from my_lib'\n")
+
+            # 2. Generate project with existing_codebase pointing to fake repo
+            dest = Path(tmp) / "test_project"
+
+            env = os.environ.copy()
+            env["GIT_AUTHOR_NAME"] = "Test"
+            env["GIT_AUTHOR_EMAIL"] = "test@test.com"
+            env["GIT_COMMITTER_NAME"] = "Test"
+            env["GIT_COMMITTER_EMAIL"] = "test@test.com"
+
+            dest.mkdir(parents=True)
+            subprocess.run(
+                ["git", "init"], cwd=dest, capture_output=True, check=True, env=env,
+            )
+            subprocess.run(
+                ["git", "commit", "--allow-empty", "-m", "init"],
+                cwd=dest, capture_output=True, check=True, env=env,
+            )
+
+            run_copy(
+                str(TEMPLATE_ROOT),
+                dest,
+                data={
+                    "project_name": "codebase_import_test",
+                    "claudechic_mode": "standard",
+                    "use_cluster": False,
+                    "use_guardrails": False,
+                    "use_project_team": False,
+                    "init_git": False,
+                    "existing_codebase": str(fake_repo),
+                    "codebase_link_mode": "copy",
+                },
+                defaults=True,
+                unsafe=True,
+            )
+
+            # 3. Verify the codebase landed in repos/
+            assert (dest / "repos" / "my_lib" / "my_lib" / "__init__.py").exists()
+
+            # 4. Source activate and try to import
+            # We simulate what activate does: add repos/*/ to PYTHONPATH
+            # then run python to import the package.
+            # Write the test script to a file to avoid shell quoting issues.
+            test_script = dest / "_test_import.py"
+            test_script.write_text(
+                "from my_lib import VERSION\n"
+                "from my_lib.core import greet\n"
+                "print('version=' + VERSION + ' greeting=' + greet())\n"
+            )
+            result = subprocess.run(
+                ["bash", "-c",
+                 f'source "{dest}/activate" && python3 "{test_script}"'],
+                cwd=dest,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=env,
+            )
+            assert result.returncode == 0, (
+                f"Import failed after activate:\nSTDOUT: {result.stdout[:500]}\nSTDERR: {result.stderr[:500]}"
+            )
+            assert "version=0.42" in result.stdout
+            assert "greeting=hello from my_lib" in result.stdout
+
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Test 6: claudechic TUI startup (pexpect)
+# ---------------------------------------------------------------------------
+
+
 class TestTUIStartup:
     """Verify claudechic TUI starts without crashing (pexpect)."""
 

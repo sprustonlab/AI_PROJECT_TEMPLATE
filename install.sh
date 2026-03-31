@@ -55,10 +55,15 @@ echo "Installing environments..."
 cd "$PROJECT_NAME"
 pixi install
 
+# 7. Launch claudechic
 echo ""
-echo "✔ Project is ready at: $(pwd)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  ✔ Project ready at: $(pwd)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "To start working:"
-echo "  cd $(pwd)"
-echo "  source activate"
-echo "  pixi run claudechic"
+echo "Next time, start with:"
+echo "  cd $(pwd) && source activate && pixi run claudechic"
+echo ""
+echo "Launching claudechic..."
+echo ""
+pixi run claudechic

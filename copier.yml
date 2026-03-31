@@ -31,45 +31,6 @@ use_pattern_miner:
     Scans Claude session history for user corrections and feeds
     them into PATTERNS.md. Useful for improving agent behavior.
 
-project_type:
-  type: str
-  default: "general"
-  choices:
-    - general
-    - scientific
-  help: |
-    What kind of project?
-    - general: General software project
-    - scientific: Scientific computing / research project
-    Scientific projects unlock domain-specific questions.
-
-science_domain:
-  type: str
-  default: "other"
-  when: "{{ project_type == 'scientific' }}"
-  choices:
-    - biology
-    - physics
-    - chemistry
-    - data_science
-    - other
-  help: |
-    What scientific domain? Used to suggest relevant skill packs.
-    - biology: Biology / Genomics / Neuroscience
-    - physics: Physics / Cosmology / Materials
-    - chemistry: Chemistry / Drug Discovery
-    - data_science: Data Science / ML / Statistics
-    - other: Other scientific domain
-
-autonomous_agents:
-  type: bool
-  default: false
-  when: "{{ project_type == 'scientific' }}"
-  help: |
-    Will agents run autonomously (overnight / weekend)?
-    If yes, scaffolds CLAUDE.md with research goals, CHANGELOG.md
-    as agent memory, test oracle directories, and stricter guardrails.
-
 target_platform:
   type: str
   choices:
@@ -112,12 +73,26 @@ cluster_ssh_target:
   when: "{{ use_cluster }}"
   help: "SSH login node (leave empty if scheduler is available locally)"
 
+init_git:
+  type: bool
+  default: true
+  help: "Initialize a git repository in the new project?"
+
 existing_codebase:
   type: str
   default: ""
   help: |
     Path to an existing codebase to integrate (leave empty for fresh project).
     The codebase will be linked/copied into the repos/ directory.
+
+codebase_link_mode:
+  type: str
+  when: "{{ existing_codebase }}"
+  choices:
+    "Symlink — saves disk space, changes reflect immediately (Linux/macOS)": symlink
+    "Copy — works everywhere, independent copy": copy
+  default: "symlink"
+  help: "How to integrate the existing codebase into repos/?"
 
 _exclude:
   - docs/
@@ -136,94 +111,11 @@ _exclude:
   - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.yaml{% endif %}"
 
 _tasks:
+  # Post-generation: generate guardrail hooks from rules.yaml
+  - "{% if use_guardrails %}python3 .claude/guardrails/generate_hooks.py{% endif %}"
   # Post-generation: clone claudechic for developer mode
   - "{% if claudechic_mode == 'developer' %}git clone https://github.com/sprustonlab/claudechic submodules/claudechic{% endif %}"
   # Post-generation: integrate existing codebase if path was provided
-  - >-
-    {% if existing_codebase %}
-    python3 -c "
-    import os, sys, shutil
-    from pathlib import Path
-
-    codebase = Path('{{ existing_codebase }}').expanduser().resolve()
-    project_root = Path('.').resolve()
-    repos_dir = project_root / 'repos'
-
-    # 1. Validate path
-    if not codebase.is_dir():
-        print(f'❌ Error: existing_codebase path does not exist or is not a directory: {codebase}')
-        sys.exit(1)
-
-    # 2. Detect existing tooling
-    print(f'Integrating existing codebase: {codebase}')
-    detected = []
-    for marker in ['.git', 'environment.yml', 'requirements.txt', '.claude', 'pyproject.toml']:
-        if (codebase / marker).exists():
-            detected.append(marker)
-    if detected:
-        joined = ', '.join(detected)
-        print(f'  Detected existing tooling: {joined}')
-
-    # 3. Symlink into repos/
-    repos_dir.mkdir(parents=True, exist_ok=True)
-    link_target = repos_dir / codebase.name
-    if link_target.exists():
-        print(f'  ⚠️  {link_target} already exists — skipping symlink')
-    else:
-        try:
-            link_target.symlink_to(codebase)
-            print(f'  ✔ Linked {codebase.name} → repos/{codebase.name}/')
-        except OSError:
-            # Symlinks may fail on some systems; fall back to copy
-            shutil.copytree(str(codebase), str(link_target))
-            print(f'  ✔ Copied {codebase.name} → repos/{codebase.name}/')
-    print(f'  ✔ PYTHONPATH: activate script already adds repos/*/ to PYTHONPATH')
-
-    # 4. Handle .claude/ conflicts
-    existing_claude = codebase / '.claude'
-    template_claude = project_root / '.claude'
-    if existing_claude.is_dir() and template_claude.is_dir():
-        print()
-        print(f'⚠️  Existing .claude/ directory detected at {existing_claude}')
-        print()
-
-        # Find what template wants to add
-        template_files = set()
-        for f in template_claude.rglob('*'):
-            if f.is_file():
-                template_files.add(f.relative_to(template_claude))
-
-        # Find what already exists
-        existing_files = set()
-        for f in existing_claude.rglob('*'):
-            if f.is_file():
-                existing_files.add(f.relative_to(existing_claude))
-
-        new_files = template_files - existing_files
-        conflict_files = template_files & existing_files
-        existing_only = existing_files - template_files
-
-        if new_files:
-            print('  The template wants to add these files:')
-            for f in sorted(new_files):
-                print(f'    + .claude/{f}')
-
-        if existing_only:
-            print()
-            print('  These files already exist in your codebase (not overwritten):')
-            for f in sorted(existing_only):
-                print(f'    ≡ .claude/{f}')
-
-        if conflict_files:
-            print()
-            print('  These files exist in BOTH (review manually):')
-            for f in sorted(conflict_files):
-                print(f'    ⚡ .claude/{f}')
-
-        print()
-        print('  Please review and merge manually:')
-        print(f'    cp -n .claude/commands/* {existing_claude}/commands/ 2>/dev/null')
-        print(f'    cp -n .claude/guardrails/* {existing_claude}/guardrails/ 2>/dev/null')
-        print()
-    "
-    {% endif %}
+  - "{% if existing_codebase %}python3 scripts/integrate_codebase.py '{{ existing_codebase }}' '{{ codebase_link_mode }}'{% endif %}"
+  # Post-generation: git init (last, so all generated files are included)
+  - "{% if init_git %}git init && git add -A && git commit -m 'Initial project from AI_PROJECT_TEMPLATE'{% endif %}"

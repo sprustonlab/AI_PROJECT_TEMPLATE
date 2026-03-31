@@ -32,7 +32,10 @@ my-project/
 ├── commands/
 │   └── claudechic          # CLI wrapper (added to PATH by activate)
 ├── mcp_tools/              # MCP tool plugins (auto-discovered by claudechic)
-├── repos/                  # Your codebases (added to PYTHONPATH by activate)
+├── repos/                  # Your codebases (symlinked/copied, added to PYTHONPATH)
+│   └── my_existing_repo/   # ← from existing_codebase option
+├── submodules/             # (developer mode only)
+│   └── claudechic/         # Local editable clone of claudechic
 ├── activate                # Source this to set up your environment
 ├── pixi.toml               # Package manager config
 └── copier.yml              # Template answers (for copier update)

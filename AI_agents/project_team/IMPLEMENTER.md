@@ -87,6 +87,18 @@ When implementing:
 - Code to Test Engineer for testing
 - Questions back to Composability if design is unclear
 
+## Communication
+
+**Use `ask_agent` as your default.** It guarantees a response — the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
+
+**Use `tell_agent` for reporting results and fire-and-forget updates** where you don't need a response.
+
+**When to communicate:**
+- After completing your task → `tell_agent` with summary
+- After encountering blockers → `ask_agent` with diagnosis
+- When you need a decision → `ask_agent` with the question
+- When delegating a task → `ask_agent` to ensure it gets done
+
 ## Rules
 
 1. **Implement what's specified** — Don't add unrequested features
@@ -94,3 +106,4 @@ When implementing:
 3. **Use correct names** — Terminology matters
 4. **Write testable code** — Test Engineer needs to verify it
 5. **Ask when unclear** — Better to clarify than assume
+6. **Run targeted tests only** — After changes, run only the test file(s) directly relevant to your work (e.g., `pytest tests/test_foo.py -v`). Never run the full suite during active development — that is wasteful and reserved for phase transitions only.

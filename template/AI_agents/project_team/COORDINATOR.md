@@ -66,8 +66,6 @@ Also set `monorepo_root` = absolute path to the postdoc_monorepo (where AI_agent
 
 **IMPORTANT:** All paths in agent prompts MUST be absolute paths. Subagents cannot resolve relative paths reliably.
 
-**Hint — No git detected:** If `working_dir` has no `.git` directory, advise the user that version control is recommended and offer to set it up. See `AI_agents/project_team/GIT_SETUP.md` for the standard workflow.
-
 ---
 
 ## Phase 1b: Session Check

@@ -78,6 +78,7 @@ Ask: **"Does this need to be a class, or is state making correctness harder to s
 - Can't explain the flow in one sentence → too complex to verify
 - "X is too hard, let's do Y instead" → avoiding essential complexity
 - "This is simpler" (but solves a different problem) → not simpler, just incomplete
+- "Tests pass with default values" → wiring untested; the test may never exercise the user's actual config. Check: does the test set a non-default value and verify it reaches the service layer?
 
 ## Authority
 
@@ -101,3 +102,15 @@ Code should be:
 3. **Simple** — no unnecessary complexity
 
 In that order. Never trade completeness for simplicity — that's not simplification, it's giving up.
+
+## Communication
+
+**Use `ask_agent` as your default.** It guarantees a response — the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
+
+**Use `tell_agent` for reporting results and fire-and-forget updates** where you don't need a response.
+
+**When to communicate:**
+- After completing your task → `tell_agent` with summary
+- After encountering blockers → `ask_agent` with diagnosis
+- When you need a decision → `ask_agent` with the question
+- When delegating a task → `ask_agent` to ensure it gets done

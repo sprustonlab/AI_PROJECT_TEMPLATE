@@ -437,6 +437,7 @@ When reviewing any design or specification, systematically ask:
 - What choices should users be able to make independently?
 - Look for patterns: storage, format, interface, concurrency, lifetime
 - Remember: axes emerge from the domain, not from templates
+- **Start with defaults:** See `AI_agents/project_team/PROJECT_TYPES.md` for default axes by project type. Use these as a starting point, then refine based on the specific domain
 
 ### 2. Test Orthogonality
 **"Are the axes truly orthogonal?"**
@@ -508,3 +509,15 @@ The Coordinator will use this to:
 1. Spawn axis-specific Composability agents for deep review
 2. Coordinate with other Leadership agents
 3. Build the complete specification
+
+## Communication
+
+**Use `ask_agent` as your default.** It guarantees a response — the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
+
+**Use `tell_agent` for reporting results and fire-and-forget updates** where you don't need a response.
+
+**When to communicate:**
+- After completing your task → `tell_agent` with summary
+- After encountering blockers → `ask_agent` with diagnosis
+- When you need a decision → `ask_agent` with the question
+- When delegating a task → `ask_agent` to ensure it gets done

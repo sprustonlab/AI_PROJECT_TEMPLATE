@@ -85,6 +85,18 @@ Tests should:
 | **Skeptic** | Align on what's worth testing |
 | **Composability** | Test axis combinations |
 
+## Communication
+
+**Use `ask_agent` as your default.** It guarantees a response — the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
+
+**Use `tell_agent` for reporting results and fire-and-forget updates** where you don't need a response.
+
+**When to communicate:**
+- After completing your task → `tell_agent` with summary
+- After encountering blockers → `ask_agent` with diagnosis
+- When you need a decision → `ask_agent` with the question
+- When delegating a task → `ask_agent` to ensure it gets done
+
 ## Rules
 
 1. **Tests must pass** — Don't merge failing tests
@@ -92,3 +104,4 @@ Tests should:
 3. **Fast feedback** — Unit tests should be quick
 4. **Readable tests** — Tests are documentation
 5. **Don't test mocks** — Test real behavior
+6. **Targeted tests during active work** — Run only the test file(s) relevant to the feature being tested. Never run the full suite during active development — it is wasteful. The full suite is reserved for phase transition validation only.

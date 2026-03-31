@@ -1,30 +1,4 @@
-#!/usr/bin/env python3
-"""Launch claudechic TUI."""
-
-import os
-import subprocess
-import sys
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-os.chdir(PROJECT_ROOT)
-
-# Ensure claudechic submodule is initialized
-claudechic_dir = PROJECT_ROOT / "submodules" / "claudechic"
-if not (claudechic_dir / "pyproject.toml").exists():
-    print("⚠️  claudechic submodule not initialized")
-    print("Initializing submodule...")
-    subprocess.run(
-        ["git", "submodule", "update", "--init", "submodules/claudechic"],
-        cwd=PROJECT_ROOT,
-        check=True,
-    )
-    print("✔ Submodule initialized")
-
-# Run claudechic via pixi
-sys.exit(
-    subprocess.run(
-        ["pixi", "run", "-e", "claudechic", "python", "-m", "claudechic"] + sys.argv[1:],
-        cwd=PROJECT_ROOT,
-    ).returncode
-)
+#!/bin/bash
+# Launch claudechic via pixi
+cd "${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}" || exit 1
+exec pixi run claudechic "$@"

@@ -111,11 +111,9 @@ _exclude:
   - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.yaml{% endif %}"
 
 _tasks:
-  # Post-generation: generate guardrail hooks from rules.yaml
-  - "{% if use_guardrails %}python3 .claude/guardrails/generate_hooks.py{% endif %}"
   # Post-generation: clone claudechic for developer mode
   - "{% if claudechic_mode == 'developer' %}git clone https://github.com/sprustonlab/claudechic submodules/claudechic{% endif %}"
   # Post-generation: integrate existing codebase if path was provided
-  - "{% if existing_codebase %}python3 scripts/integrate_codebase.py '{{ existing_codebase }}' '{{ codebase_link_mode }}'{% endif %}"
+  - "{% if existing_codebase %}python3 scripts/integrate_codebase.py \"{{ existing_codebase }}\" \"{{ codebase_link_mode }}\"{% endif %}"
   # Post-generation: git init (last, so all generated files are included)
-  - "{% if init_git %}git init && git add -A && git commit -m 'Initial project from AI_PROJECT_TEMPLATE'{% endif %}"
+  - "{% if init_git %}git init && git add -A && git commit -m \"Initial project from AI_PROJECT_TEMPLATE\"{% endif %}"

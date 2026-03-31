@@ -12,6 +12,11 @@ import shutil
 import sys
 from pathlib import Path
 
+# Windows cp1252 can't print unicode symbols — force UTF-8
+if sys.stdout.encoding and sys.stdout.encoding.lower().startswith("cp"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 if len(sys.argv) < 2 or not sys.argv[1]:
     sys.exit(0)  # No codebase specified, nothing to do
 

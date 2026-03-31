@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 
 import pytest
 from pathlib import Path
@@ -198,3 +199,150 @@ class TestExclude:
             files = list(ai_agents.rglob("*"))
             files = [f for f in files if f.is_file()]
             assert files == [], f"AI_agents files should be excluded: {files}"
+
+
+# ---------------------------------------------------------------------------
+# Guardrail system completeness tests
+# ---------------------------------------------------------------------------
+
+
+class TestGuardrails:
+    """Verify the guardrail system is complete in generated projects."""
+
+    def test_guardrail_files_present(self, copier_output):
+        """use_guardrails=true → all guardrail components are present."""
+        dest = copier_output({
+            "project_name": "guard_test",
+            "claudechic_mode": "standard",
+            "use_guardrails": True,
+            "use_cluster": False,
+        })
+        guardrails = dest / ".claude" / "guardrails"
+        assert guardrails.exists(), "guardrails/ directory should exist"
+        assert (guardrails / "rules.yaml").exists(), "rules.yaml missing"
+        assert (guardrails / "generate_hooks.py").exists(), "generate_hooks.py missing"
+        assert (guardrails / "role_guard.py").exists(), "role_guard.py missing"
+        assert (guardrails / "hooks").is_dir(), "hooks/ directory missing"
+
+    def test_generate_hooks_runs(self, copier_output):
+        """generate_hooks.py can parse rules.yaml without errors."""
+        import subprocess
+        dest = copier_output({
+            "project_name": "guard_run",
+            "claudechic_mode": "standard",
+            "use_guardrails": True,
+            "use_cluster": False,
+        })
+        result = subprocess.run(
+            [sys.executable, str(dest / ".claude" / "guardrails" / "generate_hooks.py")],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"generate_hooks.py failed:\nSTDOUT: {result.stdout[:500]}\nSTDERR: {result.stderr[:500]}"
+        )
+        # After running, hooks/ should have generated scripts
+        hooks = list((dest / ".claude" / "guardrails" / "hooks").glob("*.py"))
+        assert len(hooks) > 0, "generate_hooks.py should create hook scripts"
+
+    def test_guardrail_files_no_jinja_artifacts(self, copier_output):
+        """Guardrail Python files should not have unprocessed Jinja2 artifacts."""
+        dest = copier_output({
+            "project_name": "guard_jinja",
+            "claudechic_mode": "standard",
+            "use_guardrails": True,
+            "use_cluster": False,
+        })
+        for pyfile in (dest / ".claude" / "guardrails").glob("*.py"):
+            content = pyfile.read_text()
+            # Real Jinja2 artifacts like {% or {{ project_name }} should not appear
+            # but Python f-string {{ }} is fine
+            assert "{%" not in content, f"Jinja artifact in {pyfile.name}"
+
+    def test_generated_hook_blocks_dangerous_command(self, copier_output):
+        """Full E2E: generate hooks, then fire bash_guard with 'rm -rf /' → blocked."""
+        dest = copier_output({
+            "project_name": "guard_e2e",
+            "claudechic_mode": "standard",
+            "use_guardrails": True,
+            "use_cluster": False,
+        })
+        guardrails = dest / ".claude" / "guardrails"
+
+        # Step 1: generate hooks
+        gen_result = subprocess.run(
+            [sys.executable, str(guardrails / "generate_hooks.py")],
+            cwd=dest, capture_output=True, text=True, timeout=30,
+        )
+        assert gen_result.returncode == 0, f"generate_hooks.py failed: {gen_result.stderr[:300]}"
+
+        bash_guard = guardrails / "hooks" / "bash_guard.py"
+        assert bash_guard.exists(), "bash_guard.py not generated"
+
+        # Step 2: simulate a dangerous tool call (what Claude Code sends on stdin)
+        import json
+        tool_call = json.dumps({
+            "tool_name": "Bash",
+            "tool_input": {"command": "rm -rf /"},
+            "session_id": "test-session",
+        })
+
+        result = subprocess.run(
+            [sys.executable, str(bash_guard)],
+            input=tool_call,
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        # Hook should exit non-zero (deny) with R01 message
+        assert result.returncode != 0, (
+            f"bash_guard should DENY 'rm -rf /' but exited 0.\nSTDOUT: {result.stdout[:300]}"
+        )
+        output = result.stdout + result.stderr
+        assert "R01" in output, (
+            f"Expected R01 in output.\nSTDOUT: {result.stdout[:300]}\nSTDERR: {result.stderr[:300]}"
+        )
+        assert "not allowed" in output.lower() or "blocked" in output.lower(), (
+            f"Expected block message.\nOutput: {output[:300]}"
+        )
+
+    def test_generated_hook_allows_safe_command(self, copier_output):
+        """Full E2E: fire bash_guard with 'ls -la' → allowed."""
+        dest = copier_output({
+            "project_name": "guard_allow",
+            "claudechic_mode": "standard",
+            "use_guardrails": True,
+            "use_cluster": False,
+        })
+        guardrails = dest / ".claude" / "guardrails"
+
+        # Generate hooks
+        subprocess.run(
+            [sys.executable, str(guardrails / "generate_hooks.py")],
+            cwd=dest, capture_output=True, text=True, timeout=30,
+        )
+
+        bash_guard = guardrails / "hooks" / "bash_guard.py"
+        assert bash_guard.exists()
+
+        import json
+        tool_call = json.dumps({
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls -la"},
+            "session_id": "test-session",
+        })
+
+        result = subprocess.run(
+            [sys.executable, str(bash_guard)],
+            input=tool_call,
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, (
+            f"bash_guard should ALLOW 'ls -la' but denied.\nSTDOUT: {result.stdout[:300]}\nSTDERR: {result.stderr[:300]}"
+        )

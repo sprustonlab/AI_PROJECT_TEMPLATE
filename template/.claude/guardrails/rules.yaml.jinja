@@ -19,4 +19,4 @@ rules:
     detect:
       type: regex_match
       pattern: 'rm\s+-rf\s+/|git\s+push\s+--force|git\s+reset\s+--hard'
-    message: "[R01] Dangerous operation blocked. Use explicit approval."
+    message: "[R01] Dangerous operation blocked. This command is not allowed."

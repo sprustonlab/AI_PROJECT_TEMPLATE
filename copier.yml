@@ -1,5 +1,6 @@
 _min_copier_version: "9.0.0"
 _subdirectory: "template"
+_templates_suffix: ".jinja"
 
 project_name:
   type: str
@@ -68,6 +69,17 @@ autonomous_agents:
     Will agents run autonomously (overnight / weekend)?
     If yes, scaffolds CLAUDE.md with research goals, CHANGELOG.md
     as agent memory, test oracle directories, and stricter guardrails.
+
+target_platform:
+  type: str
+  choices:
+    "Auto-detect (current OS only)": auto
+    "Linux": linux-64
+    "macOS (Apple Silicon)": osx-arm64
+    "Windows": win-64
+    "All platforms (slower solves)": all
+  default: "auto"
+  help: "Which platform(s) to solve dependencies for? Auto-detect is fastest."
 
 claudechic_mode:
   type: str

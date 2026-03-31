@@ -21,6 +21,10 @@ __pycache__/
 
 # submodules/claudechic/ is a git submodule — tracked by .gitmodules
 
+# NFS temp files
+.nfs*
+commands/.nfs*
+
 # OS / Editor
 .DS_Store
 .vscode/

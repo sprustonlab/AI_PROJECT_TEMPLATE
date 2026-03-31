@@ -19,6 +19,8 @@ __pycache__/
 .ao_project_team/*/specification/*.md
 # But always keep STATUS.md tracked for continuity
 
+# submodules/claudechic/ is a git submodule — tracked by .gitmodules
+
 # OS / Editor
 .DS_Store
 .vscode/

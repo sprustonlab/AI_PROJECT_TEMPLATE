@@ -1,29 +1,28 @@
 #!/bin/bash
 # =============================================================================
-# PROJECT ACTIVATE SCRIPT
+# PROJECT ACTIVATE SCRIPT (pixi)
 # =============================================================================
 # Source this file to activate the project environment.
 #
 # What it does:
-# 1. Bootstraps SLC (Miniforge) if not installed
-# 2. Activates the conda environment
-# 3. Sets up PATH and PYTHONPATH
-# 4. Shows available commands and skills
+# 1. Resolves project root from script location
+# 2. Bootstraps pixi if not installed
+# 3. Runs pixi install if environments are not yet installed
+# 4. Sets up PATH and PYTHONPATH
+# 5. Shows available environments, commands, and skills
 #
-# Customization:
-# - Change PROJECT_NAME below for your project
-# - Add project-specific PYTHONPATH entries in Section 2
+# This script is the SEAM REGISTRY — it discovers all five seams:
+#   - Environments: pixi.toml features → pixi info
+#   - Commands: commands/* → added to PATH
+#   - Skills: .claude/commands/*.md → displayed
+#   - Agent Roles: AI_agents/**/*.md → displayed (if present)
+#   - Guardrail Rules: .claude/guardrails/ → displayed (if present)
+# Adding a sixth seam requires updating this script.
 # =============================================================================
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ CUSTOMIZE: Change this to your project name                               ║
-# ╚═══════════════════════════════════════════════════════════════════════════╝
 PROJECT_NAME="my-project"
 
-# --------------------------------------------------------------------------
-# Section 1: Path Resolution
-# --------------------------------------------------------------------------
-# Resolve script location (handles symlinks, tilde, various shell configs)
+# ─── Section 1: Path Resolution ──────────────────────────────────────────────
 if [[ -n "${BASH_SOURCE[0]}" ]]; then
     _SCRIPT_PATH="${BASH_SOURCE[0]}"
 elif [[ -n "$0" && "$0" != "-bash" && "$0" != "bash" ]]; then
@@ -34,81 +33,55 @@ else
     return 1
 fi
 
-# Expand ~ and resolve to absolute path
 _SCRIPT_PATH="${_SCRIPT_PATH/#\~/$HOME}"
 BASEDIR="$(cd "$(dirname "$_SCRIPT_PATH")" && pwd)"
-SLCENV_DIR="$BASEDIR/envs/SLCenv"
 
-# --------------------------------------------------------------------------
-# Section 1b: SLC Bootstrap
-# --------------------------------------------------------------------------
-if [[ ! -d "$SLCENV_DIR" ]]; then
+# ─── Section 2: Pixi Bootstrap ───────────────────────────────────────────────
+if ! command -v pixi &> /dev/null; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "  First-time setup: Installing SLC environment..."
+    echo "  First-time setup: Installing pixi..."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-
-    # Check for Python 3
-    if ! command -v python3 &> /dev/null; then
-        echo "❌ Error: python3 not found"
-        echo "💡 Install Python 3 first, then run: source activate"
-        return 1
-    fi
-
-    # Check for install_SLC.py
-    if [[ ! -f "$BASEDIR/install_SLC.py" ]]; then
-        echo "❌ Error: install_SLC.py not found at $BASEDIR"
-        echo "💡 This file is required for SLC bootstrap"
-        return 1
-    fi
-
-    # Run the installer
-    python3 "$BASEDIR/install_SLC.py" || {
-        echo ""
-        echo "❌ Error: SLC installation failed"
-        echo "💡 Check network connection and try again:"
-        echo "   python3 $BASEDIR/install_SLC.py"
+    curl -fsSL https://pixi.sh/install.sh | bash || {
+        echo "❌ Error: pixi installation failed"
+        echo "💡 Install manually: https://pixi.sh"
         return 1
     }
-    echo ""
-    echo "✔ SLC environment installed successfully"
+    # Add pixi to PATH for this session
+    export PATH="$HOME/.pixi/bin:$PATH"
+    echo "✔ pixi installed successfully"
     echo ""
 fi
 
-# Source conda and mamba
-source "$SLCENV_DIR/etc/profile.d/conda.sh"
-source "$SLCENV_DIR/etc/profile.d/mamba.sh"
+# ─── Section 3: Environment Install ──────────────────────────────────────────
+# Run pixi install if pixi.toml exists but environments are not yet installed
+if [[ -f "$BASEDIR/pixi.toml" ]] && [[ ! -d "$BASEDIR/.pixi/envs" ]]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Installing environments from pixi.toml..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    (cd "$BASEDIR" && pixi install) || {
+        echo "❌ Error: pixi install failed"
+        echo "💡 Try: cd $BASEDIR && pixi install"
+        return 1
+    }
+    echo "✔ Environments installed"
+    echo ""
+fi
 
-# Activate the base environment
-conda activate "$SLCENV_DIR"
-
-# --------------------------------------------------------------------------
-# Section 2: Environment Setup
-# --------------------------------------------------------------------------
-
-# Export project root (generic name - not project-specific)
+# ─── Section 4: Environment Setup ────────────────────────────────────────────
 export PROJECT_ROOT="$BASEDIR"
 
-# SLC environment variables
-export SLC_BASE="$BASEDIR"
-export SLC_PYTHON="$(which python)"
-export SLC_VERSION="0.0.1"
-
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ CUSTOMIZE: Add your project's Python modules here                         ║
-# ╚═══════════════════════════════════════════════════════════════════════════╝
-# Add all repos/ subdirectories to PYTHONPATH (if repos/ exists)
+# Add repos/ subdirectories to PYTHONPATH (if repos/ exists)
 if [[ -d "$BASEDIR/repos" ]]; then
-  # Use nullglob to handle empty directories gracefully
-  setopt NULL_GLOB 2>/dev/null || shopt -s nullglob 2>/dev/null
-  for repo in "$BASEDIR/repos"/*/; do
-      [[ -d "$repo" ]] && export PYTHONPATH="$repo:$PYTHONPATH"
-  done
-  unsetopt NULL_GLOB 2>/dev/null || shopt -u nullglob 2>/dev/null
+    setopt NULL_GLOB 2>/dev/null || shopt -s nullglob 2>/dev/null
+    for repo in "$BASEDIR/repos"/*/; do
+        [[ -d "$repo" ]] && export PYTHONPATH="$repo:$PYTHONPATH"
+    done
+    unsetopt NULL_GLOB 2>/dev/null || shopt -u nullglob 2>/dev/null
 fi
-# Make environments discoverable by conda
-export CONDA_ENVS_PATH="$BASEDIR/envs:$CONDA_ENVS_PATH"
 
 # Ensure scripts in commands/ are executable (skip .md files)
 if [[ -d "$BASEDIR/commands" ]]; then
@@ -125,43 +98,27 @@ if [[ -d "$BASEDIR/.git" ]] && [[ -d "$BASEDIR/.githooks" ]]; then
     git -C "$BASEDIR" config core.hooksPath "$BASEDIR/.githooks"
 fi
 
-# --------------------------------------------------------------------------
-# Section 3: Submodule Auto-Init
-# --------------------------------------------------------------------------
-
-# Track warnings to display at the end
+# ─── Section 5: Submodule Auto-Init ──────────────────────────────────────────
 _WARNINGS=()
 
-# Check if any submodules need initialization
 if [[ -f "$BASEDIR/.gitmodules" ]]; then
-    # Check if submodules directory exists and has content
     _needs_init=false
-
-    # Check for claudechic specifically (main submodule)
     if grep -q "claudechic" "$BASEDIR/.gitmodules"; then
         if [[ ! -f "$BASEDIR/submodules/claudechic/pyproject.toml" ]]; then
             _needs_init=true
         fi
     fi
 
-    # ╔═══════════════════════════════════════════════════════════════════════════╗
-    # ║ CUSTOMIZE: Add checks for other submodules your project uses              ║
-    # ╚═══════════════════════════════════════════════════════════════════════════╝
-
-    # Auto-init submodules if needed
     if [[ "$_needs_init" == true ]]; then
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo "  Initializing git submodules..."
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
-
         git -C "$BASEDIR" submodule update --init --recursive || {
             _WARNINGS+=("⚠️  Failed to initialize submodules")
             _WARNINGS+=("   Try manually: cd $BASEDIR && git submodule update --init --recursive")
         }
-
-        # Verify it worked
         if [[ -f "$BASEDIR/submodules/claudechic/pyproject.toml" ]]; then
             echo "✔ Submodules initialized successfully"
             echo ""
@@ -169,46 +126,45 @@ if [[ -f "$BASEDIR/.gitmodules" ]]; then
     fi
 fi
 
-# --------------------------------------------------------------------------
-# Section 4: Status Display
-# --------------------------------------------------------------------------
-
+# ─── Section 6: Status Display ───────────────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  $PROJECT_NAME environment activated"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  ✔ SLC is active"
+echo "  ✔ pixi $(pixi --version 2>/dev/null || echo '(version unknown)')"
 
-# --- Show available conda environments ---
-installed_envs=()
-available_envs=()
+# --- Show pixi environments ---
+if [[ -f "$BASEDIR/pixi.toml" ]]; then
+    installed_envs=()
+    available_envs=()
 
-for yml in "$BASEDIR"/envs/*.yml; do
-    [[ -f "$yml" ]] || continue
-    envname=$(basename "$yml" .yml)
-    if [[ -d "$BASEDIR/envs/$envname" ]]; then
-        installed_envs+=("$envname")
-    else
-        available_envs+=("$envname")
+    # Parse environment names from pixi.toml [feature.*] sections
+    while IFS= read -r envname; do
+        if [[ -d "$BASEDIR/.pixi/envs/$envname" ]]; then
+            installed_envs+=("$envname")
+        else
+            available_envs+=("$envname")
+        fi
+    done < <(sed -n 's/^\[feature\.\([^.]*\)\..*/\1/p' "$BASEDIR/pixi.toml" | sort -u)
+
+    if [[ ${#installed_envs[@]} -gt 0 ]]; then
+        echo ""
+        echo "📦 Installed environments:"
+        for env in "${installed_envs[@]}"; do
+            echo "    ✔ $env"
+        done
+        echo "  Use with: pixi run -e <name> <command>"
+        echo "  Or shell: pixi shell -e <name>"
     fi
-done
 
-if [[ ${#installed_envs[@]} -gt 0 ]]; then
-    echo ""
-    echo "📦 Installed environments:"
-    for env in "${installed_envs[@]}"; do
-        echo "    ✔ $env"
-    done
-    echo "  Activate with: conda activate <name>"
-fi
-
-if [[ ${#available_envs[@]} -gt 0 ]]; then
-    echo ""
-    echo "📋 Available to install:"
-    for env in "${available_envs[@]}"; do
-        echo "    ○ $env"
-    done
-    echo "  Install with: python $BASEDIR/install_env.py <name>"
+    if [[ ${#available_envs[@]} -gt 0 ]]; then
+        echo ""
+        echo "📋 Available to install:"
+        for env in "${available_envs[@]}"; do
+            echo "    ○ $env"
+        done
+        echo "  Install with: cd $BASEDIR && pixi install"
+    fi
 fi
 
 # --- Show CLI commands ---
@@ -216,7 +172,6 @@ if [[ -d "$BASEDIR/commands" ]]; then
     cli_commands=()
     for script in "$BASEDIR/commands"/*; do
         basename_script=$(basename "$script")
-        # Skip .md files and dotfiles
         if [[ -f "$script" ]] && [[ "$basename_script" != *.md ]] && [[ "$basename_script" != .* ]] && [[ -x "$script" ]]; then
             cli_commands+=("$basename_script")
         fi
@@ -236,7 +191,6 @@ if [[ -d "$BASEDIR/.claude/commands" ]]; then
     for skill_file in "$BASEDIR/.claude/commands"/*.md; do
         if [[ -f "$skill_file" ]]; then
             skill_name=$(basename "$skill_file" .md)
-            # Extract the first H1 heading (handles frontmatter)
             skill_title=$(grep -m1 '^# ' "$skill_file" | sed 's/^# *//')
             claude_skills+=("/$skill_name - $skill_title")
         fi
@@ -250,7 +204,21 @@ if [[ -d "$BASEDIR/.claude/commands" ]]; then
     fi
 fi
 
-# --- Show any warnings ---
+# --- Show guardrails status ---
+if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
+    rule_count=$(grep -c '^- id:' "$BASEDIR/.claude/guardrails/rules.yaml" 2>/dev/null || echo "0")
+    rulesd_count=0
+    if [[ -d "$BASEDIR/.claude/guardrails/rules.d" ]]; then
+        rulesd_count=$(find "$BASEDIR/.claude/guardrails/rules.d" -name '*.yaml' 2>/dev/null | wc -l)
+    fi
+    echo ""
+    echo "🛡  Guardrails: $rule_count core rules"
+    if [[ $rulesd_count -gt 0 ]]; then
+        echo "    + $rulesd_count contributed rule sets in rules.d/"
+    fi
+fi
+
+# --- Show warnings ---
 if [[ ${#_WARNINGS[@]} -gt 0 ]]; then
     echo ""
     for warning in "${_WARNINGS[@]}"; do

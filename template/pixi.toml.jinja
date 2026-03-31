@@ -1,0 +1,39 @@
+[workspace]
+name = "{{ project_name }}"
+channels = ["conda-forge"]
+{% if target_platform == "all" -%}
+platforms = ["linux-64", "osx-arm64", "win-64"]
+{% elif target_platform == "auto" -%}
+{% if _copier_conf.os == "windows" -%}
+platforms = ["win-64"]
+{% elif _copier_conf.os == "macos" -%}
+platforms = ["osx-arm64"]
+{% else -%}
+platforms = ["linux-64"]
+{% endif -%}
+{% else -%}
+platforms = ["{{ target_platform }}"]
+{% endif -%}
+
+# ── Base environment (always present) ──────────────────────────
+[feature.claudechic.dependencies]
+python = ">=3.10"
+pip = "*"
+
+[feature.claudechic.pypi-dependencies]
+{% if claudechic_mode == "standard" %}
+claudechic = { git = "https://github.com/sprustonlab/claudechic", branch = "main" }
+{% else %}
+claudechic = { path = "submodules/claudechic", editable = true }
+{% endif %}
+{% if use_cluster %}
+pyyaml = "*"
+{% endif %}
+
+# ── Tasks ─────────────────────────────────────────────────────
+[feature.claudechic.tasks]
+claudechic = "claudechic"
+
+# ── Environment mappings ──────────────────────────────────────
+[environments]
+claudechic = ["claudechic"]

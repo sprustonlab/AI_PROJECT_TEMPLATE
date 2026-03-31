@@ -102,11 +102,11 @@ def fw_env(generated_hooks, tmp_path):
     class Env:
         dir = str(tmp_path)
         path = tmp_path
-        bash_guard = hooks_dir / "bash_guard.sh"
-        write_guard = hooks_dir / "write_guard.sh"
-        read_guard = hooks_dir / "read_guard.sh"
-        glob_guard = hooks_dir / "glob_guard.sh"
-        mcp_guard = hooks_dir / "mcp__fw__test_tool_guard.sh"
+        bash_guard = hooks_dir / "bash_guard.py"
+        write_guard = hooks_dir / "write_guard.py"
+        read_guard = hooks_dir / "read_guard.py"
+        glob_guard = hooks_dir / "glob_guard.py"
+        mcp_guard = hooks_dir / "mcp__fw__test_tool_guard.py"
 
         @staticmethod
         def create_session_marker(coordinator_name: str, app_pid: str = "99999"):
@@ -134,6 +134,7 @@ def run_hook(
     env = os.environ.copy()
     env.pop("CLAUDE_AGENT_NAME", None)
     env.pop("CLAUDE_AGENT_ROLE", None)
+    env.pop("AGENT_SESSION_PID", None)
     env.pop("CLAUDECHIC_APP_PID", None)
     env.pop("GUARDRAILS_DIR", None)
 
@@ -142,10 +143,10 @@ def run_hook(
     if agent_role is not None:
         env["CLAUDE_AGENT_ROLE"] = agent_role
     if app_pid is not None:
-        env["CLAUDECHIC_APP_PID"] = app_pid
+        env["AGENT_SESSION_PID"] = app_pid
 
     return subprocess.run(
-        ["bash", str(hook_script)],
+        ["python3", str(hook_script)],
         input=json.dumps(hook_input),
         capture_output=True, text=True, env=env, timeout=timeout,
     )
@@ -529,6 +530,7 @@ class TestFW13WriteAck:
         env = os.environ.copy()
         env.pop("CLAUDE_AGENT_NAME", None)
         env.pop("CLAUDE_AGENT_ROLE", None)
+        env.pop("AGENT_SESSION_PID", None)
         env.pop("CLAUDECHIC_APP_PID", None)
         env["CLAUDE_AGENT_NAME"] = "TestAgent"
         env["GUARDRAILS_DIR"] = fw_env.dir
@@ -907,11 +909,11 @@ class TestHookGeneration:
     def test_all_hooks_generated(self, generated_hooks):
         hooks_dir = generated_hooks / "hooks"
         expected = {
-            "bash_guard.sh",
-            "write_guard.sh",
-            "read_guard.sh",
-            "glob_guard.sh",
-            "mcp__fw__test_tool_guard.sh",
+            "bash_guard.py",
+            "write_guard.py",
+            "read_guard.py",
+            "glob_guard.py",
+            "mcp__fw__test_tool_guard.py",
         }
         actual = {f.name for f in hooks_dir.iterdir()}
         assert expected == actual, f"Expected {expected}, got {actual}"

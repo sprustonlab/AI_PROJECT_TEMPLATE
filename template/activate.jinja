@@ -1,0 +1,243 @@
+#!/bin/bash
+# =============================================================================
+# PROJECT ACTIVATE SCRIPT (pixi)
+# =============================================================================
+# Source this file to activate the project environment.
+#
+# What it does:
+# 1. Resolves project root from script location
+# 2. Bootstraps pixi if not installed
+# 3. Runs pixi install if environments are not yet installed
+# 4. Sets up PATH and PYTHONPATH
+# 5. Shows available environments, commands, and skills
+#
+# This script is the SEAM REGISTRY — it discovers all six seams:
+#   - Environments: pixi.toml features → pixi info
+#   - Commands: commands/* → added to PATH
+#   - Skills: .claude/commands/*.md → displayed
+#   - Agent Roles: AI_agents/**/*.md → displayed (if present)
+#   - Guardrail Rules: .claude/guardrails/ → displayed (if present)
+#   - MCP Tools: mcp_tools/*.py → displayed (if present)
+# Adding a seventh seam requires updating this script.
+# =============================================================================
+
+PROJECT_NAME="{{ project_name }}"
+{% raw %}
+# ─── Section 1: Path Resolution ──────────────────────────────────────────────
+if [[ -n "${BASH_SOURCE[0]}" ]]; then
+    _SCRIPT_PATH="${BASH_SOURCE[0]}"
+elif [[ -n "$0" && "$0" != "-bash" && "$0" != "bash" ]]; then
+    _SCRIPT_PATH="$0"
+else
+    echo "❌ Error: Unable to determine script location."
+    echo "💡 Try: source /full/path/to/activate"
+    return 1
+fi
+
+_SCRIPT_PATH="${_SCRIPT_PATH/#\~/$HOME}"
+BASEDIR="$(cd "$(dirname "$_SCRIPT_PATH")" && pwd)"
+
+# ─── Section 2: Pixi Bootstrap ───────────────────────────────────────────────
+if ! command -v pixi &> /dev/null; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  First-time setup: Installing pixi..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    curl -fsSL https://pixi.sh/install.sh | bash || {
+        echo "❌ Error: pixi installation failed"
+        echo "💡 Install manually: https://pixi.sh"
+        return 1
+    }
+    # Add pixi to PATH for this session
+    export PATH="$HOME/.pixi/bin:$PATH"
+    echo "✔ pixi installed successfully"
+    echo ""
+fi
+
+# ─── Section 3: Environment Install ──────────────────────────────────────────
+# Run pixi install if pixi.toml exists but environments are not yet installed
+if [[ -f "$BASEDIR/pixi.toml" ]] && [[ ! -d "$BASEDIR/.pixi/envs" ]]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Installing environments from pixi.toml..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    (cd "$BASEDIR" && pixi install) || {
+        echo "❌ Error: pixi install failed"
+        echo "💡 Try: cd $BASEDIR && pixi install"
+        return 1
+    }
+    echo "✔ Environments installed"
+    echo ""
+fi
+
+# ─── Section 4: Environment Setup ────────────────────────────────────────────
+export PROJECT_ROOT="$BASEDIR"
+
+# Add repos/ subdirectories to PYTHONPATH (if repos/ exists)
+if [[ -d "$BASEDIR/repos" ]]; then
+    setopt NULL_GLOB 2>/dev/null || shopt -s nullglob 2>/dev/null
+    for repo in "$BASEDIR/repos"/*/; do
+        [[ -d "$repo" ]] && export PYTHONPATH="$repo:$PYTHONPATH"
+    done
+    unsetopt NULL_GLOB 2>/dev/null || shopt -u nullglob 2>/dev/null
+fi
+
+# Ensure scripts in commands/ are executable (skip .md files)
+if [[ -d "$BASEDIR/commands" ]]; then
+    for script in "$BASEDIR/commands"/*; do
+        [[ -f "$script" ]] && [[ "$script" != *.md ]] && chmod +x "$script"
+    done
+fi
+
+# Add commands/ to PATH
+export PATH="$BASEDIR/commands:$PATH"
+
+# Configure git hooks (if present)
+if [[ -d "$BASEDIR/.git" ]] && [[ -d "$BASEDIR/.githooks" ]]; then
+    git -C "$BASEDIR" config core.hooksPath "$BASEDIR/.githooks"
+fi
+
+# ─── Section 5: Submodule Auto-Init ──────────────────────────────────────────
+_WARNINGS=()
+
+if [[ -f "$BASEDIR/.gitmodules" ]]; then
+    _needs_init=false
+    if grep -q "claudechic" "$BASEDIR/.gitmodules"; then
+        if [[ ! -f "$BASEDIR/submodules/claudechic/pyproject.toml" ]]; then
+            _needs_init=true
+        fi
+    fi
+
+    if [[ "$_needs_init" == true ]]; then
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  Initializing git submodules..."
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        git -C "$BASEDIR" submodule update --init --recursive || {
+            _WARNINGS+=("⚠️  Failed to initialize submodules")
+            _WARNINGS+=("   Try manually: cd $BASEDIR && git submodule update --init --recursive")
+        }
+        if [[ -f "$BASEDIR/submodules/claudechic/pyproject.toml" ]]; then
+            echo "✔ Submodules initialized successfully"
+            echo ""
+        fi
+    fi
+fi
+
+# ─── Section 6: Status Display ───────────────────────────────────────────────
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  $PROJECT_NAME environment activated"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  ✔ pixi $(pixi --version 2>/dev/null || echo '(version unknown)')"
+
+# --- Show pixi environments ---
+if [[ -f "$BASEDIR/pixi.toml" ]]; then
+    installed_envs=()
+    available_envs=()
+
+    # Parse environment names from pixi.toml [feature.*] sections
+    while IFS= read -r envname; do
+        if [[ -d "$BASEDIR/.pixi/envs/$envname" ]]; then
+            installed_envs+=("$envname")
+        else
+            available_envs+=("$envname")
+        fi
+    done < <(grep -oP '^\[feature\.\K[^]]+(?=\])' "$BASEDIR/pixi.toml" | sort -u)
+
+    if [[ ${#installed_envs[@]} -gt 0 ]]; then
+        echo ""
+        echo "📦 Installed environments:"
+        for env in "${installed_envs[@]}"; do
+            echo "    ✔ $env"
+        done
+        echo "  Use with: pixi run -e <name> <command>"
+        echo "  Or shell: pixi shell -e <name>"
+    fi
+
+    if [[ ${#available_envs[@]} -gt 0 ]]; then
+        echo ""
+        echo "📋 Available to install:"
+        for env in "${available_envs[@]}"; do
+            echo "    ○ $env"
+        done
+        echo "  Install with: cd $BASEDIR && pixi install"
+    fi
+fi
+
+# --- Show CLI commands ---
+if [[ -d "$BASEDIR/commands" ]]; then
+    cli_commands=()
+    for script in "$BASEDIR/commands"/*; do
+        basename_script=$(basename "$script")
+        if [[ -f "$script" ]] && [[ "$basename_script" != *.md ]] && [[ "$basename_script" != .* ]] && [[ -x "$script" ]]; then
+            cli_commands+=("$basename_script")
+        fi
+    done
+    if [[ ${#cli_commands[@]} -gt 0 ]]; then
+        echo ""
+        echo "🛠  CLI commands:"
+        for cmd in "${cli_commands[@]}"; do
+            echo "    $cmd"
+        done
+    fi
+fi
+
+# --- Show Claude Code skills ---
+if [[ -d "$BASEDIR/.claude/commands" ]]; then
+    claude_skills=()
+    for skill_file in "$BASEDIR/.claude/commands"/*.md; do
+        if [[ -f "$skill_file" ]]; then
+            skill_name=$(basename "$skill_file" .md)
+            skill_title=$(grep -m1 '^# ' "$skill_file" | sed 's/^# *//')
+            claude_skills+=("/$skill_name - $skill_title")
+        fi
+    done
+    if [[ ${#claude_skills[@]} -gt 0 ]]; then
+        echo ""
+        echo "🤖 Claude Code skills:"
+        for skill in "${claude_skills[@]}"; do
+            echo "    $skill"
+        done
+    fi
+fi
+
+# --- Show guardrails status ---
+if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
+    rule_count=$(grep -c '^- id:' "$BASEDIR/.claude/guardrails/rules.yaml" 2>/dev/null || echo "0")
+    rulesd_count=0
+    if [[ -d "$BASEDIR/.claude/guardrails/rules.d" ]]; then
+        rulesd_count=$(find "$BASEDIR/.claude/guardrails/rules.d" -name '*.yaml' 2>/dev/null | wc -l)
+    fi
+    echo ""
+    echo "🛡  Guardrails: $rule_count core rules"
+    if [[ $rulesd_count -gt 0 ]]; then
+        echo "    + $rulesd_count contributed rule sets in rules.d/"
+    fi
+fi
+
+# --- Show MCP tools ---
+if [[ -d "$BASEDIR/mcp_tools" ]]; then
+    mcp_count=0
+    for f in "$BASEDIR/mcp_tools"/*.py; do
+        [[ -f "$f" ]] && [[ "$(basename "$f")" != _* ]] && ((mcp_count++))
+    done
+    if [[ $mcp_count -gt 0 ]]; then
+        echo ""
+        echo "🔌 MCP tools: $mcp_count tool(s) in mcp_tools/"
+    fi
+fi
+
+# --- Show warnings ---
+if [[ ${#_WARNINGS[@]} -gt 0 ]]; then
+    echo ""
+    for warning in "${_WARNINGS[@]}"; do
+        echo "$warning"
+    done
+fi
+
+echo ""
+{% endraw %}

@@ -1,12 +1,12 @@
 """CLI for the hints system.
 
 Usage:
-    python -m hints              # show status
-    python -m hints off          # disable all hints
-    python -m hints on           # re-enable hints
-    python -m hints status       # show current state
-    python -m hints reset        # reset to defaults
-    python -m hints dismiss ID   # dismiss a specific hint
+    /hints              # show status
+    /hints off          # disable all hints
+    /hints on           # re-enable hints
+    /hints status       # show current state
+    /hints reset        # reset to defaults
+    /hints dismiss ID   # dismiss a specific hint
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def main(argv: list[str] | None = None) -> None:
         store, act = _store_and_activation()
         act.disable_globally()
         store.save()
-        print("Hints disabled. Re-enable with: python -m hints on")
+        print("Hints disabled. Re-enable with: /hints on")
 
     elif cmd == "on":
         store, act = _store_and_activation()
@@ -58,8 +58,8 @@ def main(argv: list[str] | None = None) -> None:
 
     elif cmd == "dismiss":
         if len(args) < 2:
-            print("Usage: python -m hints dismiss <hint-id>")
-            sys.exit(1)
+            print("Usage: /hints dismiss <hint-id>")
+            return
         hint_id = args[1]
         store, act = _store_and_activation()
         act.disable_hint(hint_id)
@@ -67,7 +67,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Dismissed: {hint_id}")
 
     elif cmd == "help":
-        print("Usage: python -m hints [command]")
+        print("Usage: /hints [command]")
         print("")
         print("Commands:")
         print("  status          Show current hints state (default)")
@@ -79,8 +79,7 @@ def main(argv: list[str] | None = None) -> None:
 
     else:
         print(f"Unknown command: {cmd}")
-        print("Run: python -m hints help")
-        sys.exit(1)
+        print("Run: /hints help")
 
 
 if __name__ == "__main__":

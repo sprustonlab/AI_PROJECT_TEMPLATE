@@ -1198,7 +1198,7 @@ class TestHintsCLI:
         shutil.copytree(hints_src, tmp_path / "hints")
 
         result = self._run_hints(tmp_path, "bogus")
-        assert result.returncode != 0
+        assert result.returncode == 0
         assert "unknown" in result.stdout.lower()
 
     def test_dismiss_without_id(self, tmp_path):
@@ -1209,5 +1209,5 @@ class TestHintsCLI:
         shutil.copytree(hints_src, tmp_path / "hints")
 
         result = self._run_hints(tmp_path, "dismiss")
-        assert result.returncode != 0
-        assert "usage" in result.stdout.lower()
+        assert result.returncode == 0
+        assert "/hints dismiss" in result.stdout.lower()

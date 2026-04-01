@@ -102,6 +102,35 @@ if [ -f .claude/guardrails/generate_hooks.py ]; then
     pixi run -e claudechic python .claude/guardrails/generate_hooks.py
 fi
 
+# 6. Check Claude Code is installed and authenticated
+if ! command -v claude &> /dev/null; then
+    echo ""
+    echo "✔ Project is ready!"
+    echo ""
+    echo "Claude Code is not installed. To get started:"
+    echo ""
+    echo "  npm install -g @anthropic-ai/claude-code"
+    echo "  claude login"
+    echo "  cd $PROJECT_DIR"
+    echo "  source activate"
+    echo "  pixi run claudechic"
+    exit 0
+fi
+
+CLAUDE_AUTH=$(claude auth status 2>/dev/null || echo '{"loggedIn": false}')
+if echo "$CLAUDE_AUTH" | grep -q '"loggedIn": false'; then
+    echo ""
+    echo "✔ Project is ready!"
+    echo ""
+    echo "Claude Code is installed but not logged in. To get started:"
+    echo ""
+    echo "  claude login"
+    echo "  cd $PROJECT_DIR"
+    echo "  source activate"
+    echo "  pixi run claudechic"
+    exit 0
+fi
+
 echo ""
 echo "✔ Project is ready! Launching claudechic..."
 echo ""

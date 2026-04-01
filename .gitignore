@@ -21,9 +21,8 @@ __pycache__/
 # Test artifacts
 .test_runs/
 
-# Project team state (optional - keep or ignore)
-.ao_project_team/*/specification/*.md
-# But always keep STATUS.md tracked for continuity
+# Project team state
+# Specification docs are tracked on develop for design continuity
 
 # submodules/claudechic/ is a git submodule — tracked by .gitmodules
 

@@ -179,7 +179,8 @@ class TestVersionChecking:
         session_file = tmp_path / "unknown_version.jsonl"
         session_file.write_text(
             '{"type":"system","version":"99.99.99","timestamp":"2026-01-01T00:00:00Z"}\n'
-            '{"type":"user","timestamp":"2026-01-01T00:00:01Z","message":{"content":"hello"}}\n'
+            '{"type":"user","timestamp":"2026-01-01T00:00:01Z","message":{"content":"hello"}}\n',
+            encoding="utf-8",
         )
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")

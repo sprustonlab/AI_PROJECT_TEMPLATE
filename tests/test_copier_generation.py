@@ -52,7 +52,7 @@ class TestClaudechicMode:
         })
         pixi_toml = dest / "pixi.toml"
         assert pixi_toml.exists(), "pixi.toml not generated"
-        content = pixi_toml.read_text()
+        content = pixi_toml.read_text(encoding="utf-8")
         assert 'git = "https://github.com/sprustonlab/claudechic"' in content
         assert "editable" not in content
 
@@ -65,7 +65,7 @@ class TestClaudechicMode:
         })
         pixi_toml = dest / "pixi.toml"
         assert pixi_toml.exists(), "pixi.toml not generated"
-        content = pixi_toml.read_text()
+        content = pixi_toml.read_text(encoding="utf-8")
         assert 'path = "submodules/claudechic"' in content
         assert "editable = true" in content
         assert "github.com/sprustonlab/claudechic" not in content
@@ -136,7 +136,7 @@ class TestClusterScheduler:
             "cluster_scheduler": "lsf",
             "cluster_ssh_target": "mylogin.janelia.org",
         })
-        yaml_content = (dest / "mcp_tools" / "lsf.yaml").read_text()
+        yaml_content = (dest / "mcp_tools" / "lsf.yaml").read_text(encoding="utf-8")
         assert "mylogin.janelia.org" in yaml_content
 
     def test_pyyaml_always_present(self, copier_output):
@@ -146,7 +146,7 @@ class TestClusterScheduler:
             "claudechic_mode": "standard",
             "use_cluster": False,
         })
-        content = (dest / "pixi.toml").read_text()
+        content = (dest / "pixi.toml").read_text(encoding="utf-8")
         assert "pyyaml" in content.lower()
 
 
@@ -254,7 +254,7 @@ class TestGuardrails:
             "use_cluster": False,
         })
         for pyfile in (dest / ".claude" / "guardrails").glob("*.py"):
-            content = pyfile.read_text()
+            content = pyfile.read_text(encoding="utf-8")
             # Real Jinja2 artifacts like {% or {{ project_name }} should not appear
             # but Python f-string {{ }} is fine
             assert "{%" not in content, f"Jinja artifact in {pyfile.name}"
@@ -408,7 +408,7 @@ class TestHints:
 
         import yaml
 
-        data = yaml.safe_load(answers_file.read_text())
+        data = yaml.safe_load(answers_file.read_text(encoding="utf-8"))
         assert isinstance(data, dict), ".copier-answers.yml should be a YAML dict"
         assert data.get("project_name") == "answers_test"
         assert data.get("use_hints") is True

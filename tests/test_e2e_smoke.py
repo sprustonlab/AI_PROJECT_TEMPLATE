@@ -278,8 +278,8 @@ class TestExistingCodebaseImport:
             fake_repo.mkdir()
             pkg_dir = fake_repo / "my_lib"
             pkg_dir.mkdir()
-            (pkg_dir / "__init__.py").write_text("VERSION = '0.42'\n")
-            (pkg_dir / "core.py").write_text("def greet():\n    return 'hello from my_lib'\n")
+            (pkg_dir / "__init__.py").write_text("VERSION = '0.42'\n", encoding="utf-8")
+            (pkg_dir / "core.py").write_text("def greet():\n    return 'hello from my_lib'\n", encoding="utf-8")
 
             # 2. Generate project with existing_codebase pointing to fake repo
             dest = Path(tmp) / "test_project"
@@ -327,7 +327,8 @@ class TestExistingCodebaseImport:
             test_script.write_text(
                 "from my_lib import VERSION\n"
                 "from my_lib.core import greet\n"
-                "print('version=' + VERSION + ' greeting=' + greet())\n"
+                "print('version=' + VERSION + ' greeting=' + greet())\n",
+                encoding="utf-8",
             )
             result = subprocess.run(
                 ["bash", "-c",

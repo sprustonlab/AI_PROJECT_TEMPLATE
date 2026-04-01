@@ -383,9 +383,9 @@ class TestLoadConfig:
     def test_load_existing_yaml(self, tmp_path):
         """_load_config reads YAML sibling of tool file."""
         tool_py = tmp_path / "lsf.py"
-        tool_py.write_text("# dummy\n")
+        tool_py.write_text("# dummy\n", encoding="utf-8")
         yaml_file = tmp_path / "lsf.yaml"
-        yaml_file.write_text("ssh_target: login.example.com\nwatch_poll_interval: 15\n")
+        yaml_file.write_text("ssh_target: login.example.com\nwatch_poll_interval: 15\n", encoding="utf-8")
 
         config = _cluster_mod._load_config(tool_py)
         assert config["ssh_target"] == "login.example.com"
@@ -394,16 +394,16 @@ class TestLoadConfig:
     def test_load_missing_yaml(self, tmp_path):
         """_load_config returns empty dict when YAML doesn't exist."""
         tool_py = tmp_path / "lsf.py"
-        tool_py.write_text("# dummy\n")
+        tool_py.write_text("# dummy\n", encoding="utf-8")
         config = _cluster_mod._load_config(tool_py)
         assert config == {}
 
     def test_load_empty_yaml(self, tmp_path):
         """_load_config returns empty dict for empty YAML file."""
         tool_py = tmp_path / "tool.py"
-        tool_py.write_text("# dummy\n")
+        tool_py.write_text("# dummy\n", encoding="utf-8")
         yaml_file = tmp_path / "tool.yaml"
-        yaml_file.write_text("")
+        yaml_file.write_text("", encoding="utf-8")
         config = _cluster_mod._load_config(tool_py)
         assert config == {}
 

@@ -166,7 +166,8 @@ class TestMCPToolRegistration:
         mcp_dir = tmp_path / "mcp_tools"
         mcp_dir.mkdir()
         (mcp_dir / "simple.py").write_text(
-            "def get_tools(**kwargs):\n    return ['simple_tool']\n"
+            "def get_tools(**kwargs):\n    return ['simple_tool']\n",
+            encoding="utf-8",
         )
 
         tools = discover_mcp_tools(mcp_dir, caller_name="test")
@@ -181,7 +182,7 @@ class TestMCPToolRegistration:
         mcp_dir.mkdir()
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
-        (mcp_dir / "lsf.yaml").write_text("ssh_target: \"\"\nwatch_poll_interval: 5\n")
+        (mcp_dir / "lsf.yaml").write_text("ssh_target: \"\"\nwatch_poll_interval: 5\n", encoding="utf-8")
 
         with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):
             tools = discover_mcp_tools(

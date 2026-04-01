@@ -143,7 +143,8 @@ class TestDiscoverClusterTools:
 
         # Create a minimal lsf.yaml config
         (mcp_dir / "lsf.yaml").write_text(
-            "ssh_target: \"\"\nlsf_profile: /misc/lsf/conf/profile.lsf\nwatch_poll_interval: 5\n"
+            "ssh_target: \"\"\nlsf_profile: /misc/lsf/conf/profile.lsf\nwatch_poll_interval: 5\n",
+            encoding="utf-8",
         )
 
         tools = self._discover_with_mock_subprocess(mcp_dir)
@@ -168,7 +169,8 @@ class TestDiscoverClusterTools:
         shutil.copy(TEMPLATE_MCP / "slurm.py", mcp_dir / "slurm.py")
 
         (mcp_dir / "slurm.yaml").write_text(
-            "ssh_target: \"\"\nwatch_poll_interval: 5\n"
+            "ssh_target: \"\"\nwatch_poll_interval: 5\n",
+            encoding="utf-8",
         )
 
         tools = self._discover_with_mock_subprocess(mcp_dir)
@@ -186,8 +188,8 @@ class TestDiscoverClusterTools:
         import shutil
         for f in ["_cluster.py", "lsf.py", "slurm.py"]:
             shutil.copy(TEMPLATE_MCP / f, mcp_dir / f)
-        (mcp_dir / "lsf.yaml").write_text("ssh_target: \"\"\nwatch_poll_interval: 5\n")
-        (mcp_dir / "slurm.yaml").write_text("ssh_target: \"\"\nwatch_poll_interval: 5\n")
+        (mcp_dir / "lsf.yaml").write_text("ssh_target: \"\"\nwatch_poll_interval: 5\n", encoding="utf-8")
+        (mcp_dir / "slurm.yaml").write_text("ssh_target: \"\"\nwatch_poll_interval: 5\n", encoding="utf-8")
 
         tools = self._discover_with_mock_subprocess(mcp_dir)
         assert len(tools) == 12, f"Expected 12 tools (6 LSF + 6 SLURM), got {len(tools)}"
@@ -200,7 +202,7 @@ class TestDiscoverClusterTools:
         import shutil
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
-        (mcp_dir / "lsf.yaml").write_text("ssh_target: \"\"\nwatch_poll_interval: 5\n")
+        (mcp_dir / "lsf.yaml").write_text("ssh_target: \"\"\nwatch_poll_interval: 5\n", encoding="utf-8")
 
         self._discover_with_mock_subprocess(mcp_dir)
 
@@ -226,7 +228,8 @@ class TestToolExecution:
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
         (mcp_dir / "lsf.yaml").write_text(
-            "ssh_target: \"\"\nlsf_profile: /misc/lsf/conf/profile.lsf\nwatch_poll_interval: 5\n"
+            "ssh_target: \"\"\nlsf_profile: /misc/lsf/conf/profile.lsf\nwatch_poll_interval: 5\n",
+            encoding="utf-8",
         )
 
         with patch("subprocess.run") as mock_run:
@@ -347,7 +350,8 @@ class TestToolExecution:
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
         (mcp_dir / "lsf.yaml").write_text(
-            "ssh_target: \"\"\nwatch_poll_interval: 5\n"
+            "ssh_target: \"\"\nwatch_poll_interval: 5\n",
+            encoding="utf-8",
         )
         with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):
             unwired_tools = discover_mcp_tools(mcp_dir)  # No kwargs → None for all
@@ -374,7 +378,8 @@ class TestKwargsWiring:
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
         (mcp_dir / "lsf.yaml").write_text(
-            "ssh_target: \"\"\nwatch_poll_interval: 5\n"
+            "ssh_target: \"\"\nwatch_poll_interval: 5\n",
+            encoding="utf-8",
         )
 
         mock_notify = MagicMock()

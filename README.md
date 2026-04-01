@@ -1,19 +1,12 @@
 # AI Project Template
 
-**Please only use in private repos for now.**
-
 Scaffold a Claude Code project with environments, guardrails, and multi-agent workflows.
 
 ## Quick Start
 
-```bash
-# From a clone of this repo:
-./install.sh
-```
+👉 **[One-line install](https://sprustonlab.github.io/AI_PROJECT_TEMPLATE/)** — copy a single command for Linux, macOS, or Windows.
 
-The installer asks for a project name and location, then walks you through configuration options. It installs [pixi](https://pixi.sh) if needed.
-
-Alternatively, if you already have pixi:
+Or, if you already have [pixi](https://pixi.sh):
 
 ```bash
 pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust https://github.com/sprustonlab/AI_PROJECT_TEMPLATE my-project

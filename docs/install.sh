@@ -67,11 +67,9 @@ echo "[debug] GIT_TERMINAL_PROMPT: ${GIT_TERMINAL_PROMPT:-not set}"
 # The template repo is public but .gitmodules references a private repo.
 # Copier only needs the template files, not the submodule contents.
 export GIT_TERMINAL_PROMPT=0
-export GIT_CONFIG_COUNT=2
-export GIT_CONFIG_KEY_0=submodule.recurse
-export GIT_CONFIG_VALUE_0=false
-export GIT_CONFIG_KEY_1=clone.recurseSubmodules
-export GIT_CONFIG_VALUE_1=false
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0="submodule.submodules/claudechic.update"
+export GIT_CONFIG_VALUE_0=none
 
 echo "[debug] Starting copier copy..."
 pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$PROJECT_NAME" "$TEMPLATE_URL" "$PROJECT_DIR"

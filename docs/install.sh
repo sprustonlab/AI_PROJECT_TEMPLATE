@@ -56,11 +56,25 @@ fi
 echo ""
 echo "Copier will now ask you a few questions to configure your project."
 echo ""
+echo "[debug] TEMPLATE_URL=$TEMPLATE_URL"
+echo "[debug] PROJECT_DIR=$PROJECT_DIR"
+echo "[debug] git version: $(git --version)"
+echo "[debug] credential.helper: $(git config --global credential.helper 2>/dev/null || echo 'not set')"
+echo "[debug] GIT_ASKPASS: ${GIT_ASKPASS:-not set}"
+echo "[debug] GIT_TERMINAL_PROMPT: ${GIT_TERMINAL_PROMPT:-not set}"
+
+# Prevent git from prompting for credentials during copier clone
+# (the template repo is public; submodule clone is not needed here)
+export GIT_TERMINAL_PROMPT=0
+
+echo "[debug] Starting copier copy..."
 pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$PROJECT_NAME" "$TEMPLATE_URL" "$PROJECT_DIR"
+echo "[debug] Copier copy completed."
 
 # 5. Install environments
 echo ""
 echo "Installing environments..."
+echo "[debug] Running pixi install in $PROJECT_DIR"
 cd "$PROJECT_DIR"
 pixi install
 

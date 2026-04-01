@@ -19,3 +19,26 @@ rules:
     exclude_if_matches: '>\s*(?!/dev/null)\S+\.(?:log|txt|out)\b|\|\s*tee\b|\bpytest\b[^\n]*\btests/\w+\.py\b'
     message: "[GUARDRAIL DENY R01] Full test suite must save output to .test_runs/. Use: pixi run pytest -n 8 -v > .test_runs/$(date +%Y%m%d_%H%M%S).txt 2>&1. Single-file runs (e.g. pytest tests/test_foo.py) are allowed without redirect."
     source: "User rule — full suite output must be saved, use -n 8 for parallel"
+
+  # ── R02 ─────────────────────────────────────────────────────────────────────
+  - id: R02
+    name: pip-install-block
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    detect:
+      type: regex_match
+      pattern: '(?:^|&&|\|\||;)\s*(?:pip|pip3)\s+install\b'
+    exclude_if_matches: '\bpixi\s+run\b'
+    message: "[GUARDRAIL DENY R02] Do not pip install directly — it causes environment drift. Use: pixi add --pypi <package> (PyPI) or pixi add <package> (conda). This keeps pixi.toml as the single source of truth."
+    source: "User rule — pixi manages all dependencies"
+
+  # ── R03 ─────────────────────────────────────────────────────────────────────
+  - id: R03
+    name: conda-install-block
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    detect:
+      type: regex_match
+      pattern: '(?:^|&&|\|\||;)\s*(?:conda|mamba)\s+install\b'
+    message: "[GUARDRAIL DENY R03] Do not conda/mamba install directly — it causes environment drift. Use: pixi add <package>. This keeps pixi.toml as the single source of truth."
+    source: "User rule — pixi manages all dependencies"

@@ -4,7 +4,7 @@
 
 Edit rules.yaml and re-run: python3 .claude/guardrails/generate_hooks.py
 catalog_version: 1
-Rules: R01"""
+Rules: R01, R02, R03"""
 
 import json
 import os
@@ -116,6 +116,12 @@ _matched_rules = []
 # --- R01: pytest-output-block (deny) ---
 if not re.search(r'''>\s*(?!/dev/null)\S+\.(?:log|txt|out)\b|\|\s*tee\b|\bpytest\b[^\n]*\btests/\w+\.py\b''', command) and re.search(r'''(?:^|&&|\|\||;|\brun\s+)\s*pytest\b''', command):
     _matched_rules.append((1, 'R01', 'deny', """[GUARDRAIL DENY R01] Full test suite must save output to .test_runs/. Use: pixi run pytest -n 8 -v > .test_runs/$(date +%Y%m%d_%H%M%S).txt 2>&1. Single-file runs (e.g. pytest tests/test_foo.py) are allowed without redirect."""))
+# --- R02: pip-install-block (deny) ---
+if not re.search(r'''\bpixi\s+run\b''', command) and re.search(r'''(?:^|&&|\|\||;)\s*(?:pip|pip3)\s+install\b''', command):
+    _matched_rules.append((1, 'R02', 'deny', """[GUARDRAIL DENY R02] Do not pip install directly — it causes environment drift. Use: pixi add --pypi <package> (PyPI) or pixi add <package> (conda). This keeps pixi.toml as the single source of truth."""))
+# --- R03: conda-install-block (deny) ---
+if re.search(r'''(?:^|&&|\|\||;)\s*(?:conda|mamba)\s+install\b''', command):
+    _matched_rules.append((1, 'R03', 'deny', """[GUARDRAIL DENY R03] Do not conda/mamba install directly — it causes environment drift. Use: pixi add <package>. This keeps pixi.toml as the single source of truth."""))
 # --- Bash ack: '# ack:<RULE_ID>' prefix suppresses a warn-level match ---
 _ack_match = re.match(r'^#\s*ack:(\S+)', command)
 _acked_rule = _ack_match.group(1) if _ack_match else None

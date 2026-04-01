@@ -30,6 +30,26 @@ if [ -z "$(git config --global credential.helper 2>/dev/null)" ]; then
     esac
 fi
 
+# 1c. Verify GitHub credentials are cached (claudechic is a private dependency)
+#     Do a test fetch BEFORE copier runs — this lets the user authenticate
+#     interactively so the credential helper stores the token for later.
+PRIVATE_REPO="https://github.com/sprustonlab/claudechic.git"
+if ! git ls-remote "$PRIVATE_REPO" HEAD &>/dev/null; then
+    echo ""
+    echo "This template requires access to a private GitHub repository."
+    echo "Please authenticate when prompted (credentials will be saved)."
+    echo ""
+    if ! git ls-remote "$PRIVATE_REPO" HEAD < /dev/tty; then
+        echo ""
+        echo "Error: Could not access $PRIVATE_REPO"
+        echo "  You need read access to sprustonlab/claudechic."
+        echo "  Tip: create a Personal Access Token at https://github.com/settings/tokens"
+        echo "       with 'repo' scope, then use it as your password."
+        exit 1
+    fi
+    echo "Authentication successful — credentials saved."
+fi
+
 # 2. Ask where to create the project and what to name it
 read -rp "Where should the project be created? [$(pwd)] " INSTALL_DIR < /dev/tty
 INSTALL_DIR="${INSTALL_DIR:-.}"
@@ -63,13 +83,7 @@ echo "[debug] credential.helper: $(git config --global credential.helper 2>/dev/
 echo "[debug] GIT_ASKPASS: ${GIT_ASKPASS:-not set}"
 echo "[debug] GIT_TERMINAL_PROMPT: ${GIT_TERMINAL_PROMPT:-not set}"
 
-# Prevent git from cloning private submodules during copier's template clone.
-# The template repo is public but .gitmodules references a private repo.
-# Copier only needs the template files, not the submodule contents.
-export GIT_TERMINAL_PROMPT=0
-export GIT_CONFIG_COUNT=1
-export GIT_CONFIG_KEY_0="submodule.submodules/claudechic.update"
-export GIT_CONFIG_VALUE_0=none
+# Credentials are already cached from step 1c — copier and pixi can use them.
 
 echo "[debug] Starting copier copy..."
 pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$PROJECT_NAME" "$TEMPLATE_URL" "$PROJECT_DIR"

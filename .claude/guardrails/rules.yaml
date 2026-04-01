@@ -42,3 +42,28 @@ rules:
       pattern: '(?:^|&&|\|\||;)\s*(?:conda|mamba)\s+install\b'
     message: "[GUARDRAIL DENY R03] Do not conda/mamba install directly — it causes environment drift. Use: pixi add <package>. This keeps pixi.toml as the single source of truth."
     source: "User rule — pixi manages all dependencies"
+
+  # ── R04 ─────────────────────────────────────────────────────────────────────
+  - id: R04
+    name: subagent-push-block
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    block: [Subagent]
+    detect:
+      type: regex_match
+      pattern: 'git\s+push\b'
+    message: "[GUARDRAIL DENY R04] Only Coordinator can push to remote. Ask Coordinator to push for you."
+    source: "Team mode — Coordinator manages git remote operations"
+
+  # ── R05 ─────────────────────────────────────────────────────────────────────
+  - id: R05
+    name: subagent-guardrail-config-block
+    trigger: [PreToolUse/Write, PreToolUse/Edit]
+    enforcement: deny
+    block: [Subagent]
+    detect:
+      type: regex_match
+      field: file_path
+      pattern: '\.claude/guardrails/'
+    message: "[GUARDRAIL DENY R05] Guardrail config is managed by Coordinator only."
+    source: "Team mode — protect guardrail system integrity"

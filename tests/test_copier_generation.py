@@ -245,6 +245,60 @@ class TestGuardrails:
         hooks = list((dest / ".claude" / "guardrails" / "hooks").glob("*.py"))
         assert len(hooks) > 0, "generate_hooks.py should create hook scripts"
 
+    def test_generate_hooks_registers_in_settings_json(self, copier_output):
+        """generate_hooks.py must create/update .claude/settings.json with hook entries.
+
+        Without settings.json, Claude Code never invokes the hooks — the guardrail
+        system is non-operational even though hook scripts exist.
+        """
+        import json
+        dest = copier_output({
+            "project_name": "guard_settings",
+            "claudechic_mode": "standard",
+            "use_guardrails": True,
+            "use_cluster": False,
+        })
+        # Run generate_hooks.py
+        result = subprocess.run(
+            [sys.executable, str(dest / ".claude" / "guardrails" / "generate_hooks.py")],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"generate_hooks.py failed:\nSTDOUT: {result.stdout[:500]}\nSTDERR: {result.stderr[:500]}"
+        )
+
+        # settings.json must exist
+        settings_path = dest / ".claude" / "settings.json"
+        assert settings_path.exists(), (
+            ".claude/settings.json not created by generate_hooks.py — "
+            "hooks will never fire without it"
+        )
+
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+
+        # Must have hooks.PreToolUse entries
+        hooks = settings.get("hooks", {})
+        pre_tool_use = hooks.get("PreToolUse", [])
+        assert len(pre_tool_use) > 0, (
+            "settings.json has no PreToolUse hooks — guardrails are non-operational"
+        )
+
+        # Each generated hook script must have a matching entry
+        hook_scripts = list((dest / ".claude" / "guardrails" / "hooks").glob("*.py"))
+        hook_scripts = [h for h in hook_scripts if h.name != ".gitkeep"]
+        for hook in hook_scripts:
+            matched = any(
+                hook.name in (e.get("hooks", [{}])[0].get("command", ""))
+                for e in pre_tool_use
+            )
+            assert matched, (
+                f"Hook script {hook.name} exists but has no entry in "
+                f"settings.json — it will never be invoked by Claude Code"
+            )
+
     def test_guardrail_files_no_jinja_artifacts(self, copier_output):
         """Guardrail Python files should not have unprocessed Jinja2 artifacts."""
         dest = copier_output({

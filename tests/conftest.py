@@ -68,6 +68,7 @@ def copier_output(tmp_path):
             data=data,
             defaults=True,
             unsafe=True,
+            vcs_ref="HEAD",
         )
 
         return dest

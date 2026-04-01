@@ -15,39 +15,21 @@ if ! command -v git &> /dev/null; then
     exit 1
 fi
 
-# 1b. Ensure a credential helper is configured (needed for private deps)
-if [ -z "$(git config --global credential.helper 2>/dev/null)" ]; then
-    case "$(uname -s)" in
-        Darwin*)
-            echo "Configuring git credential helper (osxkeychain)..."
-            git config --global credential.helper osxkeychain
-            ;;
-        Linux*)
-            # Use cache with 1-hour timeout as fallback
-            echo "Configuring git credential helper (cache)..."
-            git config --global credential.helper 'cache --timeout=3600'
-            ;;
-    esac
-fi
-
-# 1c. Verify GitHub credentials are cached (claudechic is a private dependency)
-#     Do a test fetch BEFORE copier runs — this lets the user authenticate
-#     interactively so the credential helper stores the token for later.
+# 1b. Verify GitHub access (claudechic is a private dependency)
 PRIVATE_REPO="https://github.com/sprustonlab/claudechic.git"
-if ! git ls-remote "$PRIVATE_REPO" HEAD &>/dev/null; then
+if ! git ls-remote "$PRIVATE_REPO" HEAD &>/dev/null 2>&1; then
     echo ""
-    echo "This template requires access to a private GitHub repository."
-    echo "Please authenticate when prompted (credentials will be saved)."
+    echo "Error: Cannot access $PRIVATE_REPO"
     echo ""
-    if ! git ls-remote "$PRIVATE_REPO" HEAD < /dev/tty; then
-        echo ""
-        echo "Error: Could not access $PRIVATE_REPO"
-        echo "  You need read access to sprustonlab/claudechic."
-        echo "  Tip: create a Personal Access Token at https://github.com/settings/tokens"
-        echo "       with 'repo' scope, then use it as your password."
-        exit 1
-    fi
-    echo "Authentication successful — credentials saved."
+    echo "This template requires access to the private sprustonlab/claudechic repo."
+    echo "Please authenticate with GitHub first:"
+    echo ""
+    echo "  brew install gh        # install GitHub CLI"
+    echo "  gh auth login          # authenticate (opens browser)"
+    echo "  gh auth setup-git      # configure git to use gh credentials"
+    echo ""
+    echo "Then re-run this installer."
+    exit 1
 fi
 
 # 2. Ask where to create the project and what to name it

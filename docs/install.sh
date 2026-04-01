@@ -15,6 +15,21 @@ if ! command -v git &> /dev/null; then
     exit 1
 fi
 
+# 1b. Ensure a credential helper is configured (needed for private deps)
+if [ -z "$(git config --global credential.helper 2>/dev/null)" ]; then
+    case "$(uname -s)" in
+        Darwin*)
+            echo "Configuring git credential helper (osxkeychain)..."
+            git config --global credential.helper osxkeychain
+            ;;
+        Linux*)
+            # Use cache with 1-hour timeout as fallback
+            echo "Configuring git credential helper (cache)..."
+            git config --global credential.helper 'cache --timeout=3600'
+            ;;
+    esac
+fi
+
 # 2. Ask where to create the project and what to name it
 read -rp "Where should the project be created? [$(pwd)] " INSTALL_DIR < /dev/tty
 INSTALL_DIR="${INSTALL_DIR:-.}"

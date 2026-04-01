@@ -34,7 +34,7 @@ def _extract_discover_fn():
     This avoids importing the full claudechic package which requires the
     real claude_agent_sdk and other heavyweight dependencies.
     """
-    source = _CLAUDECHIC_MCP.read_text()
+    source = _CLAUDECHIC_MCP.read_text(encoding="utf-8")
 
     # Extract the function source code
     # Find the function starting at "def discover_mcp_tools"
@@ -71,7 +71,7 @@ discover_mcp_tools = _extract_discover_fn()
 
 def _write_py(directory: Path, name: str, content: str) -> Path:
     f = directory / name
-    f.write_text(content)
+    f.write_text(content, encoding="utf-8")
     return f
 
 
@@ -226,8 +226,8 @@ class TestNonPyFilesSkipped:
 
     def test_non_py_files_ignored(self, mcp_tools_dir):
         """YAML, txt, and other files are not loaded."""
-        (mcp_tools_dir / "config.yaml").write_text("key: value\n")
-        (mcp_tools_dir / "README.txt").write_text("hello\n")
+        (mcp_tools_dir / "config.yaml").write_text("key: value\n", encoding="utf-8")
+        (mcp_tools_dir / "README.txt").write_text("hello\n", encoding="utf-8")
         tools = discover_mcp_tools(mcp_tools_dir)
         assert tools == []
 

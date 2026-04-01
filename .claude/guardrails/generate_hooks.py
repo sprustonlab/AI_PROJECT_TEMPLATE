@@ -85,7 +85,7 @@ def load_rules_yaml(path: Path) -> dict[str, Any]:
     """Load rules.yaml. Uses PyYAML if available, falls back to a simple parser."""
     try:
         import yaml
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return yaml.safe_load(f)
     except ImportError:
         # Fallback: use a minimal YAML subset parser for CI environments
@@ -106,7 +106,7 @@ def read_message(message_path: str) -> str:
     full_path = repo_root / message_path
     if not full_path.exists():
         raise FileNotFoundError(f"Message file not found: {full_path}")
-    return full_path.read_text().strip()
+    return full_path.read_text(encoding="utf-8").strip()
 
 
 def get_message_text(rule: dict) -> str:
@@ -208,7 +208,7 @@ def derive_session_name(session_id, ts, cwd):
     # Check cache
     try:
         if cache_path.exists():
-            with open(cache_path) as _cf:
+            with open(cache_path, encoding="utf-8") as _cf:
                 _cache = json.loads(_cf.read())
             if session_id in _cache:
                 return _cache[session_id]
@@ -220,7 +220,7 @@ def derive_session_name(session_id, ts, cwd):
     if not jsonl_path.exists():
         return f"{date_prefix}_{session_id[:8]}"
     try:
-        with open(jsonl_path) as f:
+        with open(jsonl_path, encoding="utf-8") as f:
             for line in f:
                 try:
                     rec = json.loads(line.strip())
@@ -243,10 +243,10 @@ def derive_session_name(session_id, ts, cwd):
                             try:
                                 _cache_data = {}
                                 if cache_path.exists():
-                                    with open(cache_path) as _cf2:
+                                    with open(cache_path, encoding="utf-8") as _cf2:
                                         _cache_data = json.loads(_cf2.read())
                                 _cache_data[session_id] = name
-                                with open(cache_path, 'w') as _cf3:
+                                with open(cache_path, 'w', encoding="utf-8") as _cf3:
                                     _cf3.write(json.dumps(_cache_data, indent=2))
                             except OSError:
                                 pass
@@ -274,7 +274,7 @@ def log_hit(rule_id, enforcement, tool_name, target):
         'target': target[:120],
     })
     try:
-        with open(hits_file, 'a') as fh:
+        with open(hits_file, 'a', encoding="utf-8") as fh:
             fh.write(rec + '\\n')
     except OSError:
         pass
@@ -933,7 +933,7 @@ def generate_bash_guard(rules: list[dict], catalog_version: str, ack_ttl: int = 
     lines.append("_guardrails_dir = os.environ.get('GUARDRAILS_DIR', '.claude/guardrails')")
     lines.append("for _pcode, _rid, _enf, _msg in _matched_rules:")
     lines.append("    try:")
-    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a') as _hf:")
+    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a', encoding='utf-8') as _hf:")
     lines.append("            _hf.write(json.dumps({")
     lines.append('                "ts": ts, "rule_id": _rid, "enforcement": _enf,')
     lines.append('                "tool": "Bash",')
@@ -1076,7 +1076,7 @@ def generate_read_guard(rules: list[dict], catalog_version: str) -> str:
     lines.append("_guardrails_dir = os.environ.get('GUARDRAILS_DIR', '.claude/guardrails')")
     lines.append("for _pcode, _rid, _enf, _msg in _matched_rules:")
     lines.append("    try:")
-    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a') as _hf:")
+    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a', encoding='utf-8') as _hf:")
     lines.append("            _hf.write(json.dumps({")
     lines.append('                "ts": ts, "rule_id": _rid, "enforcement": _enf,')
     lines.append('                "tool": tool_name,')
@@ -1213,7 +1213,7 @@ def generate_glob_guard(rules: list[dict], catalog_version: str) -> str:
     lines.append("_guardrails_dir = os.environ.get('GUARDRAILS_DIR', '.claude/guardrails')")
     lines.append("for _pcode, _rid, _enf, _msg in _matched_rules:")
     lines.append("    try:")
-    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a') as _hf:")
+    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a', encoding='utf-8') as _hf:")
     lines.append("            _hf.write(json.dumps({")
     lines.append('                "ts": ts, "rule_id": _rid, "enforcement": _enf,')
     lines.append('                "tool": tool_name,')
@@ -1599,7 +1599,7 @@ def generate_write_guard(write_rules: list[dict], edit_rules: list[dict],
     lines.append("_guardrails_dir = os.environ.get('GUARDRAILS_DIR', '.claude/guardrails')")
     lines.append("for _pcode, _rid, _enf, _msg in _matched_rules:")
     lines.append("    try:")
-    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a') as _hf:")
+    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a', encoding='utf-8') as _hf:")
     lines.append("            _hf.write(json.dumps({")
     lines.append('                "ts": ts, "rule_id": _rid, "enforcement": _enf,')
     lines.append('                "tool": tool_name,')
@@ -1666,7 +1666,7 @@ def generate_post_compact_injector(rules: list[dict], catalog_version: str) -> s
     lines.append("try:")
     for rule in rules:
         rule_id = rule["id"]
-        lines.append(f"    with open(hits_file, 'a') as _hf:")
+        lines.append(f"    with open(hits_file, 'a', encoding='utf-8') as _hf:")
         lines.append(f"        _hf.write(json.dumps({{")
         lines.append(f'            "ts": ts, "rule_id": "{rule_id}", "session_id": session_id,')
         lines.append(f'            "enforcement": "inject", "tool": "SessionStart", "snippet": "compact"')
@@ -1842,7 +1842,7 @@ def generate_mcp_guard(trigger: str, rules: list[dict], catalog_version: str) ->
     lines.append("_guardrails_dir = os.environ.get('GUARDRAILS_DIR', '.claude/guardrails')")
     lines.append("for _pcode, _rid, _enf, _msg in _matched_rules:")
     lines.append("    try:")
-    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a') as _hf:")
+    lines.append("        with open(_guardrails_dir + '/hits.jsonl', 'a', encoding='utf-8') as _hf:")
     lines.append("            _hf.write(json.dumps({")
     lines.append('                "ts": ts, "rule_id": _rid, "enforcement": _enf,')
     lines.append('                "tool": tool_name,')
@@ -1886,7 +1886,7 @@ def update_settings_json(new_triggers: list[str]) -> None:
         return
 
     try:
-        settings = json.loads(settings_path.read_text())
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
         print(f"[GUARDRAIL NOTE] Could not read .claude/settings.json: {e}", file=sys.stderr)
         return
@@ -1911,7 +1911,7 @@ def update_settings_json(new_triggers: list[str]) -> None:
             changed = True
 
     if changed:
-        settings_path.write_text(json.dumps(settings, indent=2) + '\n')
+        settings_path.write_text(json.dumps(settings, indent=2) + '\n', encoding="utf-8")
         print(f"[GUARDRAIL NOTE] Updated .claude/settings.json for triggers: {new_triggers}")
 
 
@@ -2065,7 +2065,7 @@ def check_mode() -> bool:
                 all_clean = False
                 continue
 
-            old_content = committed.read_text()
+            old_content = committed.read_text(encoding="utf-8")
             if old_content != new_content:
                 print(f"DRIFT: {committed}")
                 # Show a brief diff

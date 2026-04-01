@@ -15,6 +15,7 @@ claudechic = { path = "submodules/claudechic", editable = true }
 copier = ">=9,<10"
 pytest-asyncio = "*"
 pytest-timeout = "*"
+pytest-xdist = "*"
 pexpect = "*"
 
 # ── Optional environments (added by user or Copier) ───────────

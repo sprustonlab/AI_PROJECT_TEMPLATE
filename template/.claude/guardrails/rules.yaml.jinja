@@ -20,3 +20,26 @@ rules:
       type: regex_match
       pattern: 'rm\s+-rf\s+/|git\s+push\s+--force|git\s+reset\s+--hard'
     message: "[R01] Dangerous operation blocked. This command is not allowed."
+
+  # ── R02 ─────────────────────────────────────────────────────────────────────
+  - id: R02
+    name: pip-install-warn
+    trigger: PreToolUse/Bash
+    enforcement: warn
+    detect:
+      type: regex_match
+      pattern: '(?:^|&&|\|\||;)\s*(?:pip|pip3)\s+install\b'
+    exclude_if_matches: '\bpixi\s+run\b'
+    message: "[R02] pip install causes environment drift. Prefer: pixi add --pypi <package> (PyPI) or pixi add <package> (conda). This keeps pixi.toml as the single source of truth."
+    source: "Environment management — pixi manages all dependencies"
+
+  # ── R03 ─────────────────────────────────────────────────────────────────────
+  - id: R03
+    name: conda-install-warn
+    trigger: PreToolUse/Bash
+    enforcement: warn
+    detect:
+      type: regex_match
+      pattern: '(?:^|&&|\|\||;)\s*(?:conda|mamba)\s+install\b'
+    message: "[R03] conda/mamba install causes environment drift. Prefer: pixi add <package>. This keeps pixi.toml as the single source of truth."
+    source: "Environment management — pixi manages all dependencies"

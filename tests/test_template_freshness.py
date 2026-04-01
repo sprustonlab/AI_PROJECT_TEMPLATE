@@ -35,6 +35,11 @@ PAIRED_FILES = [
     "AI_agents/project_team/TEST_ENGINEER.md",
     "commands/claudechic",
     "commands/mine-patterns",
+    "hints/__init__.py",
+    "hints/_types.py",
+    "hints/_state.py",
+    "hints/_engine.py",
+    "hints/hints.py",
 ]
 
 
@@ -47,8 +52,8 @@ def test_template_file_matches_repo(rel_path: str):
     assert repo_file.exists(), f"Repo file missing: {rel_path}"
     assert template_file.exists(), f"Template file missing: {rel_path}"
 
-    repo_content = repo_file.read_text()
-    template_content = template_file.read_text()
+    repo_content = repo_file.read_text(encoding="utf-8")
+    template_content = template_file.read_text(encoding="utf-8")
 
     if repo_content != template_content:
         diff = difflib.unified_diff(

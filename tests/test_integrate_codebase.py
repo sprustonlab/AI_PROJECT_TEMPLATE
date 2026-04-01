@@ -42,19 +42,19 @@ def fake_codebase(tmp_path):
 
     # Source files
     (repo / "src").mkdir()
-    (repo / "src" / "main.py").write_text("print('hello from existing repo')\n")
-    (repo / "src" / "__init__.py").write_text("")
+    (repo / "src" / "main.py").write_text("print('hello from existing repo')\n", encoding="utf-8")
+    (repo / "src" / "__init__.py").write_text("", encoding="utf-8")
 
     # pyproject.toml
     (repo / "pyproject.toml").write_text(textwrap.dedent("""\
         [project]
         name = "my-existing-repo"
         version = "0.1.0"
-    """))
+    """), encoding="utf-8")
 
     # Existing .claude directory with a file
     (repo / ".claude").mkdir()
-    (repo / ".claude" / "CLAUDE.md").write_text("# Existing project config\n")
+    (repo / ".claude" / "CLAUDE.md").write_text("# Existing project config\n", encoding="utf-8")
 
     return repo
 
@@ -104,7 +104,7 @@ class TestSymlinkMode:
         dest = copier_with_codebase(fake_codebase, "symlink")
         main_py = dest / "repos" / fake_codebase.name / "src" / "main.py"
         assert main_py.exists()
-        assert "hello from existing repo" in main_py.read_text()
+        assert "hello from existing repo" in main_py.read_text(encoding="utf-8")
 
     @pytest.mark.skipif(
         platform.system() == "Windows",
@@ -115,7 +115,7 @@ class TestSymlinkMode:
         dest = copier_with_codebase(fake_codebase, "symlink")
 
         # Modify the original
-        (fake_codebase / "src" / "new_file.py").write_text("# new\n")
+        (fake_codebase / "src" / "new_file.py").write_text("# new\n", encoding="utf-8")
 
         # Should be visible through symlink
         new_file = dest / "repos" / fake_codebase.name / "src" / "new_file.py"
@@ -143,7 +143,7 @@ class TestCopyMode:
         target = dest / "repos" / fake_codebase.name
 
         assert (target / "src" / "main.py").exists()
-        assert "hello from existing repo" in (target / "src" / "main.py").read_text()
+        assert "hello from existing repo" in (target / "src" / "main.py").read_text(encoding="utf-8")
         assert (target / "pyproject.toml").exists()
 
     def test_copy_is_independent(self, copier_with_codebase, fake_codebase):
@@ -151,7 +151,7 @@ class TestCopyMode:
         dest = copier_with_codebase(fake_codebase, "copy")
 
         # Modify the original
-        (fake_codebase / "src" / "new_file.py").write_text("# new\n")
+        (fake_codebase / "src" / "new_file.py").write_text("# new\n", encoding="utf-8")
 
         # Should NOT be visible in copy
         new_file = dest / "repos" / fake_codebase.name / "src" / "new_file.py"

@@ -111,7 +111,7 @@ def fw_env(generated_hooks, tmp_path):
         @staticmethod
         def create_session_marker(coordinator_name: str, app_pid: str = "99999"):
             marker = sessions_dir / f"ao_{app_pid}"
-            marker.write_text(json.dumps({"coordinator": coordinator_name}))
+            marker.write_text(json.dumps({"coordinator": coordinator_name}), encoding="utf-8")
             return marker
 
     return Env()
@@ -711,7 +711,7 @@ class TestFW19HitsLogging:
         )
         hits_file = fw_env.path / "hits.jsonl"
         assert hits_file.exists(), "hits.jsonl should be created"
-        lines = hits_file.read_text().strip().split("\n")
+        lines = hits_file.read_text(encoding="utf-8").strip().split("\n")
         hits = [json.loads(line) for line in lines if line.strip()]
         fw01_hits = [h for h in hits if h.get("rule_id") == "FW01"]
         assert len(fw01_hits) >= 1
@@ -726,7 +726,7 @@ class TestFW19HitsLogging:
         )
         hits_file = fw_env.path / "hits.jsonl"
         if hits_file.exists():
-            content = hits_file.read_text().strip()
+            content = hits_file.read_text(encoding="utf-8").strip()
             assert content == "", "No rules should match for harmless_cmd"
 
 
@@ -753,7 +753,7 @@ class TestFW20LogOnly:
         )
         hits_file = fw_env.path / "hits.jsonl"
         assert hits_file.exists()
-        lines = hits_file.read_text().strip().split("\n")
+        lines = hits_file.read_text(encoding="utf-8").strip().split("\n")
         hits = [json.loads(line) for line in lines if line.strip()]
         fw20_hits = [h for h in hits if h.get("rule_id") == "FW20"]
         assert len(fw20_hits) >= 1, "FW20 should be logged even though it exits 0"

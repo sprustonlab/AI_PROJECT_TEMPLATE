@@ -52,7 +52,7 @@ class TestClaudechicMode:
         })
         pixi_toml = dest / "pixi.toml"
         assert pixi_toml.exists(), "pixi.toml not generated"
-        content = pixi_toml.read_text()
+        content = pixi_toml.read_text(encoding="utf-8")
         assert 'git = "https://github.com/sprustonlab/claudechic"' in content
         assert "editable" not in content
 
@@ -65,7 +65,7 @@ class TestClaudechicMode:
         })
         pixi_toml = dest / "pixi.toml"
         assert pixi_toml.exists(), "pixi.toml not generated"
-        content = pixi_toml.read_text()
+        content = pixi_toml.read_text(encoding="utf-8")
         assert 'path = "submodules/claudechic"' in content
         assert "editable = true" in content
         assert "github.com/sprustonlab/claudechic" not in content
@@ -136,7 +136,7 @@ class TestClusterScheduler:
             "cluster_scheduler": "lsf",
             "cluster_ssh_target": "mylogin.janelia.org",
         })
-        yaml_content = (dest / "mcp_tools" / "lsf.yaml").read_text()
+        yaml_content = (dest / "mcp_tools" / "lsf.yaml").read_text(encoding="utf-8")
         assert "mylogin.janelia.org" in yaml_content
 
     def test_pyyaml_always_present(self, copier_output):
@@ -146,7 +146,7 @@ class TestClusterScheduler:
             "claudechic_mode": "standard",
             "use_cluster": False,
         })
-        content = (dest / "pixi.toml").read_text()
+        content = (dest / "pixi.toml").read_text(encoding="utf-8")
         assert "pyyaml" in content.lower()
 
 
@@ -254,7 +254,7 @@ class TestGuardrails:
             "use_cluster": False,
         })
         for pyfile in (dest / ".claude" / "guardrails").glob("*.py"):
-            content = pyfile.read_text()
+            content = pyfile.read_text(encoding="utf-8")
             # Real Jinja2 artifacts like {% or {{ project_name }} should not appear
             # but Python f-string {{ }} is fine
             assert "{%" not in content, f"Jinja artifact in {pyfile.name}"
@@ -344,3 +344,71 @@ class TestGuardrails:
         assert result.returncode == 0, (
             f"bash_guard should ALLOW 'ls -la' but denied.\nSTDOUT: {result.stdout[:300]}\nSTDERR: {result.stderr[:300]}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Hints system generation tests
+# ---------------------------------------------------------------------------
+
+
+class TestHints:
+    """Verify hints/ folder inclusion/exclusion based on use_hints."""
+
+    def test_hints_included_when_enabled(self, copier_output):
+        """use_hints=true → hints/ folder with all 5 files."""
+        dest = copier_output({
+            "project_name": "hints_on",
+            "claudechic_mode": "standard",
+            "use_hints": True,
+            "use_cluster": False,
+        })
+        hints = dest / "hints"
+        assert hints.is_dir(), "hints/ directory should exist when use_hints=true"
+        expected_files = [
+            "__init__.py",
+            "_types.py",
+            "_state.py",
+            "_engine.py",
+            "hints.py",
+        ]
+        for fname in expected_files:
+            assert (hints / fname).is_file(), f"hints/{fname} should exist"
+
+    def test_hints_excluded_when_disabled(self, copier_output):
+        """use_hints=false → no hint files in generated project.
+
+        Note: Copier may create an empty hints/ directory (the _exclude
+        pattern excludes contents, not the directory itself). The key
+        assertion is that no hint Python files are present.
+        """
+        dest = copier_output({
+            "project_name": "hints_off",
+            "claudechic_mode": "standard",
+            "use_hints": False,
+            "use_cluster": False,
+        })
+        hints = dest / "hints"
+        if hints.exists():
+            py_files = list(hints.glob("*.py"))
+            assert py_files == [], (
+                f"hints/ should have no Python files when use_hints=false, "
+                f"found: {[f.name for f in py_files]}"
+            )
+
+    def test_copier_answers_file_generated(self, copier_output):
+        """Generated project contains .copier-answers.yml with correct values."""
+        dest = copier_output({
+            "project_name": "answers_test",
+            "claudechic_mode": "standard",
+            "use_hints": True,
+            "use_cluster": False,
+        })
+        answers_file = dest / ".copier-answers.yml"
+        assert answers_file.is_file(), ".copier-answers.yml should be generated"
+
+        import yaml
+
+        data = yaml.safe_load(answers_file.read_text(encoding="utf-8"))
+        assert isinstance(data, dict), ".copier-answers.yml should be a YAML dict"
+        assert data.get("project_name") == "answers_test"
+        assert data.get("use_hints") is True

@@ -1,4 +1,5 @@
 [tool.pytest.ini_options]
+pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "slow: tests that take >30s (copier+pixi install, E2E)",
@@ -11,3 +12,6 @@ markers = [
 # Default: skip slow tests locally
 addopts = "-m 'not slow'"
 timeout = 30
+filterwarnings = [
+    "ignore::copier._vcs.DirtyLocalWarning",
+]

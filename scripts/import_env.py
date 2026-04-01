@@ -47,7 +47,7 @@ def parse_yml(yml_path: Path) -> dict:
     Returns:
         Dict with keys: name, conda_deps (list[str]), pypi_deps (list[str]).
     """
-    with open(yml_path) as f:
+    with open(yml_path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     name = data.get("name") or yml_path.stem
@@ -146,7 +146,7 @@ def update_pixi_toml(pixi_path: Path, env_data: dict) -> None:
     and adds the environment mapping.
     """
     name = env_data["name"]
-    content = pixi_path.read_text()
+    content = pixi_path.read_text(encoding="utf-8")
 
     # Check if feature already exists
     if f"[feature.{name}." in content:
@@ -180,7 +180,7 @@ def update_pixi_toml(pixi_path: Path, env_data: dict) -> None:
         else:
             content = content.rstrip() + "\n\n[environments]\n" + env_mapping + "\n"
 
-    pixi_path.write_text(content)
+    pixi_path.write_text(content, encoding="utf-8")
     print(f"  ✔ pixi.toml updated with feature '{name}'")
 
 

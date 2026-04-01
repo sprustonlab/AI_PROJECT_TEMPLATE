@@ -41,6 +41,13 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+          token: ${{ secrets.SUBMODULE_PAT }}
+          persist-credentials: true
+
+      - name: Configure git credentials for submodule access
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.SUBMODULE_PAT }}@github.com/".insteadOf "https://github.com/"
+          git config --global credential.helper ""
 
       - uses: prefix-dev/setup-pixi@v0.8.8
 
@@ -62,6 +69,13 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+          token: ${{ secrets.SUBMODULE_PAT }}
+          persist-credentials: true
+
+      - name: Configure git credentials for submodule access
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.SUBMODULE_PAT }}@github.com/".insteadOf "https://github.com/"
+          git config --global credential.helper ""
 
       - uses: prefix-dev/setup-pixi@v0.8.8
 

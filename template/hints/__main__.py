@@ -66,9 +66,20 @@ def main(argv: list[str] | None = None) -> None:
         store.save()
         print(f"Dismissed: {hint_id}")
 
+    elif cmd == "help":
+        print("Usage: python -m hints [command]")
+        print("")
+        print("Commands:")
+        print("  status          Show current hints state (default)")
+        print("  off             Disable all hints")
+        print("  on              Re-enable hints")
+        print("  dismiss <id>    Dismiss a specific hint")
+        print("  reset           Reset to defaults")
+        print("  help            Show this help")
+
     else:
         print(f"Unknown command: {cmd}")
-        print("Usage: python -m hints [off|on|status|reset|dismiss <id>]")
+        print("Run: python -m hints help")
         sys.exit(1)
 
 

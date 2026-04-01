@@ -41,13 +41,11 @@
 
   <div class="panel" id="panel-unix">
     <p>Run this in your terminal:</p>
-    <div class="code-block" id="code-unix">curl -fsSL https://sprustonlab.github.io/AI_PROJECT_TEMPLATE/install.sh | bash<button class="copy-btn" onclick="copyCode('code-unix', this)">Copy</button></div>
+    <div class="code-block" id="code-unix">curl -fsSLO https://sprustonlab.github.io/AI_PROJECT_TEMPLATE/install.sh && bash install.sh<button class="copy-btn" onclick="copyCode('code-unix', this)">Copy</button></div>
 
     <p style="margin-top:16px;">The script asks for a project name and location, then walks you through setup. Installs <a href="https://pixi.sh" style="color:#0066cc;">pixi</a> if needed.</p>
 
-    <p style="margin-top:12px;">Or download and run manually:</p>
     <a class="download-btn" href="#" onclick="downloadFile('install.sh'); return false;">Download install.sh</a>
-    <p style="margin-top:12px; font-size:0.9em; color:#555;">Steps: 1. Click download &nbsp;2. <code>chmod +x install.sh</code> &nbsp;3. <code>./install.sh</code></p>
   </div>
 
   <div class="panel" id="panel-win">

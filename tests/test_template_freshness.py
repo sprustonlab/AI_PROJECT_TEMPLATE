@@ -35,6 +35,11 @@ PAIRED_FILES = [
     "AI_agents/project_team/TEST_ENGINEER.md",
     "commands/claudechic",
     "commands/mine-patterns",
+    "hints/__init__.py",
+    "hints/_types.py",
+    "hints/_state.py",
+    "hints/_engine.py",
+    "hints/hints.py",
 ]
 
 

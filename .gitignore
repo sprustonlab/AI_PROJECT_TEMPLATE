@@ -15,6 +15,12 @@ __pycache__/
 .claude/guardrails/session_names.json
 .claude/guardrails/hits.jsonl
 
+# Hints runtime state
+.claude/hints_state.json
+
+# Test artifacts
+.test_runs/
+
 # Project team state (optional - keep or ignore)
 .ao_project_team/*/specification/*.md
 # But always keep STATUS.md tracked for continuity

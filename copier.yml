@@ -31,6 +31,14 @@ use_pattern_miner:
     Scans Claude session history for user corrections and feeds
     them into PATTERNS.md. Useful for improving agent behavior.
 
+use_hints:
+  type: bool
+  default: true
+  help: |
+    Enable the hints system?
+    Shows contextual hints via toast notifications to help discover
+    template features like guardrails, project team, and custom tools.
+
 target_platform:
   type: str
   choices:
@@ -109,6 +117,7 @@ _exclude:
   - "{% if not use_cluster or cluster_scheduler != 'lsf' %}mcp_tools/lsf.yaml{% endif %}"
   - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.py{% endif %}"
   - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.yaml{% endif %}"
+  - "{% if not use_hints %}hints/{% endif %}"
 
 _tasks:
   # Post-generation: clone claudechic for developer mode

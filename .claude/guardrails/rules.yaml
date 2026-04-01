@@ -1,0 +1,21 @@
+# .claude/guardrails/rules.yaml
+# Git-tracked rule catalog. Single source of truth for all guardrail rules.
+# To update enforcement: edit this file, then run:
+#   python3 .claude/guardrails/generate_hooks.py
+
+catalog_version: "1"
+ack_ttl_seconds: 60
+
+rules:
+
+  # ── R01 ─────────────────────────────────────────────────────────────────────
+  - id: R01
+    name: pytest-output-block
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    detect:
+      type: regex_match
+      pattern: '(?:^|&&|\|\||;|\brun\s+)\s*pytest\b'
+    exclude_if_matches: '>\s*(?!/dev/null)\S+\.(?:log|txt|out)\b|\|\s*tee\b|\bpytest\b[^\n]*\btests/\w+\.py\b'
+    message: "[GUARDRAIL DENY R01] Full test suite must save output to .test_runs/. Use: pixi run pytest -n 8 -v > .test_runs/$(date +%Y%m%d_%H%M%S).txt 2>&1. Single-file runs (e.g. pytest tests/test_foo.py) are allowed without redirect."
+    source: "User rule — full suite output must be saved, use -n 8 for parallel"

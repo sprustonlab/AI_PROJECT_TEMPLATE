@@ -41,6 +41,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+          token: ${{ secrets.SUBMODULE_PAT }}
 
       - uses: prefix-dev/setup-pixi@v0.8.8
 
@@ -62,6 +63,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+          token: ${{ secrets.SUBMODULE_PAT }}
 
       - uses: prefix-dev/setup-pixi@v0.8.8
 

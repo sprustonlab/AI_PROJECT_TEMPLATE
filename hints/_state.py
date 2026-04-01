@@ -47,7 +47,7 @@ class CopierAnswers:
         try:
             import yaml  # type: ignore[import-untyped]
 
-            data = yaml.safe_load(answers_file.read_text())
+            data = yaml.safe_load(answers_file.read_text(encoding="utf-8"))
             return cls(raw=data if isinstance(data, dict) else {})
         except Exception:
             return cls(raw={})  # Corrupt file -> same as missing
@@ -143,7 +143,7 @@ class ProjectState:
         if not p.is_file():
             return False
         try:
-            return bool(re.search(pattern, p.read_text()))
+            return bool(re.search(pattern, p.read_text(encoding="utf-8")))
         except OSError:
             return False
 
@@ -228,7 +228,7 @@ class HintStateStore:
             return
 
         try:
-            raw = json.loads(self._path.read_text())
+            raw = json.loads(self._path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             self._lifecycle = {}
             self._activation = {"enabled": True, "disabled_hints": []}
@@ -368,7 +368,7 @@ class HintStateStore:
                 suffix=".tmp",
             )
             try:
-                with open(fd, "w") as f:
+                with open(fd, "w", encoding="utf-8") as f:
                     json.dump(payload, f, indent=2)
                     f.write("\n")
                 Path(tmp_name).rename(self._path)

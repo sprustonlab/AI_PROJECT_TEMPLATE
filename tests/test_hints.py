@@ -76,7 +76,8 @@ class TestCopierAnswers:
             "use_pattern_miner: true\n"
             "use_cluster: true\n"
             "cluster_scheduler: slurm\n"
-            "project_name: my_proj\n"
+            "project_name: my_proj\n",
+            encoding="utf-8",
         )
         ca = CopierAnswers.load(tmp_path)
         assert ca.use_guardrails is False
@@ -88,7 +89,7 @@ class TestCopierAnswers:
     def test_corrupt_yaml_returns_defaults(self, tmp_path):
         """Corrupt YAML falls back to defaults gracefully."""
         answers = tmp_path / ".copier-answers.yml"
-        answers.write_text(":::invalid yaml [[[")
+        answers.write_text(":::invalid yaml [[[", encoding="utf-8")
         ca = CopierAnswers.load(tmp_path)
         assert ca.use_guardrails is True
         assert ca.raw == {}
@@ -96,7 +97,7 @@ class TestCopierAnswers:
     def test_non_dict_yaml_returns_defaults(self, tmp_path):
         """YAML that parses to non-dict returns defaults."""
         answers = tmp_path / ".copier-answers.yml"
-        answers.write_text("- just\n- a\n- list\n")
+        answers.write_text("- just\n- a\n- list\n", encoding="utf-8")
         ca = CopierAnswers.load(tmp_path)
         assert ca.raw == {}
 
@@ -108,7 +109,7 @@ class TestCopierAnswers:
     def test_generic_get(self, tmp_path):
         """Generic .get() accessor works."""
         answers = tmp_path / ".copier-answers.yml"
-        answers.write_text("custom_key: custom_value\n")
+        answers.write_text("custom_key: custom_value\n", encoding="utf-8")
         ca = CopierAnswers.load(tmp_path)
         assert ca.get("custom_key") == "custom_value"
         assert ca.get("missing", "fallback") == "fallback"
@@ -166,7 +167,7 @@ class TestProjectState:
     def test_file_contains_pattern(self, tmp_path):
         """file_contains matches regex patterns in file content."""
         f = tmp_path / "config.yaml"
-        f.write_text("rules:\n  - R01_default\n  - R02_custom\n")
+        f.write_text("rules:\n  - R01_default\n  - R02_custom\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert state.file_contains("config.yaml", r"R02_custom") is True
         assert state.file_contains("config.yaml", r"R99_missing") is False
@@ -259,7 +260,7 @@ class TestHintStateStore:
         """Corrupt JSON file → fresh start."""
         state_dir = tmp_path / ".claude"
         state_dir.mkdir()
-        (state_dir / "hints_state.json").write_text("NOT VALID JSON {{{")
+        (state_dir / "hints_state.json").write_text("NOT VALID JSON {{{", encoding="utf-8")
         store = HintStateStore(tmp_path)
         assert store.get_times_shown("any") == 0
 
@@ -441,7 +442,7 @@ class TestGuardrailsOnlyDefault:
         rules = tmp_path / ".claude" / "guardrails" / "rules.d"
         rules.mkdir(parents=True)
         # Write copier answers with guardrails enabled
-        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert GuardrailsOnlyDefault().check(state) is True
 
@@ -449,52 +450,52 @@ class TestGuardrailsOnlyDefault:
         rules = tmp_path / ".claude" / "guardrails" / "rules.d"
         rules.mkdir(parents=True)
         (rules / "R02_custom.yaml").touch()
-        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert GuardrailsOnlyDefault().check(state) is False
 
     def test_skips_when_guardrails_disabled(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: false\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: false\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert GuardrailsOnlyDefault().check(state) is False
 
 
 class TestProjectTeamNeverUsed:
     def test_true_when_no_ao_dir(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_project_team: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_project_team: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert ProjectTeamNeverUsed().check(state) is True
 
     def test_false_when_ao_dir_exists(self, tmp_path):
         (tmp_path / ".ao_project_team").mkdir()
-        (tmp_path / ".copier-answers.yml").write_text("use_project_team: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_project_team: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert ProjectTeamNeverUsed().check(state) is False
 
     def test_skips_when_feature_disabled(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_project_team: false\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_project_team: false\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert ProjectTeamNeverUsed().check(state) is False
 
 
 class TestPatternMinerUnderutilized:
     def test_true_enough_sessions_no_miner(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path, session_count=15)
         assert PatternMinerUnderutilized().check(state) is True
 
     def test_false_when_session_count_none(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)  # session_count=None
         assert PatternMinerUnderutilized().check(state) is False
 
     def test_false_when_too_few_sessions(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path, session_count=3)
         assert PatternMinerUnderutilized().check(state) is False
 
     def test_false_when_miner_has_run(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n", encoding="utf-8")
         (tmp_path / ".patterns_mining_state.json").touch()
         state = ProjectState.build(tmp_path, session_count=15)
         assert PatternMinerUnderutilized().check(state) is False
@@ -526,7 +527,7 @@ class TestMcpToolsEmpty:
 
 class TestClusterConfiguredUnused:
     def test_true_when_cluster_enabled_no_artifacts(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_cluster: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_cluster: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert ClusterConfiguredUnused().check(state) is True
 
@@ -535,7 +536,7 @@ class TestClusterConfiguredUnused:
         assert ClusterConfiguredUnused().check(state) is False
 
     def test_false_when_job_artifacts_exist(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_cluster: true\n")
+        (tmp_path / ".copier-answers.yml").write_text("use_cluster: true\n", encoding="utf-8")
         (tmp_path / "cluster_jobs").mkdir()
         state = ProjectState.build(tmp_path)
         assert ClusterConfiguredUnused().check(state) is False

@@ -110,7 +110,7 @@ def get_my_role() -> 'str | None':
     if not marker.exists():
         return None  # no active team session → solo mode
     try:
-        session = json.loads(marker.read_text())
+        session = json.loads(marker.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None  # unreadable marker → fail-open
     # Main session agent → Coordinator (session marker records their name)
@@ -274,7 +274,7 @@ def check_write_ack(rule_id: str, file_path: str, ttl_seconds: int = 60) -> bool
         return False
 
     try:
-        ack = json.loads(ack_path.read_text())
+        ack = json.loads(ack_path.read_text(encoding="utf-8"))
 
         # Field validation — all three must match exactly.
         valid = (
@@ -337,7 +337,7 @@ if __name__ == '__main__':
         # Temp file in the same directory as the final token — same filesystem
         # → atomic rename works correctly on NFS.
         _tmp = _acks_dir / f'.tmp_ack_{_agent_name}_{_rule_id}'
-        _tmp.write_text(json.dumps(_tok))
+        _tmp.write_text(json.dumps(_tok), encoding="utf-8")
         _token_path = _acks_dir / f'ack_{_agent_name}_{_rule_id}.json'
         _tmp.rename(_token_path)
         print(f'[GUARDRAIL NOTE] ack token written: {_token_path}')

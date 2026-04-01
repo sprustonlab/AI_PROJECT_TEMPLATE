@@ -734,7 +734,7 @@ def run_tier3(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def load_state() -> dict[str, Any]:
     """Load the mining state file."""
     if STATE_FILE.exists():
-        with open(STATE_FILE) as f:
+        with open(STATE_FILE, encoding="utf-8") as f:
             return json.load(f)
     return {
         "last_run": None,
@@ -746,7 +746,7 @@ def load_state() -> dict[str, Any]:
 
 def save_state(state: dict[str, Any]) -> None:
     """Save the mining state file."""
-    with open(STATE_FILE, "w") as f:
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)
 
 
@@ -869,7 +869,7 @@ def load_extra_keywords(path: str | None) -> list[str] | None:
     if path is None:
         return None
     keywords: list[str] = []
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#"):
@@ -1046,7 +1046,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
         "corrections": candidates,
     }
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=str)
     print(f"\nReport written to {output_path}", file=sys.stderr)
 

@@ -115,7 +115,8 @@ async def test_no_hints_when_disabled(tmp_path):
                 "activation": {"enabled": False, "disabled_hints": []},
                 "lifecycle": {},
             }
-        )
+        ),
+        encoding="utf-8",
     )
 
     app = MinimalApp()

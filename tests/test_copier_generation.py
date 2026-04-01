@@ -374,6 +374,32 @@ class TestHints:
         for fname in expected_files:
             assert (hints / fname).is_file(), f"hints/{fname} should exist"
 
+    def test_hints_skill_included_when_enabled(self, copier_output):
+        """use_hints=true → /hints skill exists."""
+        dest = copier_output({
+            "project_name": "hints_skill_on",
+            "claudechic_mode": "standard",
+            "use_hints": True,
+            "use_cluster": False,
+        })
+        assert (dest / ".claude" / "skills" / "hints" / "SKILL.md").is_file(), (
+            "hints SKILL.md should exist when use_hints=true"
+        )
+
+    def test_hints_skill_excluded_when_disabled(self, copier_output):
+        """use_hints=false → /hints skill excluded."""
+        dest = copier_output({
+            "project_name": "hints_skill_off",
+            "claudechic_mode": "standard",
+            "use_hints": False,
+            "use_cluster": False,
+        })
+        skill_dir = dest / ".claude" / "skills" / "hints"
+        if skill_dir.exists():
+            assert not (skill_dir / "SKILL.md").exists(), (
+                "hints SKILL.md should NOT exist when use_hints=false"
+            )
+
     def test_hints_excluded_when_disabled(self, copier_output):
         """use_hints=false → no hint files in generated project.
 

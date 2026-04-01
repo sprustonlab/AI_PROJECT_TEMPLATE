@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -1077,3 +1079,135 @@ class TestEvaluate:
         # (it may or may not be shown depending on budget, but the wiring
         # should not error)
         # The key test is that evaluate() completes without error.
+
+
+# ---------------------------------------------------------------------------
+# /hints CLI E2E tests (python -m hints)
+# ---------------------------------------------------------------------------
+
+
+class TestHintsCLI:
+    """E2E tests for the hints CLI that the /hints skill invokes.
+
+    Cycles through all commands in a single test to verify the full
+    lifecycle: status → off → status → on → dismiss → status → reset.
+    Each step checks both stdout and the actual state file on disk.
+    """
+
+    def _run_hints(self, project_root: Path, *args: str) -> subprocess.CompletedProcess:
+        """Run `python -m hints <args>` in the given project root."""
+        return subprocess.run(
+            [sys.executable, "-m", "hints", *args],
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=10,
+        )
+
+    def _read_state(self, project_root: Path) -> dict:
+        """Read and parse the hints state file."""
+        state_file = project_root / ".claude" / "hints_state.json"
+        if not state_file.exists():
+            return {}
+        return json.loads(state_file.read_text(encoding="utf-8"))
+
+    def test_full_lifecycle(self, tmp_path):
+        """Cycle through all /hints commands and verify state after each.
+
+        This mirrors what a user does in claudechic:
+          /hints status  → see "enabled"
+          /hints off     → disable all
+          /hints status  → see "disabled"
+          /hints on      → re-enable
+          /hints dismiss git-setup → dismiss one hint
+          /hints status  → see "enabled" + dismissed list
+          /hints reset   → clear state file
+          /hints status  → back to defaults
+        """
+        # Setup: create .claude/ dir (required for state file)
+        (tmp_path / ".claude").mkdir()
+
+        # Also need hints package importable — copy it to tmp
+        import shutil
+        hints_src = Path(__file__).resolve().parent.parent / "hints"
+        hints_dst = tmp_path / "hints"
+        shutil.copytree(hints_src, hints_dst)
+
+        # --- Step 1: status (default = enabled, no state file yet) ---
+        result = self._run_hints(tmp_path, "status")
+        assert result.returncode == 0, f"status failed: {result.stderr}"
+        assert "enabled" in result.stdout.lower()
+
+        # --- Step 2: off ---
+        result = self._run_hints(tmp_path, "off")
+        assert result.returncode == 0, f"off failed: {result.stderr}"
+        assert "disabled" in result.stdout.lower()
+
+        # Verify state file on disk
+        state = self._read_state(tmp_path)
+        assert state["activation"]["enabled"] is False
+
+        # --- Step 3: status shows disabled ---
+        result = self._run_hints(tmp_path, "status")
+        assert result.returncode == 0
+        assert "disabled" in result.stdout.lower()
+
+        # --- Step 4: on ---
+        result = self._run_hints(tmp_path, "on")
+        assert result.returncode == 0, f"on failed: {result.stderr}"
+        assert "enabled" in result.stdout.lower()
+
+        state = self._read_state(tmp_path)
+        assert state["activation"]["enabled"] is True
+
+        # --- Step 5: dismiss a specific hint ---
+        result = self._run_hints(tmp_path, "dismiss", "git-setup")
+        assert result.returncode == 0, f"dismiss failed: {result.stderr}"
+        assert "git-setup" in result.stdout.lower()
+
+        state = self._read_state(tmp_path)
+        assert "git-setup" in state["activation"]["disabled_hints"]
+        # Global should still be enabled
+        assert state["activation"]["enabled"] is True
+
+        # --- Step 6: status shows enabled + dismissed hint ---
+        result = self._run_hints(tmp_path, "status")
+        assert result.returncode == 0
+        assert "enabled" in result.stdout.lower()
+        assert "git-setup" in result.stdout.lower()
+
+        # --- Step 7: reset ---
+        result = self._run_hints(tmp_path, "reset")
+        assert result.returncode == 0, f"reset failed: {result.stderr}"
+        assert "reset" in result.stdout.lower()
+
+        # State file should be gone
+        assert not (tmp_path / ".claude" / "hints_state.json").exists()
+
+        # --- Step 8: status after reset = back to defaults ---
+        result = self._run_hints(tmp_path, "status")
+        assert result.returncode == 0
+        assert "enabled" in result.stdout.lower()
+
+    def test_unknown_command(self, tmp_path):
+        """Unknown command exits with error."""
+        (tmp_path / ".claude").mkdir()
+        import shutil
+        hints_src = Path(__file__).resolve().parent.parent / "hints"
+        shutil.copytree(hints_src, tmp_path / "hints")
+
+        result = self._run_hints(tmp_path, "bogus")
+        assert result.returncode != 0
+        assert "unknown" in result.stdout.lower()
+
+    def test_dismiss_without_id(self, tmp_path):
+        """dismiss without hint ID shows usage."""
+        (tmp_path / ".claude").mkdir()
+        import shutil
+        hints_src = Path(__file__).resolve().parent.parent / "hints"
+        shutil.copytree(hints_src, tmp_path / "hints")
+
+        result = self._run_hints(tmp_path, "dismiss")
+        assert result.returncode != 0
+        assert "usage" in result.stdout.lower()

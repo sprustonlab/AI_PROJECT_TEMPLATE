@@ -89,8 +89,38 @@ Push-Location $ProjectDir
 pixi install
 Pop-Location
 
+# 8. Check Claude Code is installed and authenticated
+$ClaudeCmd = Get-Command claude -ErrorAction SilentlyContinue
+if (-not $ClaudeCmd) {
+    Write-Host ""
+    Write-Host "✔ Project is ready!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Claude Code is not installed. To get started:"
+    Write-Host ""
+    Write-Host "  npm install -g @anthropic-ai/claude-code"
+    Write-Host "  claude login"
+    Write-Host "  cd $ProjectDir"
+    Write-Host "  . .\activate.ps1"
+    Write-Host "  pixi run claudechic"
+    exit 0
+}
+
+$ClaudeAuth = claude auth status 2>&1 | Out-String
+if ($ClaudeAuth -match '"loggedIn":\s*false') {
+    Write-Host ""
+    Write-Host "✔ Project is ready!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Claude Code is installed but not logged in. To get started:"
+    Write-Host ""
+    Write-Host "  claude login"
+    Write-Host "  cd $ProjectDir"
+    Write-Host "  . .\activate.ps1"
+    Write-Host "  pixi run claudechic"
+    exit 0
+}
+
 Write-Host ""
-Write-Host "✔ Project is ready! Launching claudechic..."
+Write-Host "✔ Project is ready! Launching claudechic..." -ForegroundColor Green
 Write-Host ""
 Push-Location $ProjectDir
 . .\activate.ps1

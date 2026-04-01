@@ -484,6 +484,27 @@ class TestProjectContainment:
             "install.ps1 should NOT copy into '.', must use a project subdirectory"
         )
 
+    def test_install_sh_reads_from_tty(self):
+        """install.sh must read user input from /dev/tty, not stdin.
+
+        When run via `curl | bash`, stdin is the script itself.
+        All `read` calls must redirect from /dev/tty to get user input.
+        """
+        import re
+        docs = Path(__file__).resolve().parent.parent / "docs"
+        sh_content = (docs / "install.sh").read_text(encoding="utf-8")
+
+        # Find all `read` commands
+        read_calls = re.findall(r'^.*\bread\b.*$', sh_content, re.MULTILINE)
+        for line in read_calls:
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            assert "/dev/tty" in stripped, (
+                f"install.sh `read` must use < /dev/tty for curl|bash compat: "
+                f"{stripped}"
+            )
+
 
 # ---------------------------------------------------------------------------
 # Copier answers file test

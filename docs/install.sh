@@ -68,7 +68,7 @@ echo "[debug] GIT_TERMINAL_PROMPT: ${GIT_TERMINAL_PROMPT:-not set}"
 # Credentials are already cached from step 1c — copier and pixi can use them.
 
 echo "[debug] Starting copier copy..."
-pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$PROJECT_NAME" "$TEMPLATE_URL" "$PROJECT_DIR"
+pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$PROJECT_NAME" "$TEMPLATE_URL" "$PROJECT_DIR" < /dev/tty
 echo "[debug] Copier copy completed."
 
 # 5. Install environments

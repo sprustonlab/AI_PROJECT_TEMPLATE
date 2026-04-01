@@ -19,16 +19,34 @@ fi
 PRIVATE_REPO="https://github.com/sprustonlab/claudechic.git"
 if ! git ls-remote "$PRIVATE_REPO" HEAD &>/dev/null 2>&1; then
     echo ""
-    echo "Error: Cannot access $PRIVATE_REPO"
+    echo "Error: Cannot access sprustonlab/claudechic (private repository)."
     echo ""
-    echo "This template requires access to the private sprustonlab/claudechic repo."
-    echo "Please authenticate with GitHub first:"
+    echo "This template requires access to a private GitHub repo."
+    echo "Please authenticate with GitHub first, then re-run this installer."
     echo ""
-    echo "  brew install gh        # install GitHub CLI"
-    echo "  gh auth login          # authenticate (opens browser)"
-    echo "  gh auth setup-git      # configure git to use gh credentials"
+    case "$(uname -s)" in
+        Darwin*)
+            echo "  macOS:"
+            echo "    brew install gh          # install GitHub CLI"
+            echo "    gh auth login            # authenticate (opens browser)"
+            echo "    gh auth setup-git        # configure git credentials"
+            ;;
+        Linux*)
+            if command -v apt-get &> /dev/null; then
+                echo "  Ubuntu/Debian:"
+                echo "    sudo apt install gh      # install GitHub CLI"
+            elif command -v dnf &> /dev/null; then
+                echo "  Fedora/RHEL:"
+                echo "    sudo dnf install gh      # install GitHub CLI"
+            else
+                echo "  Linux:"
+                echo "    See https://github.com/cli/cli#installation"
+            fi
+            echo "    gh auth login            # authenticate (opens browser)"
+            echo "    gh auth setup-git        # configure git credentials"
+            ;;
+    esac
     echo ""
-    echo "Then re-run this installer."
     exit 1
 fi
 

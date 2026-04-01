@@ -16,9 +16,9 @@ if ! command -v git &> /dev/null; then
 fi
 
 # 2. Ask where to create the project and what to name it
-read -rp "Where should the project be created? [$(pwd)] " INSTALL_DIR
+read -rp "Where should the project be created? [$(pwd)] " INSTALL_DIR < /dev/tty
 INSTALL_DIR="${INSTALL_DIR:-.}"
-read -rp "Project name: " PROJECT_NAME
+read -rp "Project name: " PROJECT_NAME < /dev/tty
 if [ -z "$PROJECT_NAME" ]; then
     echo "Error: project name is required."
     exit 1

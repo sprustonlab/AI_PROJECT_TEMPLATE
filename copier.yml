@@ -118,6 +118,7 @@ _exclude:
   - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.py{% endif %}"
   - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.yaml{% endif %}"
   - "{% if not use_hints %}hints/{% endif %}"
+  - "{% if not use_hints %}.claude/skills/hints/{% endif %}"
 
 _tasks:
   # Post-generation: clone claudechic for developer mode

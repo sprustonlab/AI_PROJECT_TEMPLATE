@@ -27,7 +27,25 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     }
 }
 
-# 2. Ask where to create the project and what to name it
+# 2. Verify GitHub access (claudechic is a private dependency)
+$PrivateRepo = "https://github.com/sprustonlab/claudechic.git"
+$lsRemote = git ls-remote $PrivateRepo HEAD 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "Error: Cannot access sprustonlab/claudechic (private repository)." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "This template requires access to a private GitHub repo."
+    Write-Host "Please authenticate with GitHub first, then re-run this installer."
+    Write-Host ""
+    Write-Host "  Windows:" -ForegroundColor Cyan
+    Write-Host "    winget install GitHub.cli    # install GitHub CLI"
+    Write-Host "    gh auth login               # authenticate (opens browser)"
+    Write-Host "    gh auth setup-git           # configure git credentials"
+    Write-Host ""
+    exit 1
+}
+
+# 3. Ask where to create the project and what to name it
 $DefaultDir = (Get-Location).Path
 $InstallDir = Read-Host "Where should the project be created? [$DefaultDir]"
 if (-not $InstallDir) { $InstallDir = $DefaultDir }
@@ -44,27 +62,27 @@ if (Test-Path $ProjectDir) {
     exit 1
 }
 
-# 3. Install pixi if not present
+# 4. Install pixi if not present
 if (-not (Get-Command pixi -ErrorAction SilentlyContinue)) {
     Write-Host "Installing pixi..."
     iwr -useb https://pixi.sh/install.ps1 | iex
     $env:PATH = "$HOME\.pixi\bin;$env:PATH"
 }
 
-# 4. Ensure git is on PATH (winget install may not update current session)
+# 5. Ensure git is on PATH (winget install may not update current session)
 $GitCmd = Get-Command git -ErrorAction SilentlyContinue
 if ($GitCmd) {
     $GitDir = Split-Path (Split-Path $GitCmd.Source)
     $env:PATH = "$GitDir\cmd;$env:PATH"
 }
 
-# 5. Run copier (project_name is passed so copier won't re-ask)
+# 6. Run copier (project_name is passed so copier won't re-ask)
 Write-Host ""
 Write-Host "Copier will now ask you a few questions to configure your project."
 Write-Host ""
 pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$ProjectName" $TemplateUrl $ProjectDir
 
-# 6. Install environments
+# 7. Install environments
 Write-Host ""
 Write-Host "Installing environments..."
 Push-Location $ProjectDir

@@ -27,44 +27,54 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     }
 }
 
-# 2. Ask where to create the project
+# 2. Ask where to create the project and what to name it
 $DefaultDir = (Get-Location).Path
 $InstallDir = Read-Host "Where should the project be created? [$DefaultDir]"
 if (-not $InstallDir) { $InstallDir = $DefaultDir }
 
-# 2. Install pixi if not present
+$ProjectName = Read-Host "Project name"
+if (-not $ProjectName) {
+    Write-Error "Project name is required."
+    exit 1
+}
+
+$ProjectDir = Join-Path $InstallDir $ProjectName
+if (Test-Path $ProjectDir) {
+    Write-Error "$ProjectDir already exists."
+    exit 1
+}
+
+# 3. Install pixi if not present
 if (-not (Get-Command pixi -ErrorAction SilentlyContinue)) {
     Write-Host "Installing pixi..."
     iwr -useb https://pixi.sh/install.ps1 | iex
     $env:PATH = "$HOME\.pixi\bin;$env:PATH"
 }
 
-# 3. Run copier (asks project name and all other questions)
+# 4. Ensure git is on PATH (winget install may not update current session)
+$GitCmd = Get-Command git -ErrorAction SilentlyContinue
+if ($GitCmd) {
+    $GitDir = Split-Path (Split-Path $GitCmd.Source)
+    $env:PATH = "$GitDir\cmd;$env:PATH"
+}
+
+# 5. Run copier (project_name is passed so copier won't re-ask)
 Write-Host ""
 Write-Host "Copier will now ask you a few questions to configure your project."
 Write-Host ""
-Push-Location $InstallDir
-pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust $TemplateUrl .
+pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$ProjectName" $TemplateUrl $ProjectDir
 
-# 4. Find the created project (most recent directory)
-$ProjectDir = Get-ChildItem -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if (-not $ProjectDir) {
-    Write-Error "No project directory created."
-    exit 1
-}
-
-# 5. Install environments
+# 6. Install environments
 Write-Host ""
 Write-Host "Installing environments..."
-Push-Location $ProjectDir.FullName
+Push-Location $ProjectDir
 pixi install
-Pop-Location
 Pop-Location
 
 Write-Host ""
 Write-Host "✔ Project is ready! Launching claudechic..."
 Write-Host ""
-Push-Location $ProjectDir.FullName
+Push-Location $ProjectDir
 . .\activate.ps1
 pixi run claudechic
 Pop-Location

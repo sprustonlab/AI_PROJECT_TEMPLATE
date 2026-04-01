@@ -19,7 +19,7 @@ import pytest
 # Imports under test
 # ---------------------------------------------------------------------------
 
-from template.hints._types import (
+from hints._types import (
     CooldownPeriod,
     HintRecord,
     HintSpec,
@@ -27,13 +27,13 @@ from template.hints._types import (
     ShowOnce,
     ShowUntilResolved,
 )
-from template.hints._state import (
+from hints._state import (
     ActivationConfig,
     CopierAnswers,
     HintStateStore,
     ProjectState,
 )
-from template.hints.hints import (
+from hints.hints import (
     AllOf,
     AnyOf,
     ClusterConfiguredUnused,
@@ -48,7 +48,7 @@ from template.hints.hints import (
     ProjectTeamNeverUsed,
     get_hints,
 )
-from template.hints._engine import run_pipeline
+from hints._engine import run_pipeline
 
 
 # ===========================================================================

@@ -395,6 +395,104 @@ class TestHints:
                 f"found: {[f.name for f in py_files]}"
             )
 
+
+
+# ---------------------------------------------------------------------------
+# Install script containment tests
+# ---------------------------------------------------------------------------
+
+
+class TestProjectContainment:
+    """Verify copier output is fully contained in the project directory."""
+
+    def test_no_files_leak_to_parent(self, tmp_path):
+        """copier copy into a subdirectory must not create files in the parent.
+
+        This catches the bug where `copier copy $URL .` dumps template files
+        into the current directory instead of a named subdirectory.
+        """
+        from copier import run_copy
+        import os
+        import subprocess
+
+        env = os.environ.copy()
+        env["GIT_AUTHOR_NAME"] = "Test"
+        env["GIT_AUTHOR_EMAIL"] = "test@test.com"
+        env["GIT_COMMITTER_NAME"] = "Test"
+        env["GIT_COMMITTER_EMAIL"] = "test@test.com"
+
+        # Record what's in tmp_path before copier runs
+        parent_dir = tmp_path / "workspace"
+        parent_dir.mkdir()
+        before = set(parent_dir.iterdir())
+
+        # Simulate the WRONG way: copy into "." (parent_dir itself)
+        project_in_parent = parent_dir / "my_project"
+        project_in_parent.mkdir()
+        subprocess.run(
+            ["git", "init"], cwd=project_in_parent,
+            capture_output=True, check=True, env=env,
+        )
+        subprocess.run(
+            ["git", "commit", "--allow-empty", "-m", "init"],
+            cwd=project_in_parent, capture_output=True, check=True, env=env,
+        )
+
+        run_copy(
+            str(Path(__file__).resolve().parent.parent),
+            project_in_parent,
+            data={
+                "project_name": "my_project",
+                "claudechic_mode": "standard",
+                "use_cluster": False,
+            },
+            defaults=True,
+            unsafe=True,
+        )
+
+        # After copier, parent_dir should only contain the project subdir
+        after = set(parent_dir.iterdir())
+        leaked = after - before - {project_in_parent}
+        assert not leaked, (
+            f"Files leaked to parent directory outside project folder: "
+            f"{[p.name for p in leaked]}"
+        )
+
+        # The project dir itself should have content
+        project_files = list(project_in_parent.iterdir())
+        assert len(project_files) > 0, "Project directory should have files"
+
+        # Key template files should be INSIDE the project dir
+        assert (project_in_parent / "pixi.toml").exists(), (
+            "pixi.toml should be inside project directory"
+        )
+        assert (project_in_parent / "activate").exists(), (
+            "activate should be inside project directory"
+        )
+
+    def test_install_script_uses_project_subdir(self):
+        """install.sh must pass a project subdirectory to copier, not '.'."""
+        docs = Path(__file__).resolve().parent.parent / "docs"
+
+        sh_content = (docs / "install.sh").read_text(encoding="utf-8")
+        assert 'copier copy --trust "$TEMPLATE_URL" .' not in sh_content, (
+            "install.sh should NOT copy into '.', must use a project subdirectory"
+        )
+
+        ps1_content = (docs / "install.ps1").read_text(encoding="utf-8")
+        assert "copier copy --trust $TemplateUrl ." not in ps1_content, (
+            "install.ps1 should NOT copy into '.', must use a project subdirectory"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Copier answers file test
+# ---------------------------------------------------------------------------
+
+
+class TestAnswersFile:
+    """Verify .copier-answers.yml generation."""
+
     def test_copier_answers_file_generated(self, copier_output):
         """Generated project contains .copier-answers.yml with correct values."""
         dest = copier_output({

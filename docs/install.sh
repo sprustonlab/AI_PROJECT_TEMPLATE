@@ -15,9 +15,20 @@ if ! command -v git &> /dev/null; then
     exit 1
 fi
 
-# 2. Ask where to create the project
+# 2. Ask where to create the project and what to name it
 read -rp "Where should the project be created? [$(pwd)] " INSTALL_DIR
 INSTALL_DIR="${INSTALL_DIR:-.}"
+read -rp "Project name: " PROJECT_NAME
+if [ -z "$PROJECT_NAME" ]; then
+    echo "Error: project name is required."
+    exit 1
+fi
+
+PROJECT_DIR="$INSTALL_DIR/$PROJECT_NAME"
+if [ -d "$PROJECT_DIR" ]; then
+    echo "Error: $PROJECT_DIR already exists."
+    exit 1
+fi
 
 # 3. Install pixi if not present
 if ! command -v pixi &> /dev/null; then
@@ -26,21 +37,13 @@ if ! command -v pixi &> /dev/null; then
     export PATH="$HOME/.pixi/bin:$PATH"
 fi
 
-# 4. Run copier (asks project name and all other questions)
+# 4. Run copier (project_name is passed so copier won't re-ask)
 echo ""
 echo "Copier will now ask you a few questions to configure your project."
 echo ""
-cd "$INSTALL_DIR"
-pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust "$TEMPLATE_URL" .
+pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$PROJECT_NAME" "$TEMPLATE_URL" "$PROJECT_DIR"
 
-# 5. Find the created project (most recent directory)
-PROJECT_DIR=$(ls -td */ 2>/dev/null | head -1)
-if [ -z "$PROJECT_DIR" ]; then
-    echo "Error: No project directory created."
-    exit 1
-fi
-
-# 6. Install environments
+# 5. Install environments
 echo ""
 echo "Installing environments..."
 cd "$PROJECT_DIR"

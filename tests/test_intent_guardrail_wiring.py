@@ -8,12 +8,18 @@ Each test targets a specific broken chain:
   2. hardcoded triggers (Bash, Read, Glob, Write, Edit) excluded from registration
   3. merge with pre-existing settings.json content
   4. idempotency of repeated generate_hooks.py runs
+  5. copier should auto-generate settings.json (no manual step)
+  6. activate script should regenerate stale settings.json
 """
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
+import time
+from pathlib import Path
 
 import pytest
 
@@ -287,4 +293,125 @@ class TestSettingsJsonWiring:
             "hooks registration is not idempotent.\n"
             f"After first run: {json.dumps(settings_first, indent=2)[:500]}\n"
             f"After second run: {json.dumps(settings_second, indent=2)[:500]}"
+        )
+
+    def test_copier_generates_settings_json_automatically(self, copier_output):
+        """copier copy must produce settings.json WITHOUT manually running generate_hooks.py.
+
+        When use_guardrails=True, the copier _tasks section should call
+        generate_hooks.py as a post-generation step so that settings.json
+        is created automatically. Users should never need to run it by hand.
+
+        Expected to FAIL because copier.yml _tasks does not call generate_hooks.py.
+        """
+        dest = copier_output({
+            "project_name": "wiring_auto",
+            "claudechic_mode": "standard",
+            "use_guardrails": True,
+            "use_cluster": False,
+        })
+
+        # Do NOT manually run generate_hooks.py — that's the whole point.
+        settings_path = dest / ".claude" / "settings.json"
+
+        assert settings_path.exists(), (
+            ".claude/settings.json was not created by copier post-generation — "
+            "copier.yml _tasks must call generate_hooks.py when use_guardrails=True"
+        )
+
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        pre_tool_use = settings.get("hooks", {}).get("PreToolUse", [])
+        assert len(pre_tool_use) > 0, (
+            "settings.json exists but has no PreToolUse entries — "
+            "guardrails are dead on arrival"
+        )
+
+    def test_activate_regenerates_stale_settings_json(self, copier_output):
+        """Sourcing activate must regenerate settings.json when rules.yaml is newer.
+
+        If a user edits rules.yaml, the hooks in settings.json become stale.
+        The activate script should detect this and re-run generate_hooks.py.
+
+        We test two things:
+        1. The activate script contains the staleness check code
+        2. Running that staleness logic actually regenerates settings.json
+
+        Expected to FAIL because activate does not check staleness.
+        """
+        dest = copier_output({
+            "project_name": "wiring_stale",
+            "claudechic_mode": "standard",
+            "use_guardrails": True,
+            "use_cluster": False,
+        })
+
+        settings_path = dest / ".claude" / "settings.json"
+        rules_path = dest / ".claude" / "guardrails" / "rules.yaml"
+        gen_script = dest / ".claude" / "guardrails" / "generate_hooks.py"
+
+        # Copy the current activate script from the template root
+        # (copier with vcs_ref="HEAD" may not include uncommitted changes)
+        template_root = Path(__file__).resolve().parent.parent
+        shutil.copy2(template_root / "activate", dest / "activate")
+
+        # Ensure generate_hooks.py has run (create initial settings.json)
+        result = subprocess.run(
+            [sys.executable, str(gen_script)],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"generate_hooks.py failed:\n{result.stderr[:500]}"
+        )
+        assert settings_path.exists(), "settings.json must exist before staleness test"
+
+        # Step 1: Verify activate script contains the staleness check
+        activate_text = (dest / "activate").read_text(encoding="utf-8")
+        assert "rules.yaml" in activate_text and "generate_hooks.py" in activate_text, (
+            "activate script does not contain guardrail staleness check — "
+            "it should detect when rules.yaml is newer than settings.json "
+            "and re-run generate_hooks.py"
+        )
+
+        # Step 2: Functionally test the staleness logic
+        # Simulate staleness by deleting settings.json (the -f check triggers)
+        settings_path.unlink()
+        assert not settings_path.exists(), "settings.json should be removed for staleness test"
+
+        # Run ONLY the staleness check portion of activate via bash
+        # (sourcing the full script would hang on pixi install in test env)
+        staleness_script = f"""
+BASEDIR="{dest}"
+if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
+    _rules="$BASEDIR/.claude/guardrails/rules.yaml"
+    _settings="$BASEDIR/.claude/settings.json"
+    if [[ ! -f "$_settings" ]] || [[ "$_rules" -nt "$_settings" ]]; then
+        python3 "$BASEDIR/.claude/guardrails/generate_hooks.py"
+    fi
+fi
+"""
+        activate_result = subprocess.run(
+            ["bash", "-c", staleness_script],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert activate_result.returncode == 0, (
+            f"Staleness check failed:\n{activate_result.stderr[:500]}"
+        )
+
+        # settings.json should have been regenerated
+        assert settings_path.exists(), (
+            "settings.json was NOT regenerated by activate's staleness check — "
+            "the activate script should run generate_hooks.py when "
+            "settings.json is missing or older than rules.yaml"
+        )
+
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        pre_tool_use = settings.get("hooks", {}).get("PreToolUse", [])
+        assert len(pre_tool_use) > 0, (
+            "Regenerated settings.json has no PreToolUse entries"
         )

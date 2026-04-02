@@ -36,6 +36,16 @@ fi
 _SCRIPT_PATH="${_SCRIPT_PATH/#\~/$HOME}"
 BASEDIR="$(cd "$(dirname "$_SCRIPT_PATH")" && pwd)"
 
+# ─── Guardrail staleness check ───────────────────────────────────────────────
+if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
+    _rules="$BASEDIR/.claude/guardrails/rules.yaml"
+    _settings="$BASEDIR/.claude/settings.json"
+    if [[ ! -f "$_settings" ]] || [[ "$_rules" -nt "$_settings" ]]; then
+        echo "🔄 Guardrail rules changed — regenerating hooks..."
+        python3 "$BASEDIR/.claude/guardrails/generate_hooks.py"
+    fi
+fi
+
 # ─── Section 2: Pixi Bootstrap ───────────────────────────────────────────────
 if ! command -v pixi &> /dev/null; then
     echo ""

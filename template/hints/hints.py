@@ -48,15 +48,22 @@ class GitNotInitialized:
 class GuardrailsOnlyDefault:
     """Hint: Only the default R01 rule exists in guardrails."""
 
+    rules_file: str = ".claude/guardrails/rules.yaml"
     rules_dir: str = ".claude/guardrails/rules.d"
 
     def check(self, state: ProjectState) -> bool:
         if not state.copier.use_guardrails:
             return False  # Feature disabled -- skip hint
-        # Template ships with just the default rule (R01) in the base
-        # rules.yaml. If rules.d/ has no user-added YAML files, user
-        # hasn't customized guardrails.
-        return state.count_files_matching(self.rules_dir, "*.yaml") == 0
+        # User has customized guardrails if:
+        # 1. rules.yaml has more than just the default R01 rule, OR
+        # 2. rules.d/ has user-added YAML files.
+        has_extra_rules_in_catalog = state.file_contains(
+            self.rules_file, r"- id:\s*R0[2-9]|- id:\s*R[1-9]"
+        )
+        has_rules_d_files = (
+            state.count_files_matching(self.rules_dir, "*.yaml") > 0
+        )
+        return not (has_extra_rules_in_catalog or has_rules_d_files)
 
     @property
     def description(self) -> str:
@@ -260,7 +267,8 @@ _STATIC_HINTS: list[HintSpec] = [
         trigger=GuardrailsOnlyDefault(),
         message=(
             "Your guardrails only have the default rule \u2014 "
-            "add custom rules in .claude/guardrails/rules.yaml"
+            "add custom rules in .claude/guardrails/rules.yaml "
+            "or drop YAML files in rules.d/"
         ),
         severity="info",
         priority=2,

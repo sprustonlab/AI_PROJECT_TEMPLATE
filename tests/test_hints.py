@@ -441,17 +441,38 @@ class TestGitNotInitialized:
 
 class TestGuardrailsOnlyDefault:
     def test_true_when_no_custom_rules(self, tmp_path):
-        rules = tmp_path / ".claude" / "guardrails" / "rules.d"
-        rules.mkdir(parents=True)
-        # Write copier answers with guardrails enabled
+        guardrails = tmp_path / ".claude" / "guardrails"
+        rules_d = guardrails / "rules.d"
+        rules_d.mkdir(parents=True)
+        # Only default R01 in rules.yaml
+        (guardrails / "rules.yaml").write_text(
+            "rules:\n  - id: R01\n    name: default\n", encoding="utf-8"
+        )
         (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert GuardrailsOnlyDefault().check(state) is True
 
-    def test_false_when_custom_rules_exist(self, tmp_path):
-        rules = tmp_path / ".claude" / "guardrails" / "rules.d"
-        rules.mkdir(parents=True)
-        (rules / "R02_custom.yaml").touch()
+    def test_false_when_custom_rules_in_rules_d(self, tmp_path):
+        guardrails = tmp_path / ".claude" / "guardrails"
+        rules_d = guardrails / "rules.d"
+        rules_d.mkdir(parents=True)
+        (rules_d / "R02_custom.yaml").touch()
+        (guardrails / "rules.yaml").write_text(
+            "rules:\n  - id: R01\n    name: default\n", encoding="utf-8"
+        )
+        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n", encoding="utf-8")
+        state = ProjectState.build(tmp_path)
+        assert GuardrailsOnlyDefault().check(state) is False
+
+    def test_false_when_custom_rules_in_rules_yaml(self, tmp_path):
+        guardrails = tmp_path / ".claude" / "guardrails"
+        rules_d = guardrails / "rules.d"
+        rules_d.mkdir(parents=True)
+        # rules.yaml has R01 + R02 (user added a custom rule)
+        (guardrails / "rules.yaml").write_text(
+            "rules:\n  - id: R01\n    name: default\n  - id: R02\n    name: custom\n",
+            encoding="utf-8",
+        )
         (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert GuardrailsOnlyDefault().check(state) is False

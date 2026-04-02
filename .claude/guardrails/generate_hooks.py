@@ -1872,18 +1872,20 @@ def generate_mcp_guard(trigger: str, rules: list[dict], catalog_version: str) ->
 
 
 def update_settings_json(new_triggers: list[str]) -> None:
-    """Add/update PreToolUse hook entries in .claude/settings.json for MCP triggers.
+    """Add/update PreToolUse hook entries in .claude/settings.json for ALL triggers.
 
-    Only manages entries for triggers not in the hardcoded TRIGGER_TO_FILE set.
-    Existing Bash/Read/Glob/Write/Edit entries are left untouched.
+    Manages entries for both hardcoded triggers (Bash, Read, Glob, Write, Edit)
+    and MCP triggers. If settings.json does not exist, it is created.
     If a matching entry exists with a stale command, it is updated in-place.
 
     Args:
-        new_triggers: List of MCP trigger names to add/update in settings.json.
+        new_triggers: List of (matcher, hook_filename) tuples to add/update
+                      in settings.json.
     """
     settings_path = Path('.claude/settings.json')
     if not settings_path.exists():
-        return
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text('{}', encoding="utf-8")
 
     try:
         settings = json.loads(settings_path.read_text(encoding="utf-8"))
@@ -1894,10 +1896,9 @@ def update_settings_json(new_triggers: list[str]) -> None:
     pre_tool_use = settings.setdefault('hooks', {}).setdefault('PreToolUse', [])
     changed = False
 
-    for trigger in new_triggers:
-        hook_filename = trigger_to_hook_filename(trigger)
+    for matcher, hook_filename in new_triggers:
         hook_cmd = f'python3 "$CLAUDE_PROJECT_DIR"/.claude/guardrails/hooks/{hook_filename}'
-        existing = next((e for e in pre_tool_use if e.get('matcher') == trigger), None)
+        existing = next((e for e in pre_tool_use if e.get('matcher') == matcher), None)
         if existing:
             current_cmd = (existing.get('hooks') or [{}])[0].get('command', '')
             if current_cmd != hook_cmd:
@@ -1905,14 +1906,15 @@ def update_settings_json(new_triggers: list[str]) -> None:
                 changed = True
         else:
             pre_tool_use.append({
-                'matcher': trigger,
+                'matcher': matcher,
                 'hooks': [{'type': 'command', 'command': hook_cmd}]
             })
             changed = True
 
     if changed:
         settings_path.write_text(json.dumps(settings, indent=2) + '\n', encoding="utf-8")
-        print(f"[GUARDRAIL NOTE] Updated .claude/settings.json for triggers: {new_triggers}")
+        names = [m for m, _ in new_triggers]
+        print(f"[GUARDRAIL NOTE] Updated .claude/settings.json for triggers: {names}")
 
 
 # ---------------------------------------------------------------------------
@@ -2044,9 +2046,28 @@ def generate_all(output_dir: Path) -> dict[str, str]:
         filepath.write_text(content, encoding="utf-8")
         filepath.chmod(0o755)
 
-    # Update settings.json for any new MCP trigger hooks
-    if mcp_triggers:
-        update_settings_json(mcp_triggers)
+    # Build list of (matcher, hook_filename) for ALL generated PreToolUse hooks
+    all_hook_entries: list[tuple[str, str]] = []
+
+    # Hardcoded PreToolUse triggers — matcher is the tool name, not the full path
+    for trigger_path, hook_file in TRIGGER_TO_FILE.items():
+        if not trigger_path.startswith("PreToolUse/"):
+            continue  # Skip non-PreToolUse hooks (e.g. SessionStart/compact)
+        tool_name = trigger_path.split("/", 1)[1]
+        if hook_file in generated:
+            all_hook_entries.append((tool_name, hook_file))
+
+    # MCP triggers — matcher is the trigger name itself
+    for mcp_trigger in mcp_triggers:
+        mcp_filename = trigger_to_hook_filename(mcp_trigger)
+        all_hook_entries.append((mcp_trigger, mcp_filename))
+
+    # Sort for deterministic output
+    all_hook_entries.sort()
+
+    # Update settings.json with all hook entries
+    if all_hook_entries:
+        update_settings_json(all_hook_entries)
 
     return generated
 

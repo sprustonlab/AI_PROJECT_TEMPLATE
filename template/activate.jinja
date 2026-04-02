@@ -37,6 +37,16 @@ fi
 _SCRIPT_PATH="${_SCRIPT_PATH/#\~/$HOME}"
 BASEDIR="$(cd "$(dirname "$_SCRIPT_PATH")" && pwd)"
 
+# ─── Guardrail staleness check ───────────────────────────────────────────────
+if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
+    _rules="$BASEDIR/.claude/guardrails/rules.yaml"
+    _settings="$BASEDIR/.claude/settings.json"
+    if [[ ! -f "$_settings" ]] || [[ "$_rules" -nt "$_settings" ]]; then
+        echo "🔄 Guardrail rules changed — regenerating hooks..."
+        python3 "$BASEDIR/.claude/guardrails/generate_hooks.py"
+    fi
+fi
+
 # ─── Section 2: Pixi Bootstrap ───────────────────────────────────────────────
 if ! command -v pixi &> /dev/null; then
     echo ""
@@ -207,7 +217,7 @@ fi
 
 # --- Show guardrails status ---
 if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
-    rule_count=$(grep -c '^- id:' "$BASEDIR/.claude/guardrails/rules.yaml" 2>/dev/null || echo "0")
+    rule_count=$(grep -c '^\s*- id:' "$BASEDIR/.claude/guardrails/rules.yaml" 2>/dev/null || echo "0")
     rulesd_count=0
     if [[ -d "$BASEDIR/.claude/guardrails/rules.d" ]]; then
         rulesd_count=$(find "$BASEDIR/.claude/guardrails/rules.d" -name '*.yaml' 2>/dev/null | wc -l)

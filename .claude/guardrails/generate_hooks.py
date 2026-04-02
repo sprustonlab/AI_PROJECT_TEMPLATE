@@ -1913,7 +1913,8 @@ def update_settings_json(new_triggers: list[str]) -> None:
 
     if changed:
         settings_path.write_text(json.dumps(settings, indent=2) + '\n', encoding="utf-8")
-        print(f"[GUARDRAIL NOTE] Updated .claude/settings.json for triggers: {new_triggers}")
+        names = [m for m, _ in new_triggers]
+        print(f"[GUARDRAIL NOTE] Updated .claude/settings.json for triggers: {names}")
 
 
 # ---------------------------------------------------------------------------

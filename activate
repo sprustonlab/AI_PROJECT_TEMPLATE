@@ -216,7 +216,7 @@ fi
 
 # --- Show guardrails status ---
 if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
-    rule_count=$(grep -c '^- id:' "$BASEDIR/.claude/guardrails/rules.yaml" 2>/dev/null || echo "0")
+    rule_count=$(grep -c '^\s*- id:' "$BASEDIR/.claude/guardrails/rules.yaml" 2>/dev/null || echo "0")
     rulesd_count=0
     if [[ -d "$BASEDIR/.claude/guardrails/rules.d" ]]; then
         rulesd_count=$(find "$BASEDIR/.claude/guardrails/rules.d" -name '*.yaml' 2>/dev/null | wc -l)

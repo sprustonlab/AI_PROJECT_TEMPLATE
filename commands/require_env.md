@@ -50,31 +50,56 @@ require_env suite2p || exit 1
 # Rest of script...
 ```
 
+
+### PowerShell Usage (Windows)
+
+```powershell
+# Ensure SLC base environment is installed
+. .\commands\require_env.ps1
+
+# Ensure SLC + jupyter environment are installed
+. .\commands\require_env.ps1 jupyter
+
+# Check without installing
+. .\commands\require_env.ps1 -CheckOnly
+. .\commands\require_env.ps1 -CheckOnly jupyter
+```
+
+### In PowerShell Scripts
+
+```powershell
+# Ensure jupyter environment is available
+. "$PSScriptRoot\require_env.ps1" jupyter
+if ($LASTEXITCODE -ne 0) { exit 1 }
+
+# Rest of script...
+```
+
 ## How It Works
 
 ### Detection Logic
 
 **SLC Base Installation:**
-- Checks if `submodules/SLC/envs/SLCenv/bin/conda` exists
+- Checks if `envs/{platform_subdir}/SLCenv/bin/conda` exists
 - This is the conda executable in the SLC base environment
 
 **Environment Installation:**
-- Checks if `submodules/SLC/envs/<env_name>/` directory exists
-- Environment must have a corresponding `submodules/SLC/envs/<env_name>.yml` file
+- Checks if `envs/{platform_subdir}/<env_name>/` directory exists
+- Project environment must have a corresponding `envs/<env_name>.yml` file
 
 ### Installation Process
 
 **SLC Base:**
-1. Runs `python3 submodules/SLC/install_SLC.py` using system Python3
-2. Creates `submodules/SLC/envs/SLCenv/` with Miniforge conda/mamba
+1. Runs `python3 install_SLC.py` using system Python3
+2. Creates `envs/{platform_subdir}/SLCenv/` with Miniforge conda/mamba
 3. Installs PyYAML in the base environment
 
 **Specific Environments:**
-1. Validates environment YAML exists
+1. Validates environment spec file exists
 2. Sets required environment variables (`SLC_BASE`, `SLC_PYTHON`, etc.)
 3. Sources conda initialization scripts
 4. Activates SLCenv
-5. Calls `python submodules/SLC/install_env.py <env_name>`
+5. Calls `python install_env.py <env_name>`
 6. Deactivates conda (cleanup)
 
 The key challenge is that `install_env.py` validates it's running in an activated SLC environment. To solve this, `require_env` manually sets the required environment variables and activates conda in a subshell before calling `install_env.py`.
@@ -91,7 +116,7 @@ As of the current version, these environments can be installed:
 To see the current list:
 
 ```bash
-ls submodules/SLC/envs/*.yml
+ls envs/*.yml
 ```
 
 ## Integration with activate
@@ -111,7 +136,7 @@ source activate
 ```
 
 When auto-install is enabled:
-1. `activate` calls `./commands/require_env` before sourcing `submodules/SLC/activate`
+1. `activate` calls `./commands/require_env` before sourcing `activate`
 2. If installation fails, a warning is shown but activation continues
 3. If SLC is missing, the SLC activation will show its normal error message
 
@@ -124,13 +149,13 @@ When auto-install is enabled:
 
 **Permission Errors:**
 ```bash
-❌ Error: No write permission to submodules/SLC/envs
+❌ Error: No write permission to envs
 💡 You may need to check directory permissions
 ```
 
 **Missing Environment:**
 ```bash
-❌ Error: Environment definition not found: submodules/SLC/envs/nonexistent.yml
+❌ Error: Environment definition not found: envs/nonexistent.yml
 💡 Available environments:
     - suite2p
     - suite2p_2025
@@ -171,7 +196,7 @@ Runs installation in a subshell to avoid polluting the parent shell's environmen
 
 ### Why Not Just Source activate?
 
-The `submodules/SLC/activate` script fails gracefully if SLCenv is missing (returns 0 to prevent SSH disconnection). We can't simply source it in a subprocess because:
+The `activate` script fails gracefully if SLCenv is missing (returns 0 to prevent SSH disconnection). We can't simply source it in a subprocess because:
 
 1. Sourcing in a subprocess doesn't affect the parent shell
 2. `activate` returns 0 even on failure (by design)
@@ -183,21 +208,21 @@ For `install_env.py` to work, these must be set:
 
 ```bash
 SLC_BASE=$SLC_DIR                        # Path to SLC directory
-SLC_PYTHON=$SLC_DIR/envs/SLCenv/bin/python  # SLCenv Python (must match sys.executable)
+SLC_PYTHON=$PLATFORM_ENVS/SLCenv/bin/python  # SLCenv Python (must match sys.executable)
 PYTHONPATH=$SLC_DIR/modules:$PYTHONPATH     # Include modules
-CONDA_ENVS_PATH=$SLC_DIR/envs:$CONDA_ENVS_PATH  # Environment discovery
-PATH=$SLC_DIR/envs/SLCenv/bin:$PATH         # Include conda/mamba
+CONDA_ENVS_PATH=$PLATFORM_ENVS:$CONDA_ENVS_PATH  # Environment discovery
+PATH=$PLATFORM_ENVS/SLCenv/bin:$PATH         # Include conda/mamba
 ```
 
 ### Conda Activation Sequence
 
 ```bash
 # Source conda initialization
-source $SLC_DIR/envs/SLCenv/etc/profile.d/conda.sh
-source $SLC_DIR/envs/SLCenv/etc/profile.d/mamba.sh
+source $PLATFORM_ENVS/SLCenv/etc/profile.d/conda.sh
+source $PLATFORM_ENVS/SLCenv/etc/profile.d/mamba.sh
 
 # Activate
-conda activate $SLC_DIR/envs/SLCenv
+conda activate $PLATFORM_ENVS/SLCenv
 
 # Run install_env.py (sees our env vars)
 $SLC_PYTHON $SLC_DIR/install_env.py $env_name
@@ -213,21 +238,21 @@ conda deactivate
 Check the underlying installation logs. For SLC base:
 ```bash
 # Run directly to see full output
-python3 submodules/SLC/install_SLC.py
+python3 install_SLC.py
 ```
 
 For environments:
 ```bash
 # Activate first, then install
-source submodules/SLC/activate
-python submodules/SLC/install_env.py <env_name>
+source activate
+python install_env.py <env_name>
 ```
 
 ### Permission denied errors
 
-Ensure you have write access to `submodules/SLC/envs/`:
+Ensure you have write access to `envs/`:
 ```bash
-ls -la submodules/SLC/envs/
+ls -la envs/
 # Should show your user or group with write permission
 ```
 
@@ -235,10 +260,10 @@ ls -la submodules/SLC/envs/
 
 List available environments:
 ```bash
-ls submodules/SLC/envs/*.yml
+ls envs/*.yml
 ```
 
-Only environments with YAML definitions can be installed.
+Only environments with spec file definitions can be installed.
 
 ## Examples
 

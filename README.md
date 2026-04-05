@@ -2,17 +2,21 @@
 
 **Please only use in private repos for now.**
 
-Tested on mac and linux. If you also need Windows support, use the [`windows` branch](https://github.com/sprustonlab/AI_PROJECT_TEMPLATE/tree/windows).
+Tested on macOS, Linux, and Windows.
 
-The template has three main components: claudechic, the `/ao_project_team` skill, and reproducible python environment management. 
+The template has three main components: claudechic, the `/ao_project_team` skill, and reproducible python environment management.
 
 To use this,
 - On GitHub, click **"Use this template"** → **"Create a new repository"** (choose Private). This creates your own copy.
-- Clone your new repo and run `source ./activate`. (On first run, this installs the base environment `SLCenv`, a miniforge environment.)
+- Clone your new repo and activate:
+  - **macOS/Linux**: `source ./activate`
+  - **Windows (PowerShell)**: `. .\activate.ps1`
+
+  (On first run, this installs the base environment `SLCenv`, a miniforge environment.)
 - Run `claudechic`. (On first run, this installs the claudechic environment.)
 - In claudechic, run `/ao_project_team` to start the project team workflow.
 
-When you run `source ./activate`, you see the available CLI commands and Claude Code skills.
+When you run the activate script, you see the available CLI commands and Claude Code skills.
 
 ## The three main components
 
@@ -55,23 +59,38 @@ Afterwards, Tests are implemented. Once they pass, Leadership agents are asked t
 
 The python environment management in this repo is adapted from my implementation in [SLC - Spruston Lab Commands](https://github.com/sprustonlab).
 
-Key concept: separate "what you want" (spec) from "what you get" (lockfile, exact versions of everything, platform specific), and collect all installers for all packages in a folder so you get a reproducible offline installer. Specs, lockfile, cache folder, and folder containning the installed environment are all in `envs/`. 
+Key concept: separate "what you want" (spec) from "what you get" (lockfile, exact versions of everything, platform specific), and collect all installers for all packages in a folder so you get a reproducible offline installer. Spec files, lockfiles, and installed environments all live under `envs/`.
 
-Installed environments can be activated with `conda activate <name>`. A more powerful command (which not only activates, but also auto-installs if needed) is `source require_env <name>`. An example of how require_env can be used is in commands/claudechic.
+This repo uses the **platform layout**: installed environments are placed under a platform_subdir directory (`envs/{platform_subdir}/`), while spec files (`.yml`) and lockfiles (`.lock`) remain at the top level of `envs/`. This allows multiple platforms to share the same repository clone (e.g., on a network drive) without their installed environments colliding.
+
+
+
+Installed environments can be activated with `conda activate <name>`. A more powerful command (which not only activates, but also auto-installs if needed) is:
+- **macOS/Linux:** `source require_env <name>`
+- **Windows:** `. require_env.ps1 <name>`
+
+An example of how require_env can be used is in the `commands/` directory (see `claudechic` for bash, `claudechic.ps1` for PowerShell).
 
 When you use this template, there will already be two environments available: the base environment (SLCenv) and the claudechic environment. Once they are installed, the envs folder looks like this:
 
 ```
 envs/
-├── SLCenv/                      # Bootstrap environment (auto-created on first activate)
-├── SLCenv_offline_install_mac/  # Bootstrap cache (platform-specific)
-├── claudechic.yml               # Spec file (user edits this)
-├── claudechic.osx-arm64.lock    # lockfile (auto-generated, platform-specific, commit this)
-├── claudechic/                  # Installed environment (gitignored)
-└── claudechic.osx-arm64.cache/  # Package cache for offline reinstall (gitignored)
+├── claudechic.yml                   # Spec file (user edits this, shared across platforms)
+├── claudechic.osx-arm64.lock        # Lockfile (macOS ARM64)
+├── claudechic.win-64.lock           # Lockfile (Windows x86_64)
+├── osx-arm64/                       # platform_subdir (macOS ARM64)
+│   ├── SLCenv/                      # Base environment (auto-created on first activate)
+│   ├── SLCenv_offline_install/      # Bootstrap cache
+│   ├── claudechic/                  # Installed project environment (gitignored)
+│   └── claudechic.osx-arm64.cache/  # Package cache for offline reinstall (gitignored)
+└── win-64/                          # platform_subdir (Windows x86_64)
+    ├── SLCenv/                      # Base environment for Windows
+    ├── SLCenv_offline_install/      # Bootstrap cache
+    ├── claudechic/                  # Installed project environment (gitignored)
+    └── claudechic.win-64.cache/     # Package cache for offline reinstall (gitignored)
 ```
 
-The .gitignore is configured to track .yml and .lock files in the envs folder, but ignore everything else. (Don't try to commit the environment of cache folders - they are too large for github). 
+The `.gitignore` is configured to track spec files (`.yml`) and lockfiles (`.lock`) in the envs folder, but ignore everything else under `envs/*/` (the platform_subdir directories containing installed environments and caches). (Don't try to commit the environment of cache folders - they are too large for github). 
 
 **Workflows:** 
 
@@ -95,12 +114,22 @@ Situation 4: You have a fully specified environment that you know does what you 
    - Or via CLI: `gh repo create my-project --template=sprustonlab/AI_PROJECT_TEMPLATE --private --clone`
 
 2. Clone (if you used the web UI) and activate:
+
+   **macOS/Linux:**
    ```bash
    source ./activate
    ```
-   On first run, this will initialize git submodules, install Miniforge into `envs/SLCenv/`, and set up paths.
+
+   **Windows (PowerShell):**
+   ```powershell
+   . .\activate.ps1
+   ```
+
+   On first run, this will initialize git submodules, install Miniforge into `envs/{platform_subdir}/SLCenv/`, and set up paths.
 
    Note: Submodules are auto-initialized on first run if needed.
+
+   **Windows Note:** You may need to run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` first to allow running PowerShell scripts.
 
 3. (Optional) Create a project-specific environment:
    ```bash
@@ -109,6 +138,56 @@ Situation 4: You have a fully specified environment that you know does what you 
    python install_env.py myenv
    conda activate myenv
    ```
+
+## Network Drive Use Case
+
+The platform layout is designed for teams that share a single repository clone on a network drive (e.g., an SMB/CIFS share). Because installed environments live under `envs/{platform_subdir}/`, a Windows workstation and a macOS laptop can both mount the same network path without their environments colliding:
+
+```
+Z:\shared-project\envs\           # (network drive, mounted on both machines)
+├── claudechic.yml                # Spec file — shared, version-controlled
+├── claudechic.osx-arm64.lock     # Lockfile — per-platform, version-controlled
+├── claudechic.win-64.lock        # Lockfile — per-platform, version-controlled
+├── osx-arm64\                    # macOS environments — only used by macOS
+│   ├── SLCenv\
+│   └── claudechic\
+└── win-64\                       # Windows environments — only used by Windows
+    ├── SLCenv\
+    └── claudechic\
+```
+
+Each platform activates its own environment directory. The `SLC_PLATFORM` environment variable (set by the activate script) records which platform_subdir is in use.
+
+## Migrating from Flat Layout
+
+If you have an existing repository using the flat layout (environments installed directly under `envs/`), the activate script will detect this and print a migration warning.
+
+**Flat layout** (old):
+```
+envs/
+├── SLCenv/
+├── claudechic/
+├── claudechic.yml
+└── claudechic.osx-arm64.lock
+```
+
+**Platform layout** (current):
+```
+envs/
+├── claudechic.yml
+├── claudechic.osx-arm64.lock
+└── osx-arm64/
+    ├── SLCenv/
+    └── claudechic/
+```
+
+To migrate:
+1. Pull the latest code (which includes the updated activate script).
+2. Delete the old installed environments: `rm -rf envs/SLCenv/ envs/claudechic/` (or the equivalent for your environments). On Windows: `Remove-Item -Recurse envs\SLCenv\, envs\claudechic\`.
+3. Re-activate: `source ./activate` (macOS/Linux) or `. .\activate.ps1` (Windows). SLCenv will be reinstalled under `envs/{platform_subdir}/SLCenv/`.
+4. Reinstall project environments: `python install_env.py claudechic` (they will be installed under `envs/{platform_subdir}/claudechic/`).
+
+Spec files (`.yml`) and lockfiles (`.lock`) do not move — they stay at the top level of `envs/`.
 
 ## Customization
 
@@ -120,16 +199,40 @@ Situation 4: You have a fully specified environment that you know does what you 
 ### What to modify:
 - This README
 - `envs/*.yml` - your environment spec files
-- `commands/*` - your CLI scripts
+- `commands/*` - your CLI scripts (bash scripts for macOS/Linux, `.ps1` scripts for Windows)
 - `repos/` - your Python repos (automatically added to PYTHONPATH)
 - `.claude/commands` - other Claude Code skills that you want to have available
 
 ### What to keep as-is:
-- `activate` script (except CUSTOMIZE sections)
+- `activate` and `activate.ps1` scripts (except CUSTOMIZE sections)
 - `install_SLC.py`, `install_env.py`, `lock_env.py`
 - `.gitignore` patterns
 - `AI_agents/` directory
 - `.claude/commands/` structure
+
+## Platform Support
+
+| Platform | Shell | Architecture | Status |
+|----------|-------|--------------|--------|
+| macOS | Bash | ARM64 (M1/M2) | Fully supported |
+| Linux | Bash | x86_64 | Fully supported |
+| Windows | PowerShell | x86_64 | Fully supported |
+
+### Windows Notes
+
+- **PowerShell Required**: Windows support uses PowerShell (not cmd.exe or WSL)
+- **Execution Policy**: By default, Windows disables running PowerShell scripts. You must enable it first:
+  ```powershell
+  Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+  ```
+  This only needs to be done once per user. Without this, `. .\activate.ps1` will fail with `UnauthorizedAccess`.
+- **PowerShell version**: Scripts must be compatible with both PowerShell 5.1 (ships with Windows) and PowerShell 7.x (pwsh). Key 5.1 limitations to be aware of:
+  - `Join-Path` only accepts two arguments (nest calls for deeper paths)
+  - `.ps1` files without a UTF-8 BOM are read as the system default encoding, which breaks emoji/Unicode
+  - `<>` inside double-quoted strings are treated as reserved operators
+- **Commands**: All CLI commands have `.ps1` equivalents (e.g., `claudechic.ps1`, `require_env.ps1`)
+- **Activation**: Use `. .\activate.ps1` (dot-source) instead of `source ./activate`
+- **Git Bash**: The Bash `activate` script also detects Git Bash on Windows (MINGW/MSYS/CYGWIN) and sets the platform_subdir accordingly.
 
 ## Available Commands
 

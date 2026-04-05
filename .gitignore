@@ -1,7 +1,12 @@
-# SLC / Conda
-envs/SLCenv/
+# SLC / Conda — installed environments (platform-specific subdirs)
 envs/*/
 *.lock.cache/
+
+# Explicitly track spec files and lockfiles in envs/
+!envs/*.yml
+!envs/*.lock
+
+# Python
 __pycache__/
 *.py[cod]
 

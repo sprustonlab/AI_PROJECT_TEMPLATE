@@ -12,4 +12,11 @@ echo "🚀 Starting Jupyter Lab..."
 echo "   Press Ctrl+C to stop the server"
 echo ""
 
-jupyter lab "$@"
+# Find the conda env's jupyter, skipping this wrapper script
+JUPYTER_EXE=$(command -v jupyter 2>/dev/null | grep -v "commands/jupyter" | head -1)
+if [ -z "$JUPYTER_EXE" ]; then
+    echo "❌ Error: jupyter executable not found in conda environment"
+    exit 1
+fi
+
+"$JUPYTER_EXE" lab "$@"

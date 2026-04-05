@@ -25,6 +25,22 @@ fi
 export REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SLC_DIR="$REPO_ROOT"
 
+# Detect platform subdirectory (inherit from activate or detect locally)
+_detect_platform() {
+    case "$(uname -s)" in
+        Linux)  echo "linux-64" ;;
+        Darwin)
+            case "$(uname -m)" in
+                x86_64) echo "osx-64" ;;
+                arm64)  echo "osx-arm64" ;;
+            esac ;;
+        MINGW*|MSYS*|CYGWIN*)
+            echo "win-64" ;;
+    esac
+}
+PLATFORM_SUBDIR="${SLC_PLATFORM:-$(_detect_platform)}"
+PLATFORM_ENVS="$SLC_DIR/envs/$PLATFORM_SUBDIR"
+
 # Color output helpers
 red() { echo -e "\033[0;31m$*\033[0m"; }
 green() { echo -e "\033[0;32m$*\033[0m"; }
@@ -65,8 +81,8 @@ if [[ "$SLC_BASE" != "$SLC_DIR" ]]; then
 fi
 
 # Initialize conda/mamba
-source "$SLC_DIR/envs/SLCenv/etc/profile.d/conda.sh"
-source "$SLC_DIR/envs/SLCenv/etc/profile.d/mamba.sh"
+source "$PLATFORM_ENVS/SLCenv/etc/profile.d/conda.sh"
+source "$PLATFORM_ENVS/SLCenv/etc/profile.d/mamba.sh"
 
 # Parse arguments
 CHECK_ONLY=false
@@ -96,7 +112,7 @@ done
 # Returns: 0 if installed, 1 if not
 #
 check_slc_installed() {
-    [[ -x "$SLC_DIR/envs/SLCenv/bin/conda" ]]
+    [[ -x "$PLATFORM_ENVS/SLCenv/bin/conda" ]]
 }
 
 #
@@ -135,12 +151,12 @@ install_slc() {
 #
 check_env_installed() {
     local env_name="$1"
-    [[ -d "$SLC_DIR/envs/$env_name" ]]
+    [[ -d "$PLATFORM_ENVS/$env_name" ]]
 }
 
 #
 # Function: list_available_envs
-# Lists all available environment YAML files
+# Lists all available environment spec files
 #
 list_available_envs() {
     blue "💡 Available environments:"
@@ -164,7 +180,7 @@ install_env() {
 
     blue "🔧 Installing environment: $env_name"
 
-    # Check if YAML exists
+    # Check if spec file exists
     local env_yml="$SLC_DIR/envs/${env_name}.yml"
     if [[ ! -f "$env_yml" ]]; then
         red "❌ Error: Environment definition not found: $env_yml"
@@ -179,35 +195,35 @@ install_env() {
     fi
 
     # Check write permissions
-    if [[ ! -w "$SLC_DIR/envs" ]]; then
-        red "❌ Error: No write permission to $SLC_DIR/envs"
+    if [[ ! -w "$PLATFORM_ENVS" ]] && [[ ! -w "$SLC_DIR/envs" ]]; then
+        red "❌ Error: No write permission to $PLATFORM_ENVS"
         red "💡 You may need to check directory permissions"
         return 1
     fi
 
     # Set up environment variables required by install_env.py
     export SLC_BASE="$SLC_DIR"
-    export SLC_PYTHON="$SLC_DIR/envs/SLCenv/bin/python"
+    export SLC_PYTHON="$PLATFORM_ENVS/SLCenv/bin/python"
     export PYTHONPATH="$SLC_DIR/modules:${PYTHONPATH:-}"
-    export CONDA_ENVS_PATH="$SLC_DIR/envs:${CONDA_ENVS_PATH:-}"
-    export PATH="$SLC_DIR/envs/SLCenv/bin:$PATH"
+    export CONDA_ENVS_PATH="$PLATFORM_ENVS:${CONDA_ENVS_PATH:-}"
+    export PATH="$PLATFORM_ENVS/SLCenv/bin:$PATH"
 
     # Create a subshell to avoid polluting parent environment
     (
         # Source conda initialization
-        if [[ -f "$SLC_DIR/envs/SLCenv/etc/profile.d/conda.sh" ]]; then
-            source "$SLC_DIR/envs/SLCenv/etc/profile.d/conda.sh"
+        if [[ -f "$PLATFORM_ENVS/SLCenv/etc/profile.d/conda.sh" ]]; then
+            source "$PLATFORM_ENVS/SLCenv/etc/profile.d/conda.sh"
         else
             red "❌ Error: conda.sh not found in SLCenv"
             exit 1
         fi
 
-        if [[ -f "$SLC_DIR/envs/SLCenv/etc/profile.d/mamba.sh" ]]; then
-            source "$SLC_DIR/envs/SLCenv/etc/profile.d/mamba.sh"
+        if [[ -f "$PLATFORM_ENVS/SLCenv/etc/profile.d/mamba.sh" ]]; then
+            source "$PLATFORM_ENVS/SLCenv/etc/profile.d/mamba.sh"
         fi
 
         # Activate SLCenv
-        conda activate "$SLC_DIR/envs/SLCenv" || {
+        conda activate "$PLATFORM_ENVS/SLCenv" || {
             red "❌ Error: Failed to activate SLCenv"
             exit 1
         }
@@ -275,7 +291,7 @@ if [[ -n "$ENV_NAME" ]]; then
 
     # If sourced and environment name provided, activate it
     if [[ "${BASH_SOURCE[0]}" != "${0}" ]] && [[ -n "$ENV_NAME" ]]; then
-        conda activate "$SLC_DIR/envs/$ENV_NAME" || {
+        conda activate "$PLATFORM_ENVS/$ENV_NAME" || {
             red "❌ Error: Failed to activate environment '$ENV_NAME'"
             return 1
         }

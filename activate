@@ -15,9 +15,9 @@
 # - Add project-specific PYTHONPATH entries in Section 2
 # =============================================================================
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ CUSTOMIZE: Change this to your project name                               ║
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+# +=========================================================================+
+# | CUSTOMIZE: Change this to your project name                             |
+# +=========================================================================+
 PROJECT_NAME="my-project"
 
 # --------------------------------------------------------------------------
@@ -29,50 +29,80 @@ if [[ -n "${BASH_SOURCE[0]}" ]]; then
 elif [[ -n "$0" && "$0" != "-bash" && "$0" != "bash" ]]; then
     _SCRIPT_PATH="$0"
 else
-    echo "❌ Error: Unable to determine script location."
-    echo "💡 Try: source /full/path/to/activate"
+    echo "Error: Unable to determine script location."
+    echo "Try: source /full/path/to/activate"
     return 1
 fi
 
 # Expand ~ and resolve to absolute path
 _SCRIPT_PATH="${_SCRIPT_PATH/#\~/$HOME}"
 BASEDIR="$(cd "$(dirname "$_SCRIPT_PATH")" && pwd)"
-SLCENV_DIR="$BASEDIR/envs/SLCenv"
+
+# Detect platform_subdir for platform-specific environment installs
+_detect_platform() {
+    case "$(uname -s)" in
+        Linux)  echo "linux-64" ;;
+        Darwin)
+            case "$(uname -m)" in
+                x86_64) echo "osx-64" ;;
+                arm64)  echo "osx-arm64" ;;
+            esac ;;
+        MINGW*|MSYS*|CYGWIN*)
+            echo "win-64" ;;
+    esac
+}
+PLATFORM_SUBDIR="$(_detect_platform)"
+export SLC_PLATFORM="$PLATFORM_SUBDIR"
+
+SLCENV_DIR="$BASEDIR/envs/$PLATFORM_SUBDIR/SLCenv"
 
 # --------------------------------------------------------------------------
-# Section 1b: SLC Bootstrap
+# Section 1b: Flat-Layout Migration Warning
+# --------------------------------------------------------------------------
+if [[ -d "$BASEDIR/envs/SLCenv" ]] && [[ ! -d "$SLCENV_DIR" ]]; then
+    echo ""
+    echo "WARNING: Flat layout detected at envs/SLCenv/"
+    echo "   The platform layout uses envs/$PLATFORM_SUBDIR/SLCenv/"
+    echo "   Please delete the old flat-layout directories:"
+    echo "     rm -rf \"$BASEDIR/envs/SLCenv\""
+    echo "   Then re-run: source activate"
+    echo ""
+fi
+
+# --------------------------------------------------------------------------
+# Section 1c: SLC Bootstrap
 # --------------------------------------------------------------------------
 if [[ ! -d "$SLCENV_DIR" ]]; then
     echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "============================================================"
     echo "  First-time setup: Installing SLC environment..."
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "============================================================"
     echo ""
 
     # Check for Python 3
     if ! command -v python3 &> /dev/null; then
-        echo "❌ Error: python3 not found"
-        echo "💡 Install Python 3 first, then run: source activate"
+        echo "Error: python3 not found"
+        echo "Install Python 3 first, then run: source activate"
         return 1
     fi
 
     # Check for install_SLC.py
     if [[ ! -f "$BASEDIR/install_SLC.py" ]]; then
-        echo "❌ Error: install_SLC.py not found at $BASEDIR"
-        echo "💡 This file is required for SLC bootstrap"
+        echo "Error: install_SLC.py not found at $BASEDIR"
+        echo "This file is required for SLC bootstrap"
         return 1
     fi
 
     # Run the installer
     python3 "$BASEDIR/install_SLC.py" || {
         echo ""
-        echo "❌ Error: SLC installation failed"
-        echo "💡 Check network connection and try again:"
+        echo "Error: SLC installation failed"
+        echo "Check network connection and try again:"
         echo "   python3 $BASEDIR/install_SLC.py"
         return 1
     }
     echo ""
-    echo "✔ SLC environment installed successfully"
+    echo "SLC environment installed successfully"
     echo ""
 fi
 
@@ -80,7 +110,7 @@ fi
 source "$SLCENV_DIR/etc/profile.d/conda.sh"
 source "$SLCENV_DIR/etc/profile.d/mamba.sh"
 
-# Activate the base environment
+# Activate SLCenv (the base conda environment)
 conda activate "$SLCENV_DIR"
 
 # --------------------------------------------------------------------------
@@ -95,9 +125,9 @@ export SLC_BASE="$BASEDIR"
 export SLC_PYTHON="$(which python)"
 export SLC_VERSION="0.0.1"
 
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ CUSTOMIZE: Add your project's Python modules here                         ║
-# ╚═══════════════════════════════════════════════════════════════════════════╝
+# +=========================================================================+
+# | CUSTOMIZE: Add your project's Python modules here                       |
+# +=========================================================================+
 # Add all repos/ subdirectories to PYTHONPATH (if repos/ exists)
 if [[ -d "$BASEDIR/repos" ]]; then
   # Use nullglob to handle empty directories gracefully
@@ -107,8 +137,8 @@ if [[ -d "$BASEDIR/repos" ]]; then
   done
   unsetopt NULL_GLOB 2>/dev/null || shopt -u nullglob 2>/dev/null
 fi
-# Make environments discoverable by conda
-export CONDA_ENVS_PATH="$BASEDIR/envs:$CONDA_ENVS_PATH"
+# Make environments discoverable by conda (platform layout)
+export CONDA_ENVS_PATH="$BASEDIR/envs/$PLATFORM_SUBDIR:$CONDA_ENVS_PATH"
 
 # Ensure scripts in commands/ are executable (skip .md files)
 if [[ -d "$BASEDIR/commands" ]]; then
@@ -144,26 +174,26 @@ if [[ -f "$BASEDIR/.gitmodules" ]]; then
         fi
     fi
 
-    # ╔═══════════════════════════════════════════════════════════════════════════╗
-    # ║ CUSTOMIZE: Add checks for other submodules your project uses              ║
-    # ╚═══════════════════════════════════════════════════════════════════════════╝
+    # +=========================================================================+
+    # | CUSTOMIZE: Add checks for other submodules your project uses            |
+    # +=========================================================================+
 
     # Auto-init submodules if needed
     if [[ "$_needs_init" == true ]]; then
         echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "============================================================"
         echo "  Initializing git submodules..."
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "============================================================"
         echo ""
 
         git -C "$BASEDIR" submodule update --init --recursive || {
-            _WARNINGS+=("⚠️  Failed to initialize submodules")
+            _WARNINGS+=("WARNING: Failed to initialize submodules")
             _WARNINGS+=("   Try manually: cd $BASEDIR && git submodule update --init --recursive")
         }
 
         # Verify it worked
         if [[ -f "$BASEDIR/submodules/claudechic/pyproject.toml" ]]; then
-            echo "✔ Submodules initialized successfully"
+            echo "Submodules initialized successfully"
             echo ""
         fi
     fi
@@ -174,19 +204,19 @@ fi
 # --------------------------------------------------------------------------
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "============================================================"
 echo "  $PROJECT_NAME environment activated"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  ✔ SLC is active"
+echo "============================================================"
+echo "  SLC is active"
 
-# --- Show available conda environments ---
+# --- Show installed and available project environments ---
 installed_envs=()
 available_envs=()
 
 for yml in "$BASEDIR"/envs/*.yml; do
     [[ -f "$yml" ]] || continue
     envname=$(basename "$yml" .yml)
-    if [[ -d "$BASEDIR/envs/$envname" ]]; then
+    if [[ -d "$BASEDIR/envs/$PLATFORM_SUBDIR/$envname" ]]; then
         installed_envs+=("$envname")
     else
         available_envs+=("$envname")
@@ -195,18 +225,18 @@ done
 
 if [[ ${#installed_envs[@]} -gt 0 ]]; then
     echo ""
-    echo "📦 Installed environments:"
+    echo "Installed environments:"
     for env in "${installed_envs[@]}"; do
-        echo "    ✔ $env"
+        echo "    * $env"
     done
     echo "  Activate with: conda activate <name>"
 fi
 
 if [[ ${#available_envs[@]} -gt 0 ]]; then
     echo ""
-    echo "📋 Available to install:"
+    echo "Available to install:"
     for env in "${available_envs[@]}"; do
-        echo "    ○ $env"
+        echo "    o $env"
     done
     echo "  Install with: python $BASEDIR/install_env.py <name>"
 fi
@@ -223,7 +253,7 @@ if [[ -d "$BASEDIR/commands" ]]; then
     done
     if [[ ${#cli_commands[@]} -gt 0 ]]; then
         echo ""
-        echo "🛠  CLI commands:"
+        echo "CLI commands:"
         for cmd in "${cli_commands[@]}"; do
             echo "    $cmd"
         done
@@ -243,7 +273,7 @@ if [[ -d "$BASEDIR/.claude/commands" ]]; then
     done
     if [[ ${#claude_skills[@]} -gt 0 ]]; then
         echo ""
-        echo "🤖 Claude Code skills:"
+        echo "Claude Code skills:"
         for skill in "${claude_skills[@]}"; do
             echo "    $skill"
         done

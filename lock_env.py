@@ -22,6 +22,24 @@ import os
 import sys
 from pathlib import Path
 
+# Emoji support detection - use ASCII fallbacks on Windows with non-UTF-8 encoding
+def _supports_emoji():
+    """Check if stdout can display emoji characters."""
+    if hasattr(sys.stdout, 'encoding') and sys.stdout.encoding:
+        return sys.stdout.encoding.lower() in ('utf-8', 'utf8')
+    return False
+
+if _supports_emoji():
+    E_CHECK = "\u2714"       # ✔
+    E_PKG = "\U0001f4e6"     # 📦
+    E_LOCK = "\U0001f512"    # 🔒
+    E_WARN = "\u26a0\ufe0f"  # ⚠️
+else:
+    E_CHECK = "[OK]"
+    E_PKG = "[pkg]"
+    E_LOCK = "[lock]"
+    E_WARN = "[WARN]"
+
 
 def get_platform_subdir() -> str:
     """Return conda platform subdir for current system.
@@ -80,41 +98,16 @@ def atomic_write(path: Path, content: str):
         raise
 
 
-def get_editable_packages(env_prefix: Path) -> dict[str, Path]:
-    """Get mapping of normalized package name -> editable location for editable installs.
-
-    Returns dict like {'claudechic': Path('/abs/path/to/submodules/claudechic')}
-    """
-    pip_path = env_prefix / "bin" / "pip"
-    if not pip_path.exists():
-        pip_path = env_prefix / "Scripts" / "pip.exe"
-    if not pip_path.exists():
-        return {}
-
-    import json as _json
-    result = subprocess.run(
-        [str(pip_path), "list", "--format=json"],
-        capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        return {}
-
-    packages = _json.loads(result.stdout)
-    return {
-        pkg["name"].lower().replace("-", "_"): Path(pkg["editable_project_location"])
-        for pkg in packages
-        if "editable_project_location" in pkg
-    }
-
-
 def get_pip_package_hashes(env_prefix: Path) -> dict[str, str]:
     """Get SHA256 hashes for installed pip packages.
 
     Returns dict mapping 'package==version' to 'sha256:hash'.
     """
-    pip_path = env_prefix / "bin" / "pip"
-    if not pip_path.exists():
-        pip_path = env_prefix / "Scripts" / "pip.exe"  # Windows
+    # Platform-specific pip path: bin/pip on Unix, Scripts/pip.exe on Windows
+    if platform.system().lower() == 'windows':
+        pip_path = env_prefix / "Scripts" / "pip.exe"
+    else:
+        pip_path = env_prefix / "bin" / "pip"
 
     if not pip_path.exists():
         return {}
@@ -173,7 +166,7 @@ def generate_lockfile(env_name: str, env_prefix: Path | None = None):
     envs_dir = Path(__file__).parent / "envs"
 
     # Export environment
-    print(f"📦 Exporting conda environment...")
+    print(f"{E_PKG} Exporting conda environment...")
     export_cmd = ["conda", "env", "export"]
     if env_prefix:
         export_cmd.extend(["-p", str(env_prefix)])
@@ -191,41 +184,39 @@ def generate_lockfile(env_name: str, env_prefix: Path | None = None):
     env_data["name"] = env_name
     env_data["channels"] = [c for c in env_data.get("channels", []) if c != "defaults"]
 
-    # Add hashes to pip packages for reproducibility; preserve editable installs
+    # Build map of local pip packages from original spec
+    # Local packages (e.g., ../some/path) get resolved to name==version by conda export.
+    # We restore the original path so install_env.py can install from source.
+    import re
+    local_pip_map: dict[str, str] = {}  # normalized_name -> original_path
+    origin_path_for_locals = envs_dir / f"{env_name}.yml"
+    if origin_path_for_locals.exists():
+        with open(origin_path_for_locals) as f:
+            spec_for_locals = yaml.safe_load(f)
+        for dep in spec_for_locals.get("dependencies", []):
+            if isinstance(dep, dict) and "pip" in dep:
+                for pip_dep in dep["pip"]:
+                    if pip_dep.startswith((".", "..", "/")):
+                        local_path = (origin_path_for_locals.parent / pip_dep).resolve()
+                        if local_path.exists():
+                            norm = re.sub(r"[-_.]+", "-", local_path.name).lower()
+                            local_pip_map[norm] = pip_dep  # keep original relative path
+
+    # Add hashes to pip packages for reproducibility
     if env_prefix.exists():
-        print(f"🔐 Computing pip package hashes...")
+        print(f"{E_LOCK} Computing pip package hashes...")
         pip_hashes = get_pip_package_hashes(env_prefix)
-        editable_pkgs = get_editable_packages(env_prefix)  # {norm_name: abs_path}
 
-        # Build map: resolved editable path -> original "-e <spec_path>" entry
-        spec_editable_map: dict[Path, str] = {}
-        if origin_path.exists():
-            with open(origin_path) as f:
-                spec = yaml.safe_load(f)
-            spec_dir = origin_path.parent
-            for sdep in spec.get("dependencies", []):
-                if isinstance(sdep, dict) and "pip" in sdep:
-                    for pip_dep in sdep["pip"]:
-                        if pip_dep.startswith("-e "):
-                            rel = pip_dep[3:].strip()
-                            resolved = (spec_dir / rel).resolve()
-                            spec_editable_map[resolved] = pip_dep
-
-        # Update pip dependencies: preserve editable form or add hash
+        # Update pip dependencies with hashes
         for i, dep in enumerate(env_data.get("dependencies", [])):
             if isinstance(dep, dict) and "pip" in dep:
                 new_pip_deps = []
                 for pip_dep in dep["pip"]:
-                    # Normalize package name to check if editable
-                    pkg_name = pip_dep.split("==")[0].lower().replace("-", "_") if "==" in pip_dep else ""
-
-                    if pkg_name and pkg_name in editable_pkgs:
-                        # Package installed in editable mode — preserve -e form
-                        editable_path = editable_pkgs[pkg_name]
-                        if editable_path in spec_editable_map:
-                            new_pip_deps.append(spec_editable_map[editable_path])
-                        else:
-                            new_pip_deps.append(f"-e {editable_path}")
+                    # pip_dep is like "package==1.2.3"
+                    dep_name = re.sub(r"[-_.]+", "-", pip_dep.split("==")[0]).lower()
+                    if dep_name in local_pip_map:
+                        # Restore original local path instead of name==version
+                        new_pip_deps.append(local_pip_map[dep_name])
                     elif pip_dep in pip_hashes:
                         new_pip_deps.append(f"{pip_dep} --hash={pip_hashes[pip_dep]}")
                     else:
@@ -269,11 +260,11 @@ def generate_lockfile(env_name: str, env_prefix: Path | None = None):
     lock_path = envs_dir / f"{env_name}.{plat}.lock"
     atomic_write(lock_path, full_content)
 
-    print(f"✔ Generated {lock_path}")
+    print(f"{E_CHECK} Generated {lock_path}")
     print(f"  Platform: {plat}")
     print(f"  Origin hash: {origin_hash}")
     if origin_hash == 'N/A':
-        print(f"  ⚠️  No origin spec found at {origin_path}")
+        print(f"  {E_WARN}  No origin spec found at {origin_path}")
         print(f"     Consider creating a minimal spec file.")
 
 

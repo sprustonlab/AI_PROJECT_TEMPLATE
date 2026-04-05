@@ -2,10 +2,16 @@
 # =============================================================================
 # test_activate.sh - E2E test for `source ./activate`
 # =============================================================================
-# Tests the complete activation workflow as a user would experience it:
+# Tests the complete activate script workflow as a user would experience it:
 # 1. SLCenv bootstrap (Miniforge installation)
 # 2. Submodule initialization
-# 3. Environment activation
+# 3. SLCenv conda environment is activated (conda activate)
+# 4. Platform layout paths are set correctly (envs/{platform_subdir}/SLCenv)
+#
+# Shell compatibility:
+#   Compatible with both bash and zsh. CI invokes explicitly with the target
+#   shell (e.g., `bash test_activate.sh` or `zsh test_activate.sh`), so the
+#   shebang is only used for direct execution.
 #
 # Exit codes:
 #   0 - All tests passed
@@ -18,8 +24,12 @@ set -e
 # Setup
 # --------------------------------------------------------------------------
 
-# Get script location
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get script location (portable: bash uses BASH_SOURCE, zsh uses $0)
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Colors for output
@@ -39,16 +49,16 @@ TESTS_FAILED=0
 
 pass() {
     green "  ✔ PASS: $1"
-    ((++TESTS_PASSED))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 fail() {
     red "  ✘ FAIL: $1"
-    ((++TESTS_FAILED))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 }
 
 # --------------------------------------------------------------------------
-# Run activation
+# Source the activate script
 # --------------------------------------------------------------------------
 
 blue "Running: source ./activate"
@@ -75,19 +85,34 @@ fi
 echo ""
 
 # --------------------------------------------------------------------------
-# Test 1: SLCenv conda binary exists
+# Test 1: SLC_PLATFORM is set to a platform_subdir value
 # --------------------------------------------------------------------------
 
-blue "Checking: SLCenv bootstrap completed..."
+blue "Checking: SLC_PLATFORM set to platform_subdir..."
 
-if [[ -x "$PROJECT_ROOT/envs/SLCenv/bin/conda" ]]; then
-    pass "envs/SLCenv/bin/conda exists and is executable"
+if [[ -n "$SLC_PLATFORM" ]]; then
+    pass "SLC_PLATFORM is set: $SLC_PLATFORM"
 else
-    fail "envs/SLCenv/bin/conda does not exist or is not executable"
+    fail "SLC_PLATFORM is not set"
+fi
+
+# Use SLC_PLATFORM as the platform_subdir for path checks
+PLATFORM_SUBDIR="${SLC_PLATFORM:-linux-64}"
+
+# --------------------------------------------------------------------------
+# Test 2: SLCenv conda binary exists (platform layout path)
+# --------------------------------------------------------------------------
+
+blue "Checking: SLCenv bootstrap completed (platform layout)..."
+
+if [[ -x "$PROJECT_ROOT/envs/$PLATFORM_SUBDIR/SLCenv/bin/conda" ]]; then
+    pass "envs/$PLATFORM_SUBDIR/SLCenv/bin/conda exists and is executable"
+else
+    fail "envs/$PLATFORM_SUBDIR/SLCenv/bin/conda does not exist or is not executable"
 fi
 
 # --------------------------------------------------------------------------
-# Test 2: Submodules are checked out (not empty)
+# Test 3: Submodules are checked out (not empty)
 # --------------------------------------------------------------------------
 
 blue "Checking: Submodules initialized..."
@@ -100,10 +125,10 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Test 3: CONDA_PREFIX is set (environment activated)
+# Test 4: CONDA_PREFIX is set (SLCenv base environment activated)
 # --------------------------------------------------------------------------
 
-blue "Checking: Environment activated..."
+blue "Checking: SLCenv base environment activated..."
 
 if [[ -n "$CONDA_PREFIX" ]]; then
     pass "CONDA_PREFIX is set: $CONDA_PREFIX"
@@ -112,7 +137,7 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Test 4: PROJECT_ROOT is set correctly
+# Test 5: PROJECT_ROOT is set correctly
 # --------------------------------------------------------------------------
 
 blue "Checking: PROJECT_ROOT set..."
@@ -124,7 +149,7 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Test 5: SLC_BASE is set
+# Test 6: SLC_BASE is set
 # --------------------------------------------------------------------------
 
 blue "Checking: SLC_BASE set..."
@@ -136,7 +161,7 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Test 6: commands/ is in PATH
+# Test 7: commands/ is in PATH
 # --------------------------------------------------------------------------
 
 blue "Checking: commands/ in PATH..."
@@ -145,6 +170,22 @@ if echo "$PATH" | grep -q "$PROJECT_ROOT/commands"; then
     pass "commands/ directory is in PATH"
 else
     fail "commands/ directory is not in PATH"
+fi
+
+# --------------------------------------------------------------------------
+# Test 8: CONDA_ENVS_PATH points to platform layout directory
+# --------------------------------------------------------------------------
+
+blue "Checking: CONDA_ENVS_PATH uses platform layout..."
+
+if [[ -n "$CONDA_ENVS_PATH" ]]; then
+    if echo "$CONDA_ENVS_PATH" | grep -q "envs/$PLATFORM_SUBDIR"; then
+        pass "CONDA_ENVS_PATH includes platform layout path: $CONDA_ENVS_PATH"
+    else
+        fail "CONDA_ENVS_PATH does not include 'envs/$PLATFORM_SUBDIR': $CONDA_ENVS_PATH"
+    fi
+else
+    fail "CONDA_ENVS_PATH is not set"
 fi
 
 # --------------------------------------------------------------------------

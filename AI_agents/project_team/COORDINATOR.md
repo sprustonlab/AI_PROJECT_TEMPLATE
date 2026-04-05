@@ -58,11 +58,8 @@ Loop until vision is clear:
 
 Determine `working_dir` (must be **absolute path**):
 1. If user mentioned a specific directory → use it
-2. If context suggests a submodule → `{monorepo_root}/submodules/{name}`
-3. If working in monorepo root → `{monorepo_root}`
-4. If unclear → ask user
-
-Also set `monorepo_root` = absolute path to the postdoc_monorepo (where AI_agents/ lives).
+2. If working in a git repo → repo root
+3. If unclear → ask user
 
 **IMPORTANT:** All paths in agent prompts MUST be absolute paths. Subagents cannot resolve relative paths reliably.
 
@@ -97,7 +94,7 @@ Initialize STATUS.md:
 ```markdown
 # Project Status
 
-**EVERY TURN: Re-read AI_agents/project_team/COORDINATOR.md**
+**EVERY TURN: Re-read {role_dir}/COORDINATOR.md**
 
 ## Current Phase
 Phase 2: Leadership Spawn
@@ -141,25 +138,25 @@ Write userprompt.md with original request + Vision Summary.
 SPAWN ALL 4 LEADERSHIP AGENTS:
 
 **Path variables** (substitute these before spawning):
-- `{monorepo_root}` = absolute path to postdoc_monorepo (e.g., `/Users/basta/project_src/postdoc_monorepo`)
-- `{working_dir}` = absolute path to project directory (e.g., `{monorepo_root}/submodules/AI_PROJECT_TEMPLATE`)
+- `{role_dir}` = `/Users/basta/project_src/postdoc_monorepo/submodules/AI_project_template/AI_agents/project_team`
+- `{working_dir}` = absolute path to project directory (determined in Phase 1a)
 - `{project_state}` = `{working_dir}/.ao_project_team/{project_name}`
 
 1. **Spawn Composability** at `{working_dir}`:
    - name: `Composability`
-   - prompt: `You are Composability. Read your role file: {monorepo_root}/AI_agents/project_team/COMPOSABILITY.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Phase task: Review project through composability lens. Identify axes relevant to this project. Write findings to {project_state}/specification/composability.md. Report to: Coordinator`
+   - prompt: `You are Composability. Read your role file: {role_dir}/COMPOSABILITY.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Phase task: Review project through composability lens. Identify axes relevant to this project. Write findings to {project_state}/specification/composability.md. Report to: Coordinator`
 
 2. **Spawn TerminologyGuardian** at `{working_dir}`:
    - name: `TerminologyGuardian`
-   - prompt: `You are TerminologyGuardian. Read your role file: {monorepo_root}/AI_agents/project_team/TERMINOLOGY_GUARDIAN.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Phase task: Identify domain terms from user request. Define canonical meanings. Write findings to {project_state}/specification/terminology.md. Report to: Coordinator`
+   - prompt: `You are TerminologyGuardian. Read your role file: {role_dir}/TERMINOLOGY_GUARDIAN.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Phase task: Identify domain terms from user request. Define canonical meanings. Write findings to {project_state}/specification/terminology.md. Report to: Coordinator`
 
 3. **Spawn Skeptic** at `{working_dir}`:
    - name: `Skeptic`
-   - prompt: `You are Skeptic. Read your role file: {monorepo_root}/AI_agents/project_team/SKEPTIC.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Phase task: Challenge assumptions in the vision. Identify risks and failure modes. Write findings to {project_state}/specification/skeptic_review.md. Report to: Coordinator`
+   - prompt: `You are Skeptic. Read your role file: {role_dir}/SKEPTIC.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Phase task: Challenge assumptions in the vision. Identify risks and failure modes. Write findings to {project_state}/specification/skeptic_review.md. Report to: Coordinator`
 
 4. **Spawn UserAlignment** at `{working_dir}`:
    - name: `UserAlignment`
-   - prompt: `You are UserAlignment. Read your role file: {monorepo_root}/AI_agents/project_team/USER_ALIGNMENT.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Phase task: Verify vision captures user intent. Flag any gaps or misunderstandings. Write findings to {project_state}/specification/user_alignment.md. Report to: Coordinator`
+   - prompt: `You are UserAlignment. Read your role file: {role_dir}/USER_ALIGNMENT.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Phase task: Verify vision captures user intent. Flag any gaps or misunderstandings. Write findings to {project_state}/specification/user_alignment.md. Report to: Coordinator`
 
 VERIFY: Run `mcp__chic__list_agents`. Confirm all 4 Leadership agents appear.
 
@@ -178,11 +175,11 @@ RECORD in STATUS.md:
 
 - **Spawn Researcher** if the project involves: prior art search, external libraries, scientific methods, or any domain where external evidence would improve decisions.
   - name: `Researcher`
-  - prompt: `You are Researcher. Read your role file: {monorepo_root}/AI_agents/project_team/RESEARCHER.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Stand by for research requests from Leadership and Coordinator. Report findings to the requesting agent.`
+  - prompt: `You are Researcher. Read your role file: {role_dir}/RESEARCHER.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Stand by for research requests from Leadership and Coordinator. Report findings to the requesting agent.`
 
 - **Spawn LabNotebook** if the project involves: experiments, ablations, iterative hypothesis testing, or scientific/ML work where results need to be tracked.
   - name: `LabNotebook`
-  - prompt: `You are LabNotebook. Read your role file: {monorepo_root}/AI_agents/project_team/LAB_NOTEBOOK.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Stand by to create and maintain experiment entries. Coordinator will trigger you at experiment milestones.`
+  - prompt: `You are LabNotebook. Read your role file: {role_dir}/LAB_NOTEBOOK.md. Project state: {project_state}/. Read {project_state}/userprompt.md for context. Stand by to create and maintain experiment entries. Coordinator will trigger you at experiment milestones.`
 
 CONTINUE to Phase 3.
 

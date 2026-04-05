@@ -11,7 +11,35 @@ from claudechic.enums import ToolName
 
 
 # Constants
-MAX_CONTEXT_TOKENS = 200_000  # Claude's context window
+MAX_CONTEXT_TOKENS = 200_000  # Default context window (overridden per-model)
+
+# Context window sizes by model family.
+# Models with extended context (e.g., Opus 4.6) have 1M tokens.
+CONTEXT_WINDOW_BY_MODEL: dict[str, int] = {
+    "opus": 1_000_000,
+    "sonnet": 200_000,
+    "haiku": 200_000,
+}
+
+
+def get_context_window(model: str | None) -> int:
+    """Return context window size for a model alias or full name.
+
+    Checks short aliases ("opus") and substrings in full model names
+    ("claude-opus-4-6").  Falls back to MAX_CONTEXT_TOKENS.
+    """
+    if not model:
+        return MAX_CONTEXT_TOKENS
+    # Exact alias match
+    if model in CONTEXT_WINDOW_BY_MODEL:
+        return CONTEXT_WINDOW_BY_MODEL[model]
+    # Substring match in full model name (e.g. "opus" in "claude-opus-4-6")
+    for alias, window in CONTEXT_WINDOW_BY_MODEL.items():
+        if f"-{alias}-" in f"-{model}-" or model.startswith(f"{alias}-"):
+            return window
+    return MAX_CONTEXT_TOKENS
+
+
 MAX_HEADER_WIDTH = 70  # Max width for tool headers
 
 # Inter-agent message patterns

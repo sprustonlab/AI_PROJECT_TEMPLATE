@@ -1,6 +1,9 @@
 """Profile statistics modal."""
 
+import time
+
 from rich.table import Table
+from rich.text import Text
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -9,7 +12,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Static, Button
 
 from claudechic.profiling import get_stats_table, get_stats_text, reset_stats, _stats
-from claudechic.sampling import get_sampler, flatten
+from claudechic.sampling import get_sampler, flatten, Episode
 
 
 def _get_sampling_table() -> Table | None:
@@ -29,7 +32,7 @@ def _get_sampling_table() -> Table | None:
         padding=(0, 2),
         collapse_padding=True,
         show_header=True,
-        title=f"[dim]CPU Samples (>{stats['threshold'] * 100:.0f}% threshold, {stats['sample_count']} samples)[/]",
+        title=f"[dim]>{stats['threshold'] * 100:.0f}% threshold, {stats['sample_count']} samples[/]",
         title_justify="left",
     )
     table.add_column("Function", style="dim")
@@ -80,6 +83,79 @@ def _get_sampling_text() -> str:
     return "\n".join(lines)
 
 
+def _format_ago(t: float) -> str:
+    """Format a timestamp as '42s ago' or '3m ago'."""
+    delta = time.time() - t
+    if delta < 60:
+        return f"{delta:.0f}s ago"
+    return f"{delta / 60:.0f}m ago"
+
+
+def _format_episode(
+    ep: Episode, index: int, indent: str = "", shorten_files: bool = False
+) -> list[str]:
+    """Format a single episode as lines of text."""
+    lines = []
+    cpu_info = f"avg {ep.avg_cpu * 100:.0f}%  peak {ep.peak_cpu * 100:.0f}%"
+    lines.append(
+        f"{indent}Episode {index}: {_format_ago(ep.end)}  {ep.duration:.1f}s  {cpu_info}"
+    )
+    if ep.lag_max > 0:
+        lines.append(
+            f"{indent}  Event loop lag: avg {ep.lag_mean * 1000:.0f}ms  max {ep.lag_max * 1000:.0f}ms"
+        )
+    if ep.text_chunks or ep.tool_uses or ep.tool_results:
+        rate = ep.text_chunks / ep.duration if ep.duration > 0 else 0
+        lines.append(
+            f"{indent}  Messages: {ep.text_chunks} chunks ({rate:.0f}/s)  {ep.tool_uses} tool uses  {ep.tool_results} results"
+        )
+    hotspots = ep.hotspots
+    if hotspots:
+        total = ep.samples["count"] or 1
+        lines.append(f"{indent}  Hotspots:")
+        for _ident, count, desc in hotspots[:5]:
+            pct = count / total * 100
+            fname = desc["filename"]
+            if shorten_files and len(fname) > 25:
+                fname = "..." + fname[-22:]
+            lines.append(
+                f"{indent}    {desc['name']:25} {pct:5.1f}%  {fname}:{desc['line_number']}"
+            )
+    return lines
+
+
+def _get_episodes_section() -> Text | None:
+    """Get episode diagnostics as a Rich Text renderable."""
+    sampler = get_sampler()
+    if not sampler or not sampler.episodes:
+        return None
+
+    parts = Text()
+    parts.append(f"({len(sampler.episodes)} recorded)\n\n", style="dim")
+
+    for i, ep in enumerate(reversed(list(sampler.episodes))):
+        if i > 0:
+            parts.append("  ─────────────────────────────────────\n", style="dim")
+        for line in _format_episode(ep, i + 1, indent="  ", shorten_files=True):
+            parts.append(line + "\n", style="dim" if line.startswith("    ") else "")
+        parts.append("\n")
+
+    return parts
+
+
+def _get_episodes_text() -> str:
+    """Get episode data as plain text for clipboard."""
+    sampler = get_sampler()
+    if not sampler or not sampler.episodes:
+        return ""
+
+    lines = ["\nHigh-CPU Episodes", ""]
+    for i, ep in enumerate(reversed(list(sampler.episodes))):
+        lines.extend(_format_episode(ep, i + 1))
+        lines.append("")
+    return "\n".join(lines)
+
+
 class ProfileModal(ModalScreen):
     """Modal showing profiling statistics."""
 
@@ -111,7 +187,7 @@ class ProfileModal(ModalScreen):
         width: 1fr;
     }
 
-    ProfileModal #copy-btn {
+    ProfileModal .copy-btn {
         width: 3;
         min-width: 3;
         height: 1;
@@ -121,9 +197,18 @@ class ProfileModal(ModalScreen):
         color: $text-muted;
     }
 
-    ProfileModal #copy-btn:hover {
+    ProfileModal .copy-btn:hover {
         color: $primary;
         background: transparent;
+    }
+
+    ProfileModal .section-header {
+        height: 1;
+        margin-top: 1;
+    }
+
+    ProfileModal .section-title {
+        width: 1fr;
     }
 
     ProfileModal #profile-scroll {
@@ -136,6 +221,11 @@ class ProfileModal(ModalScreen):
     }
 
     ProfileModal #sampling-content {
+        height: auto;
+        margin-top: 1;
+    }
+
+    ProfileModal #episodes-content {
         height: auto;
         margin-top: 1;
     }
@@ -162,19 +252,28 @@ class ProfileModal(ModalScreen):
                 yield Static(
                     "[bold]Profiling Statistics[/]", id="profile-title", markup=True
                 )
-                yield Button("\u29c9", id="copy-btn")
+                yield Button("\u29c9", id="copy-all-btn", classes="copy-btn")
             with VerticalScroll(id="profile-scroll"):
+                # Decorator profiling section
                 if _stats:
+                    with Horizontal(classes="section-header"):
+                        yield Static(
+                            "[bold]Decorator Profiling[/]",
+                            classes="section-title",
+                            markup=True,
+                        )
+                        yield Button(
+                            "\u29c9", id="copy-profiling-btn", classes="copy-btn"
+                        )
                     yield Static(get_stats_table(), id="profile-content")
-                else:
-                    yield Static(
-                        "[dim]No decorator profiling data.[/]",
-                        id="profile-content",
-                        markup=True,
-                    )
 
                 # Sampling profiler section
                 sampling_table = _get_sampling_table()
+                with Horizontal(classes="section-header"):
+                    yield Static(
+                        "[bold]CPU Samples[/]", classes="section-title", markup=True
+                    )
+                    yield Button("\u29c9", id="copy-sampling-btn", classes="copy-btn")
                 if sampling_table:
                     yield Static(sampling_table, id="sampling-content")
                 else:
@@ -184,20 +283,48 @@ class ProfileModal(ModalScreen):
                         markup=True,
                     )
 
+                # Episodes section
+                episodes = _get_episodes_section()
+                if episodes:
+                    with Horizontal(classes="section-header"):
+                        yield Static(
+                            "[bold]High-CPU Episodes[/]",
+                            classes="section-title",
+                            markup=True,
+                        )
+                        yield Button(
+                            "\u29c9", id="copy-episodes-btn", classes="copy-btn"
+                        )
+                    yield Static(episodes, id="episodes-content")
+
             with Horizontal(id="profile-footer"):
                 yield Button("Reset", id="reset-btn")
                 yield Button("Close", id="close-btn")
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "copy-btn":
-            try:
-                import pyperclip
+    def _copy_text(self, text: str) -> None:
+        try:
+            import pyperclip
 
-                text = get_stats_text() + "\n" + _get_sampling_text()
-                pyperclip.copy(text)
-                self.notify("Copied to clipboard")
-            except Exception as e:
-                self.notify(f"Copy failed: {e}", severity="error")
+            pyperclip.copy(text)
+            self.notify("Copied to clipboard")
+        except Exception as e:
+            self.notify(f"Copy failed: {e}", severity="error")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "copy-all-btn":
+            self._copy_text(
+                get_stats_text()
+                + "\n"
+                + _get_sampling_text()
+                + "\n"
+                + _get_episodes_text()
+            )
+        elif event.button.id == "copy-profiling-btn":
+            self._copy_text(get_stats_text())
+        elif event.button.id == "copy-sampling-btn":
+            self._copy_text(_get_sampling_text())
+        elif event.button.id == "copy-episodes-btn":
+            self._copy_text(_get_episodes_text())
         elif event.button.id == "reset-btn":
             reset_stats()
             sampler = get_sampler()

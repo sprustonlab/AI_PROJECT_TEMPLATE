@@ -85,6 +85,10 @@ ModelLabel:hover {
     background: $panel;
 }
 
+DiagnosticsLabel:hover {
+    background: $panel;
+}
+
 .footer-sep {
     color: $panel;
     width: auto;
@@ -149,6 +153,14 @@ SystemInfo.system-error {
 /* Chat messages - text cursor for selection */
 ChatMessage {
     pointer: text;
+}
+
+/* Message metadata header - timestamp, model, tokens */
+MessageMetadataHeader {
+    color: $text-muted;
+    height: 1;
+    padding: 0 2 0 2;
+    margin: 0 2 0 0;
 }
 
 /* User messages - vibrant orange, extra spacing */
@@ -420,12 +432,14 @@ MarkdownFence:hover {
     scrollbar-color-active: $panel-lighten-2;
 }
 
-/* Remove bottom margin from last element in markdown containers */
-ChatMessage MarkdownParagraph:last-of-type,
-ChatMessage MarkdownFence:last-of-type,
-ToolUseWidget MarkdownParagraph:last-of-type,
-ToolUseWidget MarkdownFence:last-of-type {
-    margin-bottom: 0;
+/* Absorb trailing margin from last MarkdownParagraph/MarkdownFence inside
+   chat and tool containers. Uses negative margin on the Markdown widget
+   instead of :last-of-type selectors, which cause Textual to set
+   _has_order_style on every matching widget — triggering expensive
+   CSS recalculation on every mount(). */
+ChatMessage Markdown,
+ToolUseWidget Markdown {
+    margin-bottom: -1;
 }
 
 /* Tool use spinner - overlaid on collapsible expand arrow */

@@ -71,3 +71,35 @@ class CommandOutputMessage(Message):
         self.content = content  # Markdown content
         self.agent_id = agent_id
         super().__init__()
+
+
+class TextChunkMessage(Message):
+    """Message sent when a text chunk arrives from the agent stream."""
+
+    def __init__(
+        self,
+        text: str,
+        new_message: bool,
+        parent_tool_use_id: str | None = None,
+        agent_id: str | None = None,
+    ) -> None:
+        self.text = text
+        self.new_message = new_message
+        self.parent_tool_use_id = parent_tool_use_id
+        self.agent_id = agent_id
+        super().__init__()
+
+
+class PromptSentMessage(Message):
+    """Message sent when a prompt is sent to an agent."""
+
+    def __init__(
+        self,
+        prompt: str,
+        images: list | None = None,
+        agent_id: str | None = None,
+    ) -> None:
+        self.prompt = prompt
+        self.images = images or []
+        self.agent_id = agent_id
+        super().__init__()

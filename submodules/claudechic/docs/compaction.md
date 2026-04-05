@@ -108,7 +108,7 @@ Each line in the JSONL file is a message with a `type` field:
 {"type": "user", "message": {"role": "user", "content": [...]}, "uuid": "..."}
 {"type": "assistant", "message": {"role": "assistant", "content": [...]}, "uuid": "..."}
 {"type": "system", "message": {"content": "..."}}
-{"type": "summary", "isCompactSummary": true, "leafUuid": "..."}
+{"type": "user", "isCompactSummary": true, "message": {"role": "user", "content": "..."}, "uuid": "..."}
 ```
 
 ### Tool Use Structure

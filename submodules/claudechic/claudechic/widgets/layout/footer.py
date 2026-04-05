@@ -14,6 +14,16 @@ from claudechic.processes import BackgroundProcess
 from claudechic.widgets.input.vi_mode import ViMode
 
 
+class DiagnosticsLabel(ClickableLabel):
+    """Clickable diagnostics label."""
+
+    class Requested(Message):
+        """Emitted when user clicks to open diagnostics."""
+
+    def on_click(self, event) -> None:
+        self.post_message(self.Requested())
+
+
 class PermissionModeLabel(ClickableLabel):
     """Clickable permission mode status label."""
 
@@ -114,6 +124,10 @@ class StatusFooter(Static):
             yield Static("·", classes="footer-sep")
             yield PermissionModeLabel(
                 "Auto-edit: off", id="permission-mode-label", classes="footer-label"
+            )
+            yield Static("·", classes="footer-sep")
+            yield DiagnosticsLabel(
+                "ao_diagnostics", id="diagnostics-label", classes="footer-label"
             )
             yield Static("", id="footer-spacer")
             yield ProcessIndicator(id="process-indicator", classes="hidden")

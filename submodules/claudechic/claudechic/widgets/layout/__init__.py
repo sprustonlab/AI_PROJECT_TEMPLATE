@@ -4,6 +4,7 @@ from claudechic.widgets.layout.chat_view import ChatView
 from claudechic.widgets.layout.sidebar import (
     AgentItem,
     AgentSection,
+    ChicsessionLabel,
     WorktreeItem,
     PlanItem,
     PlanSection,
@@ -38,6 +39,7 @@ __all__ = [
     "ChatView",
     "AgentItem",
     "AgentSection",
+    "ChicsessionLabel",
     "WorktreeItem",
     "PlanItem",
     "PlanSection",

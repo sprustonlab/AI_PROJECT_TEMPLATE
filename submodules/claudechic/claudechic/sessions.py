@@ -1,12 +1,15 @@
 """Session management - loading and listing Claude Code sessions."""
 
 import json
+import logging
 import os
 import re
 from datetime import datetime
 from pathlib import Path
 
 import aiofiles
+
+log = logging.getLogger(__name__)
 
 
 def is_valid_uuid(s: str) -> bool:
@@ -65,7 +68,13 @@ def get_project_sessions_dir(cwd: Path | None = None) -> Path | None:
     cwd = (cwd or Path.cwd()).absolute()
     # Replace path separators with dashes (handles both / and \ on Windows)
     # Also remove Windows drive colon (C:\foo -> C-foo)
-    project_key = str(cwd).replace(os.sep, "-").replace(":", "").replace("_", "-").replace(".", "-")
+    project_key = (
+        str(cwd)
+        .replace(os.sep, "-")
+        .replace(":", "")
+        .replace("_", "-")
+        .replace(".", "-")
+    )
     sessions_dir = Path.home() / ".claude/projects" / project_key
     return sessions_dir if sessions_dir.exists() else None
 
@@ -230,7 +239,7 @@ async def load_session_messages(session_id: str, cwd: Path | None = None) -> lis
                             continue
                         if any(tag in content for tag in skip_tags):
                             continue
-                        messages.append({"type": "user", "content": content})
+                        messages.append({"type": "user", "content": content, "timestamp": d.get("timestamp")})
                 elif d.get("type") == "assistant":
                     msg = d.get("message", {})
                     content_blocks = msg.get("content", [])
@@ -240,7 +249,7 @@ async def load_session_messages(session_id: str, cwd: Path | None = None) -> lis
                                 text = block.get("text", "")
                                 if text.strip():
                                     messages.append(
-                                        {"type": "assistant", "content": text}
+                                        {"type": "assistant", "content": text, "timestamp": d.get("timestamp"), "model": msg.get("model")}
                                     )
                             elif block.get("type") == "tool_use":
                                 messages.append(

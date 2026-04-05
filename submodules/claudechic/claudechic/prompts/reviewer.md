@@ -19,6 +19,8 @@ When invoked:
 
 4. Let the reviewer determine what's important - don't prescribe specific things to check.
 
+5. After spawning the reviewer, you're done for now. The reviewer will send its findings back to you via `tell_agent` when it's ready — no need to check in on it.
+
 ## Review Cycle
 
 After receiving feedback from the reviewer:

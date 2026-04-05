@@ -372,6 +372,21 @@ class QuestionPrompt(BasePrompt):
         return self._result_value if self._result_value else {}
 
 
+def _model_matches(model_value: str, current: str | None) -> bool:
+    """Check if a model value matches the current selection.
+
+    Handles both exact matches (``"opus" == "opus"``) and alias-to-full-name
+    matches (``"opus"`` matches ``"claude-opus-4-6"``).
+    """
+    if not current:
+        return False
+    if model_value == current:
+        return True
+    # Alias match: short name appears as a component in the full name
+    # e.g. "opus" in "claude-opus-4-6"
+    return f"-{current}-" in f"-{model_value}-" or model_value.startswith(f"{current}-")
+
+
 class ModelPrompt(BasePrompt):
     """Prompt for selecting a model from SDK-provided list."""
 
@@ -388,7 +403,7 @@ class ModelPrompt(BasePrompt):
         # Find current model index for initial selection
         self.selected_idx = 0
         for i, m in enumerate(models):
-            if m.get("value") == current_value:
+            if _model_matches(m.get("value", ""), current_value):
                 self.selected_idx = i
                 break
 
@@ -403,7 +418,7 @@ class ModelPrompt(BasePrompt):
                 if "·" in desc
                 else m.get("displayName", value)
             )
-            current = " *" if value == self.current_value else ""
+            current = " *" if _model_matches(value, self.current_value) else ""
             classes = "prompt-option"
             if i == self.selected_idx:
                 classes += " selected"

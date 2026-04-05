@@ -1,0 +1,40 @@
+--- a/src/textual/widgets/_text_area.py
++++ b/src/textual/widgets/_text_area.py
+@@ -1626,9 +1626,9 @@
+                 minimum_top, maximum_old_bottom, maximum_new_bottom
+             )
+
+-        self._refresh_size()
+         for edit in reversed(edits):
+             edit.after(self)
++        self._refresh_size()
+         self._build_highlight_map()
+         self.post_message(self.Changed(self))
+         self.update_suggestion()
+@@ -1675,9 +1675,9 @@
+                 maximum_new_bottom,
+             )
+
+-        self._refresh_size()
+         for edit in edits:
+             edit.after(self)
++        self._refresh_size()
+         self._build_highlight_map()
+         self.post_message(self.Changed(self))
+         self.update_suggestion()
+--
+Patch: Fix TextArea undo/redo crash (ValueError: line index out of bounds)
+
+In both _undo_batch() and _redo_batch(), _refresh_size() was called before
+edit.after(), which updates the cursor position. The refresh triggers a
+scrollbar update chain that reads the (now stale) cursor location, crashing
+when an undo reduces the document to fewer lines than the cursor points to.
+
+Fix: run edit.after() first so the cursor is valid before the UI refresh.
+
+Affects: textual >= 7.4.0 (including 8.0.2 as of 2026-03-05)
+Upstream: not yet fixed — consider filing at github.com/Textualize/textual
+
+To apply:
+  SITE=$(python -c "import textual; print(textual.__file__.rsplit('/',2)[0])")
+  patch -p3 -d "$SITE" < 0011-fix-textarea-undo-cursor-crash.patch

@@ -481,6 +481,50 @@ class AgentItem(SidebarItem):
             self.post_message(self.Selected(self.agent_id))
 
 
+class ChicsessionLabel(Widget):
+    """Shows the active chicsession name in the sidebar."""
+
+    DEFAULT_CSS = """
+    ChicsessionLabel {
+        width: 100%;
+        height: auto;
+        padding: 0 1 0 1;
+    }
+    ChicsessionLabel .chicsession-title {
+        color: $text-muted;
+        text-style: bold;
+    }
+    ChicsessionLabel .chicsession-value {
+        padding: 0 0 0 1;
+    }
+    ChicsessionLabel .chicsession-hint {
+        color: $text-muted;
+        padding: 0 0 0 1;
+    }
+    """
+
+    name_text: reactive[str] = reactive("")
+
+    def compose(self) -> ComposeResult:
+        yield Static("Chicsession", classes="chicsession-title")
+        yield Static("", classes="chicsession-value")
+
+    def watch_name_text(self, value: str) -> None:
+        """Update the displayed value when name changes."""
+        label = self.query_one_optional(".chicsession-value", Static)
+        if label:
+            if value:
+                label.update(Text(value))
+                label.remove_class("chicsession-hint")
+            else:
+                label.update(Text("none", style="dim"))
+                label.add_class("chicsession-hint")
+
+    def on_mount(self) -> None:
+        # Trigger initial render
+        self.watch_name_text(self.name_text)
+
+
 class AgentSection(SidebarSection):
     """Sidebar section showing all agents with status indicators."""
 

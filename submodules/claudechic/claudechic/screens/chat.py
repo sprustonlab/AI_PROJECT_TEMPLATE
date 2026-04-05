@@ -17,6 +17,7 @@ from claudechic.widgets import (
     TextAreaAutoComplete,
     HistorySearch,
     AgentSection,
+    ChicsessionLabel,
     TodoPanel,
     ProcessPanel,
     PlanSection,
@@ -67,6 +68,7 @@ class ChatScreen(Screen):
                         slash_commands=self._slash_commands,
                     )
             with Vertical(id="right-sidebar", classes="hidden"):
+                yield ChicsessionLabel(id="chicsession-label")
                 yield AgentSection(id="agent-section")
                 yield PlanSection(id="plan-section", classes="hidden")
                 yield FilesSection(id="files-section", classes="hidden")

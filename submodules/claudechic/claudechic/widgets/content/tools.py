@@ -541,6 +541,29 @@ class AgentToolWidget(BaseToolWidget):
         preview = text[:60] + "..." if len(text) > 60 else text
         return f"{verb} {self._agent_name}: {preview}"
 
+    def _cluster_title(self, tool_short: str) -> str:
+        """Create a descriptive title for cluster tool calls."""
+        inp = self.block.input
+        if tool_short == "cluster_submit":
+            name = inp.get("job_name", "")
+            queue = inp.get("queue", "")
+            parts = ["Cluster submit"]
+            if name:
+                parts.append(name)
+            if queue:
+                parts.append(f"({queue})")
+            return " ".join(parts)
+        elif tool_short == "cluster_status":
+            return f"Cluster status: job {inp.get('job_id', '?')}"
+        elif tool_short == "cluster_kill":
+            return f"Cluster kill: job {inp.get('job_id', '?')}"
+        elif tool_short == "cluster_watch":
+            return f"Cluster watch: job {inp.get('job_id', '?')}"
+        elif tool_short == "cluster_jobs":
+            return "Cluster jobs"
+        else:
+            return tool_short.replace("_", " ").title()
+
     def compose(self) -> ComposeResult:
         tool_short = self.block.name.replace("mcp__chic__", "")
         prompt = self.block.input.get("prompt", "") or self.block.input.get(
@@ -583,10 +606,20 @@ class AgentToolWidget(BaseToolWidget):
             with QuietCollapsible(title="List agents", collapsed=True):
                 yield Static("")  # Placeholder, result will be mounted
 
+        elif tool_short.startswith("cluster_"):
+            # Cluster tools: show tool name + key info from input
+            summary = self._cluster_title(tool_short)
+            with QuietCollapsible(title=summary, collapsed=True):
+                yield Static(json.dumps(self.block.input, indent=2), markup=False)
+
         else:
-            with QuietCollapsible(
-                title=f"{tool_short}: {self._agent_name}", collapsed=True
-            ):
+            # Other MCP tools: show tool name + agent name (if present)
+            title = (
+                f"{tool_short}: {self._agent_name}"
+                if self._agent_name != "?"
+                else tool_short
+            )
+            with QuietCollapsible(title=title, collapsed=True):
                 yield Static(json.dumps(self.block.input, indent=2), markup=False)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -601,8 +634,8 @@ class AgentToolWidget(BaseToolWidget):
             self.query_one(Spinner).remove()
         except Exception:
             pass
-        # For list_agents, render as formatted agent list
         tool_short = self.block.name.replace("mcp__chic__", "")
+        # For list_agents, render as formatted agent list
         if tool_short == "list_agents" and result.content:
             content = _extract_text_content(result.content)
             content = SYSTEM_REMINDER_PATTERN.sub("", content)
@@ -610,3 +643,44 @@ class AgentToolWidget(BaseToolWidget):
                 self.mount(AgentListWidget(content, cwd=self._cwd))
             except Exception:
                 pass
+        # For cluster tools, update title with result summary
+        elif tool_short.startswith("cluster_") and result.content:
+            content = _extract_text_content(result.content)
+            content = SYSTEM_REMINDER_PATTERN.sub("", content)
+            summary = self._cluster_result_summary(tool_short, content, result.is_error or False)
+            if summary:
+                try:
+                    collapsible = self.query_one(QuietCollapsible)
+                    title = self._cluster_title(tool_short)
+                    collapsible.title = f"{title} {summary}"
+                    if result.is_error:
+                        collapsible.add_class("error")
+                except Exception:
+                    pass
+
+    def _cluster_result_summary(self, tool_short: str, content: str, is_error: bool) -> str:
+        """Extract a short summary from cluster tool results."""
+        if is_error:
+            return "(error)"
+        if tool_short == "cluster_submit":
+            # Extract job ID from result
+            try:
+                data = json.loads(content)
+                job_id = data.get("job_id", "")
+                if job_id:
+                    return f"(job {job_id})"
+            except (json.JSONDecodeError, TypeError):
+                pass
+            return "(submitted)"
+        elif tool_short == "cluster_jobs":
+            try:
+                data = json.loads(content)
+                if isinstance(data, list):
+                    if not data:
+                        return "(no jobs)"
+                    return f"({len(data)} jobs)"
+            except (json.JSONDecodeError, TypeError):
+                pass
+        elif tool_short == "cluster_watch":
+            return "(watching)"
+        return ""

@@ -46,11 +46,31 @@ class ToolName(StrEnum):
 
 
 class AgentStatus(StrEnum):
-    """Agent status values."""
+    """Agent status values (for sidebar UI display)."""
 
     IDLE = "idle"
     BUSY = "busy"
     NEEDS_INPUT = "needs_input"
+
+
+class ResponseState(StrEnum):
+    """Internal state of the agent's response processing pipeline.
+
+    This is separate from AgentStatus (which is for UI display). ResponseState
+    tracks the lifecycle of a single SDK response stream.
+
+    Valid transitions::
+
+        IDLE -> STREAMING      (_start_response)
+        STREAMING -> IDLE      (_process_response finally block, normal completion)
+        STREAMING -> INTERRUPTED (interrupt() called)
+        INTERRUPTED -> IDLE    (interrupt cleanup completes)
+        IDLE -> IDLE           (no-op: disconnect/interrupt when already idle)
+    """
+
+    IDLE = "idle"
+    STREAMING = "streaming"
+    INTERRUPTED = "interrupted"
 
 
 class PermissionChoice(StrEnum):

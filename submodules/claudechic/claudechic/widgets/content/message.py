@@ -2,6 +2,7 @@
 
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -16,8 +17,171 @@ from claudechic.widgets.primitives.spinner import Spinner
 from claudechic.widgets.input.vi_mode import ViHandler, ViMode
 
 
+class MessageMetadataHeader(Static):
+    """Metadata header shown above chat messages with timestamp, model, tokens."""
+
+    can_focus = False
+    DEFAULT_CSS = """
+    MessageMetadataHeader {
+        width: 100%;
+        height: 1;
+        padding: 0 2;
+    }
+    """
+
+    def __init__(
+        self,
+        timestamp: str | None = None,
+        model: str | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        cache_creation_tokens: int | None = None,
+        cache_read_tokens: int | None = None,
+        duration_ms: int | None = None,
+        cost_usd: float | None = None,
+    ) -> None:
+        super().__init__()
+        self.timestamp = timestamp
+        self.model = model
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+        self.cache_creation_tokens = cache_creation_tokens
+        self.cache_read_tokens = cache_read_tokens
+        self.duration_ms = duration_ms
+        self.cost_usd = cost_usd
+        self._update_display()
+
+    @staticmethod
+    def _fmt_tokens(n: int) -> str:
+        """Format token count compactly: 1234 -> '1.2K', 12345 -> '12K'."""
+        if n < 1000:
+            return str(n)
+        elif n < 10_000:
+            return f"{n / 1000:.1f}K"
+        elif n < 1_000_000:
+            k = n / 1000
+            return f"{k:.0f}K"
+        else:
+            return f"{n / 1_000_000:.1f}M"
+
+    def _format_timestamp(self) -> str:
+        """Format ISO timestamp to local time (HH:MM:SS)."""
+        if not self.timestamp:
+            return ""
+        try:
+            dt = datetime.fromisoformat(self.timestamp.replace("Z", "+00:00"))
+            local_dt = dt.astimezone()
+            return local_dt.strftime("%H:%M:%S")
+        except (ValueError, AttributeError):
+            return self.timestamp
+
+    def _shorten_model(self) -> str:
+        """Shorten model name (e.g., claude-opus-4-1 -> opus-4-1)."""
+        if not self.model:
+            return ""
+        parts = self.model.split("-")
+        if parts and parts[0] == "claude":
+            return "-".join(parts[1:])
+        return self.model
+
+    def _format_tokens(self) -> str:
+        """Format token usage as 'in -> out' with compact numbers."""
+        if self.input_tokens is None and self.output_tokens is None:
+            return ""
+
+        parts = []
+        if self.input_tokens is not None:
+            parts.append(f"{self._fmt_tokens(self.input_tokens)} in")
+        if self.output_tokens is not None:
+            parts.append(f"{self._fmt_tokens(self.output_tokens)} out")
+
+        tokens_str = " / ".join(parts) if parts else ""
+
+        # Add cache info if available
+        cache_parts = []
+        if self.cache_read_tokens:
+            cache_parts.append(f"{self._fmt_tokens(self.cache_read_tokens)} cached")
+        if self.cache_creation_tokens:
+            cache_parts.append(f"{self._fmt_tokens(self.cache_creation_tokens)} new cache")
+
+        if tokens_str and cache_parts:
+            return f"{tokens_str} ({', '.join(cache_parts)})"
+        return tokens_str
+
+    def _format_duration(self) -> str:
+        """Format duration_ms to human readable."""
+        if self.duration_ms is None:
+            return ""
+        secs = self.duration_ms / 1000
+        if secs < 60:
+            return f"{secs:.1f}s"
+        mins = int(secs // 60)
+        remaining = secs % 60
+        return f"{mins}m{remaining:.0f}s"
+
+    def _update_display(self) -> None:
+        """Update the displayed metadata."""
+        parts = []
+
+        ts_str = self._format_timestamp()
+        if ts_str:
+            parts.append(ts_str)
+
+        model_str = self._shorten_model()
+        if model_str:
+            parts.append(model_str)
+
+        tokens_str = self._format_tokens()
+        if tokens_str:
+            parts.append(tokens_str)
+
+        dur_str = self._format_duration()
+        if dur_str:
+            parts.append(dur_str)
+
+        if self.cost_usd is not None:
+            parts.append(f"${self.cost_usd:.4f}")
+
+        display_text = " | ".join(parts)
+        self.update(display_text if display_text else "")
+
+    def update_metadata(
+        self,
+        model: str | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        cache_creation_tokens: int | None = None,
+        cache_read_tokens: int | None = None,
+        duration_ms: int | None = None,
+        cost_usd: float | None = None,
+        timestamp: str | None = None,
+    ) -> None:
+        """Update token usage, model, duration, and timestamp after response completes."""
+        if timestamp is not None:
+            self.timestamp = timestamp
+        if model is not None:
+            self.model = model
+        if input_tokens is not None:
+            self.input_tokens = input_tokens
+        if output_tokens is not None:
+            self.output_tokens = output_tokens
+        if cache_creation_tokens is not None:
+            self.cache_creation_tokens = cache_creation_tokens
+        if cache_read_tokens is not None:
+            self.cache_read_tokens = cache_read_tokens
+        if duration_ms is not None:
+            self.duration_ms = duration_ms
+        if cost_usd is not None:
+            self.cost_usd = cost_usd
+        self._update_display()
+
+
 class ThinkingIndicator(Spinner):
-    """Animated spinner shown when Claude is thinking."""
+    """Animated spinner shown when Claude is thinking.
+
+    Shows elapsed time after 30 seconds so users can distinguish "stuck" from
+    "slow" and decide whether to interrupt.
+    """
 
     can_focus = False
     DEFAULT_CSS = """
@@ -27,12 +191,25 @@ class ThinkingIndicator(Spinner):
     }
     """
 
+    # Show elapsed time after this many seconds
+    _ELAPSED_THRESHOLD = 30
+
     def __init__(self, id: str | None = None, classes: str | None = None) -> None:
         super().__init__("Thinking...")
+        self._start_time: float = time.monotonic()
         if id:
             self.id = id
         if classes:
             self.set_classes(classes)
+
+    def render(self) -> str:
+        """Show elapsed time after threshold."""
+        elapsed = time.monotonic() - self._start_time
+        if elapsed >= self._ELAPSED_THRESHOLD:
+            mins, secs = divmod(int(elapsed), 60)
+            elapsed_str = f"{mins}:{secs:02d}" if mins else f"{secs}s"
+            self._text = f" Thinking... {elapsed_str}"
+        return f"{self.FRAMES[Spinner._frame]}{self._text}"
 
 
 class ConnectingIndicator(Vertical):
@@ -120,7 +297,19 @@ class ChatMessage(Static):
     _DEBOUNCE_INTERVAL = 0.05  # 50ms - flush accumulated text at most 20x/sec
     _DEBOUNCE_MAX_CHARS = 200  # Flush immediately if buffer exceeds this
 
-    def __init__(self, content: str = "", is_agent: bool = False) -> None:
+    def __init__(
+        self,
+        content: str = "",
+        is_agent: bool = False,
+        timestamp: str | None = None,
+        model: str | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        cache_creation_tokens: int | None = None,
+        cache_read_tokens: int | None = None,
+        duration_ms: int | None = None,
+        cost_usd: float | None = None,
+    ) -> None:
         super().__init__()
         self._initial_content = content.rstrip()  # Content to render in compose()
         self._content = self._initial_content  # Full accumulated content
@@ -129,12 +318,44 @@ class ChatMessage(Static):
         self._pending_text = ""  # Accumulated text waiting to be flushed
         self._flush_timer = None  # Timer for debounced flush
         self._first_flush_done = False  # Track if first stream write has happened
+        # Metadata
+        self._timestamp = timestamp
+        self._model = model
+        self._input_tokens = input_tokens
+        self._output_tokens = output_tokens
+        self._cache_creation_tokens = cache_creation_tokens
+        self._cache_read_tokens = cache_read_tokens
+        self._duration_ms = duration_ms
+        self._cost_usd = cost_usd
 
     def _is_streaming(self) -> bool:
         """Check if we're actively streaming content."""
         return bool(self._pending_text) or self._flush_timer is not None
 
     def compose(self) -> ComposeResult:
+        # Render metadata header if available and enabled in config
+        from claudechic.config import CONFIG
+
+        show_metadata = CONFIG.get("show_message_metadata", True)
+        has_metadata = any([
+            self._timestamp,
+            self._model,
+            self._input_tokens is not None,
+            self._output_tokens is not None,
+        ])
+
+        if has_metadata and show_metadata:
+            yield MessageMetadataHeader(
+                timestamp=self._timestamp,
+                model=self._model,
+                input_tokens=self._input_tokens,
+                output_tokens=self._output_tokens,
+                cache_creation_tokens=self._cache_creation_tokens,
+                cache_read_tokens=self._cache_read_tokens,
+                duration_ms=self._duration_ms,
+                cost_usd=self._cost_usd,
+            )
+
         # Only render initial content - streaming content goes through MarkdownStream
         # This prevents duplication when append_content() is called before compose() runs
         if self._is_agent:

@@ -10,7 +10,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from claude_agent_sdk.types import HookEvent
@@ -30,6 +30,7 @@ from claude_agent_sdk import (
     CLIConnectionError,
     ClaudeSDKClient,
     ClaudeAgentOptions,
+    PermissionMode,
     SystemMessage,
     ToolUseBlock,
     ResultMessage,
@@ -41,6 +42,8 @@ from claudechic.messages import (
     ToolUseMessage,
     ToolResultMessage,
     CommandOutputMessage,
+    TextChunkMessage,
+    PromptSentMessage,
 )
 from claudechic.sessions import (
     find_session_by_prefix,
@@ -57,7 +60,7 @@ from claudechic.agent import Agent, ImageAttachment, ToolUse
 from claudechic.agent_manager import AgentManager
 from claudechic.analytics import capture
 from claudechic.config import CONFIG, NEW_INSTALL, save as save_config
-from claudechic.enums import AgentStatus, PermissionChoice, ToolName
+from claudechic.enums import AgentStatus, PermissionChoice, ResponseState, ToolName
 from claudechic.mcp import set_app, create_chic_server
 from claudechic.file_index import FileIndex
 from claudechic.history import append_to_history
@@ -90,6 +93,7 @@ from claudechic.widgets import (
     PendingShellWidget,
 )
 from claudechic.widgets.layout.footer import (
+    DiagnosticsLabel,
     PermissionModeLabel,
     ModelLabel,
     StatusFooter,
@@ -99,7 +103,7 @@ from claudechic.errors import setup_logging  # noqa: F401 - used at startup
 from claudechic.errors import set_notify_callback as set_log_notify_callback
 from claudechic.profiling import profile
 from claudechic.tasks import create_safe_task
-from claudechic.sampling import start_sampler
+from claudechic.sampling import start_sampler, get_sampler
 
 log = logging.getLogger(__name__)
 
@@ -137,7 +141,7 @@ class ChatApp(App):
 
     BINDINGS = [
         Binding("ctrl+y", "copy_selection", "Copy", priority=True, show=False),
-        Binding("ctrl+c", "quit", "Quit", priority=True, show=False),
+        Binding("ctrl+c", "copy_or_quit", "Copy/Quit", priority=True, show=False),
         Binding("ctrl+s", "screenshot", "Screenshot", show=False),
         # Agent switching: ctrl+1 through ctrl+9
         *[
@@ -202,7 +206,7 @@ class ChatApp(App):
         self._chat_views: dict[str, ChatView] = {}  # agent_id -> ChatView
         self._agent_metadata: dict[
             str, dict
-        ] = {}  # agent_id -> {created_at, same_directory}
+        ] = {}  # agent_id -> {created_at, same_directory, name}
         self._active_prompts: dict[
             str, Any
         ] = {}  # agent_id -> SelectionPrompt/QuestionPrompt
@@ -214,6 +218,8 @@ class ChatApp(App):
         # Track pending slash commands passed to Claude (for typo detection)
         # agent_id -> command name (e.g., "/cleanup")
         self._pending_slash_commands: dict[str, str] = {}
+        # Active chicsession name — when set, agent create/close auto-saves
+        self._chicsession_name: str | None = None
 
     def _fatal_error(self) -> None:
         """Override to use plain Python tracebacks instead of rich's fancy ones."""
@@ -451,8 +457,8 @@ class ChatApp(App):
         self.client = None
         if old:
             try:
-                await old.interrupt()
-            except Exception:
+                await asyncio.wait_for(old.interrupt(), timeout=5.0)
+            except (asyncio.TimeoutError, Exception):
                 pass
             # Skip disconnect() - it causes race conditions with SDK cleanup.
             # interrupt() is sufficient to stop the subprocess.
@@ -533,13 +539,20 @@ class ChatApp(App):
             next_mode = modes[next_idx]
 
         # Schedule the async call to update all agents
+        agent_mgr = self.agent_mgr
+
         async def set_mode():
-            await self.agent_mgr.set_global_permission_mode(next_mode)
+            await agent_mgr.set_global_permission_mode(next_mode)
 
         self.run_worker(set_mode(), exclusive=False)
 
         # Show notification with friendly names
-        display = {"default": "Default", "acceptEdits": "Auto-edit", "plan": "Plan", "bypassPermissions": "Bypass"}
+        display = {
+            "default": "Default",
+            "acceptEdits": "Auto-edit",
+            "plan": "Plan",
+            "bypassPermissions": "Bypass",
+        }
         self.notify(f"Mode: {display[next_mode]}")
 
     def _update_footer_permission_mode(self, mode: str | None = None) -> None:
@@ -623,6 +636,7 @@ class ChatApp(App):
         resume: str | None = None,
         agent_name: str | None = None,
         model: str | None = None,
+        agent_type: str | None = None,
     ) -> ClaudeAgentOptions:
         """Create SDK options with common settings.
 
@@ -637,15 +651,20 @@ class ChatApp(App):
         # Clear VIRTUAL_ENV so agents in worktrees use their own venv
         if os.environ.get("VIRTUAL_ENV"):
             env["VIRTUAL_ENV"] = ""
+        # Expose agent name so guardrail hooks can identify the Coordinator vs sub-agents
+        if agent_name:
+            env["CLAUDE_AGENT_NAME"] = agent_name
+        # Expose app PID so team-mode guardrails can create session-scoped markers
+        env["CLAUDECHIC_APP_PID"] = str(os.getpid())
+        # Expose agent role type so guardrail hooks can enforce role-based permissions
+        if agent_type:
+            env["CLAUDE_AGENT_ROLE"] = agent_type
 
         # Use global permission mode from AgentManager (runtime source of truth)
-        # --yolo flag forces bypass regardless of config
-        permission_mode = (
-            "bypassPermissions"
-            if self._skip_permissions
-            else (
-                self.agent_mgr.global_permission_mode if self.agent_mgr else "default"
-            )
+        # CLI flag --yolo sets global_permission_mode at init, no special handling needed here
+        permission_mode: PermissionMode = cast(
+            PermissionMode,
+            self.agent_mgr.global_permission_mode if self.agent_mgr else "default",
         )
         return ClaudeAgentOptions(
             permission_mode=permission_mode,
@@ -674,8 +693,11 @@ class ChatApp(App):
             lambda msg, severity: self.notify(msg, severity=severity, timeout=5)
         )
 
-        # Start CPU sampling profiler
+        # Start CPU sampling profiler + event loop lag monitor
         start_sampler()
+        self._monitor_lag_task = create_safe_task(
+            self._monitor_event_loop_lag(), name="event-loop-lag"
+        )
 
         # Preload shell executable cache in background
         from claudechic.shell_complete import preload_executables
@@ -709,10 +731,27 @@ class ChatApp(App):
         self.agent_mgr = AgentManager(self._make_options)
         self._wire_agent_manager_callbacks()
 
+        # Set global permission mode based on CLI flags
+        if self._skip_permissions:
+            self.agent_mgr.global_permission_mode = "bypassPermissions"
+
         # Initialize file index for fuzzy file search (doesn't need widgets)
         self._cwd = Path.cwd()
         self.file_index = FileIndex(root=self._cwd)
         self._refresh_file_index()
+
+    async def _monitor_event_loop_lag(self) -> None:
+        """Continuously measure event loop lag for episode diagnostics."""
+        sampler = get_sampler()
+        if not sampler:
+            return
+        metrics = sampler.async_metrics
+        while True:
+            t0 = time.perf_counter()
+            await asyncio.sleep(0.05)
+            lag = time.perf_counter() - t0 - 0.05
+            if lag > 0.001:
+                metrics.record_lag(lag)
 
     def on_chat_screen_ready(self, event: ChatScreen.Ready) -> None:
         """Handle chat screen ready - now safe to create agent and access widgets."""
@@ -935,13 +974,22 @@ class ChatApp(App):
         self._review_poll_agent_id = None
 
     async def _load_and_display_history(
-        self, session_id: str, cwd: Path | None = None
+        self,
+        session_id: str,
+        cwd: Path | None = None,
+        agent: Agent | None = None,
     ) -> None:
         """Load session history into agent and render in chat view.
 
         This uses Agent.messages as the single source of truth.
+
+        Args:
+            session_id: Session ID to load history from.
+            cwd: Working directory for session lookup.
+            agent: Explicit agent to load history into. If None, uses the
+                   currently active agent (backward compat).
         """
-        agent = self._agent
+        agent = agent or self._agent
         if not agent:
             return
 
@@ -1074,6 +1122,27 @@ class ChatApp(App):
         except Exception:
             pass  # OK to fail during shutdown
 
+    def on_text_chunk_message(self, event: TextChunkMessage) -> None:
+        """Handle text chunk via Textual message queue — ensures UI mutation is safe."""
+        chat_view = self._get_chat_view(event.agent_id)
+        if chat_view:
+            chat_view.append_text(
+                event.text, event.new_message, event.parent_tool_use_id
+            )
+
+    def on_prompt_sent_message(self, event: PromptSentMessage) -> None:
+        """Handle prompt sent via Textual message queue — display user message in chat."""
+        chat_view = self._get_chat_view(event.agent_id)
+        if not chat_view:
+            return
+
+        # Skip UI for /clear command (it just forwards to SDK)
+        if event.prompt.strip() == "/clear":
+            return
+
+        chat_view.append_user_message(event.prompt, event.images)
+        chat_view.start_response()
+
     @profile
     def on_tool_use_message(self, event: ToolUseMessage) -> None:
         agent = self._get_agent(event.agent_id)
@@ -1096,6 +1165,12 @@ class ChatApp(App):
         chat_view.update_tool_result(
             event.block.tool_use_id, event.block, event.parent_tool_use_id
         )
+        # Don't show thinking indicator if agent was interrupted — the
+        # ToolResultMessage may arrive (from the message queue) after
+        # interrupt() has already cleared the response state.
+        agent = self._get_agent(event.agent_id)
+        if agent and agent._response_state == ResponseState.INTERRUPTED:
+            return
         self._show_thinking(event.agent_id)
 
     def on_system_notification(self, event: SystemNotification) -> None:
@@ -1324,10 +1399,11 @@ class ChatApp(App):
             agent.session_id = event.result.session_id
             self.refresh_context()
         if chat_view:
-            # End response via ChatView (hides thinking, flushes content)
-            chat_view.end_response()
-            # Flush any pending debounced content and mark summary
+            # Save reference before end_response clears it
             current = chat_view._current_response
+            # End response via ChatView (hides thinking, updates metadata, clears ref)
+            chat_view.end_response(event.result)
+            # Flush any pending debounced content and mark summary
             if current:
                 current.flush()
                 if agent and agent.response_had_tools:
@@ -1378,8 +1454,19 @@ class ChatApp(App):
             self.post_message(ResponseComplete(None))
             return
         try:
+            # Close stale subagents from the previous session before restoring
+            if self.agent_mgr:
+                main_id = self.agent_mgr.active_id
+                stale_ids = [
+                    aid for aid in list(self.agent_mgr.agents) if aid != main_id
+                ]
+                for aid in stale_ids:
+                    await self.agent_mgr.close(aid, soft=False)
+                self.agent_mgr.closed_agents.clear()
+
             await self._reconnect_agent(agent, session_id)
             agent.session_id = session_id
+
             self.post_message(ResponseComplete(None))
             self.refresh_context()
             # Check for plan file
@@ -1393,6 +1480,15 @@ class ChatApp(App):
         chat_view = self._chat_view
         if chat_view:
             chat_view.clear()
+
+    def action_copy_or_quit(self) -> None:
+        """Ctrl+C: copy selection if any, otherwise quit."""
+        selected = self.screen.get_selected_text()
+        if selected and selected.strip():
+            self.copy_to_clipboard(selected)
+            self.notify("Copied to clipboard")
+        else:
+            self.action_quit()
 
     def action_copy_selection(self) -> None:
         selected = self.screen.get_selected_text()
@@ -1456,30 +1552,43 @@ class ChatApp(App):
         self.set_timer(0.05, self._check_and_copy_selection)
 
     def copy_to_clipboard(self, text: str) -> None:
-        """Copy to both CLIPBOARD (OSC 52) and PRIMARY (xclip/xsel) on Linux."""
-        super().copy_to_clipboard(text)
-        if not sys.platform.startswith("linux"):
-            return
+        """Copy to system clipboard with platform-specific fallbacks."""
+        super().copy_to_clipboard(text)  # OSC 52
         import shutil
         import subprocess
 
-        for cmd in (
-            ["xclip", "-selection", "primary"],
-            ["xsel", "--primary", "--input"],
-        ):
-            if shutil.which(cmd[0]):
-                try:
-                    proc = subprocess.Popen(
-                        cmd,
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    proc.stdin.write(text.encode())  # type: ignore[union-attr]
-                    proc.stdin.close()  # type: ignore[union-attr]
-                except Exception:
-                    pass
-                return
+        if sys.platform == "darwin":
+            # macOS: use pbcopy as fallback
+            try:
+                proc = subprocess.Popen(
+                    ["pbcopy"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                proc.stdin.write(text.encode())  # type: ignore[union-attr]
+                proc.stdin.close()  # type: ignore[union-attr]
+            except Exception:
+                pass
+        elif sys.platform.startswith("linux"):
+            # Linux: use xclip/xsel for PRIMARY selection
+            for cmd in (
+                ["xclip", "-selection", "primary"],
+                ["xsel", "--primary", "--input"],
+            ):
+                if shutil.which(cmd[0]):
+                    try:
+                        proc = subprocess.Popen(
+                            cmd,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                        proc.stdin.write(text.encode())  # type: ignore[union-attr]
+                        proc.stdin.close()  # type: ignore[union-attr]
+                    except Exception:
+                        pass
+                    return
 
     def _check_and_copy_selection(self) -> None:
         selected = self.screen.get_selected_text()
@@ -1518,6 +1627,75 @@ class ChatApp(App):
         else:
             self._last_quit_time = now
             self.notify("Press Ctrl+C again to quit")
+
+    # Seconds to wait before nudging an idle agent that owes a reply
+    REPLY_NUDGE_DELAY = 15
+    # Maximum number of nudges before giving up
+    REPLY_NUDGE_MAX = 3
+
+    def _schedule_reply_nudge(self, agent: Agent) -> None:
+        """Schedule a nudge if *agent* goes idle without replying to its caller.
+
+        Called from ``on_complete`` when ``agent._pending_reply_to`` is set.
+        If the agent is still idle and still owes a reply when the timer
+        fires, a reminder message is sent automatically (up to REPLY_NUDGE_MAX
+        times).
+        """
+        caller = agent._pending_reply_to
+        if not caller:
+            return
+        # Check nudge count — give up after max attempts
+        nudge_count = agent._reply_nudge_count
+        if nudge_count >= self.REPLY_NUDGE_MAX:
+            log.info(
+                "Agent '%s' hit max nudge count (%d) for '%s', giving up",
+                agent.name,
+                self.REPLY_NUDGE_MAX,
+                caller,
+            )
+            agent._pending_reply_to = None
+            agent._reply_nudge_count = 0
+            return
+
+        agent_id = agent.id  # capture for closure
+
+        def _fire_nudge() -> None:
+            # Re-resolve agent (may have been closed)
+            if not self.agent_mgr or agent_id not in self.agent_mgr.agents:
+                return
+            a = self.agent_mgr.agents[agent_id]
+            # Only nudge if still idle and still owes a reply to the same caller
+            if a._pending_reply_to != caller:
+                return
+            if a.status != AgentStatus.IDLE:
+                return
+            # Check caller still exists — no point nudging to reply to a dead agent
+            if not self.agent_mgr.find_by_name(caller):
+                log.info(
+                    "Caller '%s' no longer exists, clearing reply obligation on '%s'",
+                    caller,
+                    a.name,
+                )
+                a._pending_reply_to = None
+                a._reply_nudge_count = 0
+                return
+            # Increment nudge count
+            a._reply_nudge_count += 1
+            nudge = (
+                f"You have been idle for {self.REPLY_NUDGE_DELAY} seconds, but no "
+                f"message has been sent to '{caller}'. Remember that an answer is "
+                f"required. Use tell_agent to reply to '{caller}'."
+            )
+            log.info(
+                "Nudging agent '%s' to reply to '%s' (%d/%d)",
+                a.name,
+                caller,
+                a._reply_nudge_count,
+                self.REPLY_NUDGE_MAX,
+            )
+            create_safe_task(a.send(nudge), name=f"nudge-reply-{a.name}")
+
+        self.set_timer(self.REPLY_NUDGE_DELAY, _fire_nudge)
 
     async def _cleanup_and_exit(self, reason: str = "quit") -> None:
         """Disconnect all agents and exit.
@@ -1617,6 +1795,7 @@ class ChatApp(App):
         # Use current agent's cwd so sessions are filtered by the agent's project
         cwd = self._agent.cwd if self._agent else None
         self.push_screen(SessionScreen(cwd=cwd), on_dismiss)
+
 
     def _show_rewind_picker(self) -> None:
         """Show the rewind checkpoint picker screen."""
@@ -1796,10 +1975,14 @@ class ChatApp(App):
             active_prompt.cancel()
             return
 
-        # Interrupt running agent - send interrupt to SDK
-        if self.client and self._agent and self._agent.status == "busy":
-            self.run_worker(self.client.interrupt(), exclusive=False)
-            self._hide_thinking()
+        # Interrupt running agent via Agent.interrupt() (handles SDK interrupt,
+        # SIGINT fallback, on_complete, and state cleanup).
+        if self._agent and self._agent.status == "busy":
+            self.run_worker(
+                self._agent.interrupt(),
+                exclusive=False,
+                exit_on_error=False,
+            )
             self.notify("Interrupted")
             self.chat_input.focus()
             return
@@ -1869,6 +2052,15 @@ class ChatApp(App):
     ) -> None:
         """Handle model label press - open model selector."""
         self._handle_model_prompt()
+
+    def on_diagnostics_label_requested(self, event: DiagnosticsLabel.Requested) -> None:  # noqa: ARG002
+        """Handle diagnostics label press - open diagnostics modal."""
+        from claudechic.widgets.modals.diagnostics import DiagnosticsModal
+
+        agent = self._agent
+        session_id = agent.session_id if agent else None
+        cwd = agent.cwd if agent else None
+        self.push_screen(DiagnosticsModal(session_id=session_id, cwd=cwd))
 
     def _close_sidebar_overlay(self) -> None:
         """Close sidebar overlay if open."""
@@ -1990,11 +2182,15 @@ class ChatApp(App):
         self._update_footer_model(model)
         if agent.client:
             self.notify(f"Switching to {model}...")
+            session_id = agent.session_id
             await agent.disconnect()
             options = self._make_options(
-                cwd=agent.cwd, agent_name=agent.name, model=model
+                cwd=agent.cwd,
+                agent_name=agent.name,
+                model=model,
+                resume=session_id,
             )
-            await agent.connect(options)
+            await agent.connect(options, resume=session_id)
 
     @work(group="model_prompt", exclusive=True, exit_on_error=False)
     async def _handle_model_prompt(self) -> None:
@@ -2067,7 +2263,6 @@ class ChatApp(App):
             chat_view.mount(connecting_indicator)
 
         try:
-            # Resolve resume ID if auto_resume
             resume_id = None
             if auto_resume:
                 sessions = await get_recent_sessions(limit=100, cwd=cwd)
@@ -2179,9 +2374,12 @@ class ChatApp(App):
 
         self._do_close_agent(agent_to_close.id)
 
-    @work(group="close_agent", exclusive=True, exit_on_error=False)
-    async def _do_close_agent(self, agent_id: str) -> None:
-        """Actually close an agent (async for client cleanup)."""
+    async def _close_agent_core(self, agent_id: str) -> None:
+        """Core agent close logic — awaitable, no @work wrapper.
+
+        Called directly by MCP close_agent (needs synchronous completion to
+        avoid race conditions) and by the @work wrapper below for UI callers.
+        """
         if self.agent_mgr is None:
             return
         agent = self.agents.get(agent_id)
@@ -2193,14 +2391,50 @@ class ChatApp(App):
         # Remove chat view before closing (AgentManager.close removes from agents dict)
         chat_view = self._chat_views.pop(agent_id, None)
         if chat_view:
-            await chat_view.remove()
+            try:
+                await chat_view.remove()
+            except Exception as e:
+                log.warning("Failed to remove chat view for '%s': %s", agent_name, e)
         self._active_prompts.pop(agent_id, None)
 
         # Close via AgentManager (handles disconnect, removes from agents dict,
         # triggers on_agent_closed, and switches to another agent if needed)
-        await self.agent_mgr.close(agent_id)
+        try:
+            await self.agent_mgr.close(agent_id)
+        except Exception as e:
+            log.warning("Failed to close agent '%s': %s", agent_name, e)
 
         self.notify(f"Agent '{agent_name}' closed")
+
+    @work(group="close_agent", exclusive=False, exit_on_error=False)
+    async def _do_close_agent(self, agent_id: str) -> None:
+        """Close an agent via Textual worker (fire-and-forget for UI callers)."""
+        await self._close_agent_core(agent_id)
+
+    @work(group="reopen_agent", exclusive=True, exit_on_error=False)
+    async def _reopen_agent(self, name: str) -> None:
+        """Reopen a previously closed agent.
+
+        Delegates to AgentManager.reopen() which creates a new Agent via
+        create(resume=session_id). Then loads and displays history.
+        """
+        if self.agent_mgr is None:
+            self.notify("Agent manager not initialized", severity="error")
+            return
+
+        try:
+            agent = await self.agent_mgr.reopen(name)
+        except ValueError as e:
+            self.notify(str(e), severity="error")
+            return
+
+        # Load and display history for the reopened agent
+        if agent.session_id:
+            await self._load_and_display_history(
+                agent.session_id, cwd=agent.cwd, agent=agent
+            )
+
+        self.notify(f"Agent '{name}' reopened")
 
     def on_app_focus(self) -> None:
         if self._chat_input:
@@ -2268,7 +2502,9 @@ class ChatApp(App):
         self._agent_metadata[agent.id] = {
             "created_at": time.time(),
             "same_directory": same_directory,
+            "name": agent.name,
         }
+
         self.run_worker(
             capture(
                 "agent_created",
@@ -2276,6 +2512,11 @@ class ChatApp(App):
                 model=agent.model or "default",
             )
         )
+
+        # Auto-save chicsession if active
+        from claudechic.chicsession_cmd import auto_save_chicsession
+
+        auto_save_chicsession(self)
 
         try:
             # Create chat view for the agent
@@ -2317,12 +2558,29 @@ class ChatApp(App):
             log.exception(f"Failed to create agent UI: {e}")
 
     def on_agent_switched(self, new_agent: Agent, old_agent: Agent | None) -> None:
-        """Handle agent switch from AgentManager."""
+        """Handle agent switch from AgentManager.
+
+        Guards against concurrent agent closures: when multiple agents are
+        being closed simultaneously, this callback may fire with agents
+        whose chat views have already been removed from the DOM.
+        """
         log.info(f"Switched to agent: {new_agent.name}")
+
+        # Guard: if the new agent's chat view was already removed (agent
+        # is being closed concurrently), skip the switch entirely.
+        if new_agent.id not in self._chat_views:
+            log.warning(
+                "on_agent_switched: new agent '%s' has no chat view (concurrent close?), skipping",
+                new_agent.name,
+            )
+            return
 
         # Use update=False to defer CSS recalculation, refresh_css at end
         if old_agent:
-            old_agent.pending_input = self.chat_input.text
+            try:
+                old_agent.pending_input = self.chat_input.text
+            except Exception:
+                pass  # chat_input may be in a bad state during mass closure
             old_chat_view = self._chat_views.get(old_agent.id)
             if old_chat_view:
                 old_chat_view.add_class("hidden", update=False)
@@ -2383,8 +2641,28 @@ class ChatApp(App):
         """Handle agent closure from AgentManager."""
         log.info(f"Agent closed: {agent_id}")
 
+        # Auto-save chicsession if active (agent already removed from manager)
+        from claudechic.chicsession_cmd import auto_save_chicsession
+
+        auto_save_chicsession(self)
+
         # Track analytics
         metadata = self._agent_metadata.pop(agent_id, {})
+
+        # Clear reply obligations pointing at the closed agent.
+        # The agent is already popped from the manager, so we use the name
+        # stored in metadata to find remaining agents that owe it a reply.
+        closed_name = metadata.get("name")
+        if closed_name and self.agent_mgr:
+            for a in self.agent_mgr:
+                if a._pending_reply_to == closed_name:
+                    log.info(
+                        "Clearing reply obligation on '%s' — caller '%s' was closed",
+                        a.name,
+                        closed_name,
+                    )
+                    a._pending_reply_to = None
+                    a._reply_nudge_count = 0
         duration = time.time() - metadata.get("created_at", time.time())
         same_directory = metadata.get("same_directory", True)
         self.run_worker(
@@ -2525,6 +2803,10 @@ class ChatApp(App):
                 )
                 chat_view.scroll_if_tailing()
 
+        # Nudge agent if it owes a reply but just went idle
+        if agent._pending_reply_to:
+            self._schedule_reply_nudge(agent)
+
         # Post ResponseComplete message for existing UI handler
         self.post_message(ResponseComplete(result, agent_id=agent.id))
 
@@ -2542,13 +2824,24 @@ class ChatApp(App):
     def on_text_chunk(
         self, agent: Agent, text: str, new_message: bool, parent_tool_use_id: str | None
     ) -> None:
-        """Handle text chunk from agent - update UI directly (bypasses message queue)."""
-        chat_view = self._chat_views.get(agent.id)
-        if chat_view:
-            chat_view.append_text(text, new_message, parent_tool_use_id)
+        """Handle text chunk from agent - post Textual Message for UI."""
+        sampler = get_sampler()
+        if sampler:
+            sampler.async_metrics.text_chunks += 1
+        self.post_message(
+            TextChunkMessage(
+                text=text,
+                new_message=new_message,
+                parent_tool_use_id=parent_tool_use_id,
+                agent_id=agent.id,
+            )
+        )
 
     def on_tool_use(self, agent: Agent, tool: ToolUse) -> None:
         """Handle tool use from agent - post Textual Message for UI."""
+        sampler = get_sampler()
+        if sampler:
+            sampler.async_metrics.tool_uses += 1
         # Clear pending slash command if Skill tool was invoked (valid command)
         if tool.name == ToolName.SKILL:
             self._pending_slash_commands.pop(agent.id, None)
@@ -2562,6 +2855,9 @@ class ChatApp(App):
 
     def on_tool_result(self, agent: Agent, tool: ToolUse) -> None:
         """Handle tool result from agent - post Textual Message for UI."""
+        sampler = get_sampler()
+        if sampler:
+            sampler.async_metrics.tool_results += 1
         from claude_agent_sdk import ToolResultBlock
 
         block = ToolResultBlock(
@@ -2592,6 +2888,11 @@ class ChatApp(App):
     def on_system_message(self, agent: Agent, message: SystemMessage) -> None:
         """Handle system message from agent - post Textual Message for UI."""
         self.post_message(SystemNotification(message, agent_id=agent.id))
+        # Auto-save when session_id is first assigned (init message)
+        if message.subtype == "init":
+            from claudechic.chicsession_cmd import auto_save_chicsession
+
+            auto_save_chicsession(self)
 
     def on_command_output(self, agent: Agent, content: str) -> None:
         """Handle command output from agent (e.g., /context)."""
@@ -2606,17 +2907,10 @@ class ChatApp(App):
     def on_prompt_sent(
         self, agent: Agent, prompt: str, images: list[ImageAttachment]
     ) -> None:
-        """Handle prompt sent to agent - display user message in chat view."""
-        chat_view = self._chat_views.get(agent.id)
-        if not chat_view:
-            return
-
-        # Skip UI for /clear command (it just forwards to SDK)
-        if prompt.strip() == "/clear":
-            return
-
-        chat_view.append_user_message(prompt, images)
-        chat_view.start_response()
+        """Handle prompt sent to agent - post Textual Message for UI."""
+        self.post_message(
+            PromptSentMessage(prompt=prompt, images=images, agent_id=agent.id)
+        )
 
     async def _handle_agent_permission_ui(
         self, agent: Agent, request: PermissionRequest
@@ -2760,6 +3054,10 @@ class ChatApp(App):
             )
         )
 
+        # Determine what mode to restore when exiting plan mode.
+        # The agent remembers what mode it had before entering plan mode.
+        restore_mode = agent._pre_plan_permission_mode
+
         if choice == "clear_auto":
             # Execute plan in fresh session immediately
             agent.pending_plan_execution = {
@@ -2770,11 +3068,26 @@ class ChatApp(App):
             self._execute_plan_fresh(agent)
             return PermissionResponse(PermissionChoice.DENY)
         elif choice == "auto":
-            await agent.set_permission_mode("acceptEdits")
+            # Set local state immediately; defer the SDK call to avoid
+            # deadlock (we're inside the SDK's permission callback — calling
+            # client.set_permission_mode here would block because the SDK is
+            # waiting for this callback to return first).
+            agent._set_permission_mode_local("acceptEdits")
+            create_safe_task(
+                agent._sync_permission_mode_to_sdk("acceptEdits"),
+                name="deferred-permission-mode-acceptEdits",
+            )
             self.notify("Auto-edit enabled (Shift+Tab to disable)")
             return PermissionResponse(PermissionChoice.ALLOW)
         elif choice == "manual":
-            await agent.set_permission_mode("default")
+            agent._set_permission_mode_local(restore_mode)
+            # Sync to SDK if restore_mode differs from "default" (which
+            # ExitPlanMode already sets on the SDK side).
+            if restore_mode != "default":
+                create_safe_task(
+                    agent._sync_permission_mode_to_sdk(restore_mode),
+                    name="deferred-permission-mode-restore",
+                )
             return PermissionResponse(PermissionChoice.ALLOW)
         else:
             # Check for feedback in "deny:feedback" format
@@ -2785,15 +3098,21 @@ class ChatApp(App):
             return PermissionResponse(PermissionChoice.DENY)
 
     def _update_footer_model(self, model: str | None) -> None:
-        """Update footer to show agent's model."""
+        """Update footer to show agent's model and adjust context bar."""
+        from claudechic.formatting import get_context_window
+        from claudechic.widgets.prompts import _model_matches
+
+        # Update context bar's max tokens based on model
+        self.context_bar.max_tokens = get_context_window(model)
+
         if not self._available_models:
             # No model info yet - show raw value or empty
             self.status_footer.model = model.capitalize() if model else ""
             return
-        # Find matching model, or default if model is None
+        # Find matching model (alias-aware), or default if model is None
         active = self._available_models[0]
         for m in self._available_models:
-            if model and m.get("value") == model:
+            if model and _model_matches(m.get("value", ""), model):
                 active = m
                 break
             if not model and m.get("value") == "default":

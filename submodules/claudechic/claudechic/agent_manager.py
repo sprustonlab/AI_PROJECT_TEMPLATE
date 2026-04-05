@@ -41,12 +41,13 @@ class AgentManager:
                 (Agent sets its own permission handler).
         """
         self.agents: dict[str, Agent] = {}
+        self.closed_agents: dict[str, dict] = {}
         self.active_id: str | None = None
         self._options_factory = options_factory
 
         # Global permission state (applies to all agents)
         self.global_permission_mode: str = CONFIG.get(
-            "default_permission_mode", "bypassPermissions"
+            "default_permission_mode", "default"
         )
 
         # Protocol-based observers (set by ChatApp)
@@ -69,7 +70,7 @@ class AgentManager:
 
     def find_by_name(self, name: str) -> Agent | None:
         """Find agent by name."""
-        for agent in self.agents.values():
+        for agent in list(self.agents.values()):
             if agent.name == name:
                 return agent
         return None
@@ -125,6 +126,7 @@ class AgentManager:
         resume: str | None = None,
         switch_to: bool = True,
         model: str | None = None,
+        agent_type: str | None = None,
     ) -> Agent:
         """Create and connect a new agent.
 
@@ -135,6 +137,7 @@ class AgentManager:
             resume: Session ID to resume
             switch_to: Whether to make this the active agent
             model: Model override (None = SDK default)
+            agent_type: Role type (e.g. "Implementer") — injected as CLAUDE_AGENT_ROLE
 
         Returns:
             The created agent (connected and ready)
@@ -149,7 +152,8 @@ class AgentManager:
 
         # Create options and connect
         options = self._options_factory(
-            cwd=cwd, resume=resume, agent_name=agent.name, model=model
+            cwd=cwd, resume=resume, agent_name=agent.name, model=model,
+            agent_type=agent_type,
         )
         await agent.connect(options, resume=resume)
 
@@ -217,12 +221,16 @@ class AgentManager:
 
         return True
 
-    async def close(self, agent_id: str, *, skip_switch: bool = False) -> None:
+    async def close(
+        self, agent_id: str, *, skip_switch: bool = False, soft: bool = True
+    ) -> None:
         """Close an agent and clean up.
 
         Args:
             agent_id: ID of agent to close
             skip_switch: If True, don't switch to another agent (used by close_all)
+            soft: If True, preserve metadata in closed_agents for later reopen.
+                  If False (used by close_all at exit), discard completely.
         """
         agent = self.agents.pop(agent_id, None)
         if not agent:
@@ -233,8 +241,25 @@ class AgentManager:
         was_active = agent_id == self.active_id
         message_count = len(agent.messages)
 
-        # Disconnect
-        await agent.disconnect()
+        # Capture metadata before disconnect (session_id needed for reopen)
+        if soft and agent.session_id:
+            self.closed_agents[name] = {
+                "name": name,
+                "cwd": str(agent.cwd),
+                "session_id": agent.session_id,
+                "worktree": agent.worktree,
+                "model": agent.model,
+            }
+            log.info(f"Soft-closed agent '{name}' (session={agent.session_id[:8]})")
+
+        # Disconnect — wrap in try/except so a single agent's disconnect
+        # failure doesn't prevent cleanup of subsequent agents in a batch.
+        try:
+            await asyncio.wait_for(agent.disconnect(), timeout=10.0)
+        except asyncio.TimeoutError:
+            log.warning(f"Disconnect timed out for agent '{name}' (id={agent_id})")
+        except Exception as e:
+            log.warning(f"Disconnect failed for agent '{name}': {e}")
         log.info(f"Closed agent '{name}' (id={agent_id})")
 
         if self.manager_observer:
@@ -248,15 +273,70 @@ class AgentManager:
             self.active_id = None
 
     async def close_all(self) -> None:
-        """Close all agents in parallel."""
+        """Close all agents in parallel.
+
+        Uses soft=False because this is called during app exit — agents are
+        terminating, not hibernating.
+        """
         agent_ids = list(self.agents.keys())
         results = await asyncio.gather(
-            *(self.close(aid, skip_switch=True) for aid in agent_ids),
+            *(self.close(aid, skip_switch=True, soft=False) for aid in agent_ids),
             return_exceptions=True,
         )
         for aid, result in zip(agent_ids, results):
             if isinstance(result, Exception):
                 log.warning(f"Failed to close agent {aid}: {result}")
+
+    def find_closed_by_name(self, name: str) -> dict | None:
+        """Find a closed agent's metadata by name.
+
+        Returns the metadata dict if found, None otherwise.
+        Does NOT search active agents — use find_by_name() for that.
+        """
+        return self.closed_agents.get(name)
+
+    async def reopen(self, name: str) -> "Agent":
+        """Reopen a previously closed agent.
+
+        Removes the entry from closed_agents and creates a new Agent via
+        create(resume=session_id). The reopened agent gets a fresh SDK
+        connection but resumes the original session history.
+
+        Args:
+            name: Name of the closed agent to reopen
+
+        Returns:
+            The reopened Agent (connected and ready)
+
+        Raises:
+            ValueError: If agent not found in closed_agents or CWD missing
+        """
+        entry = self.closed_agents.pop(name, None)
+        if entry is None:
+            raise ValueError(f"No closed agent named '{name}'")
+
+        cwd = Path(entry["cwd"])
+        if not cwd.exists():
+            # Put it back — reopen failed
+            self.closed_agents[name] = entry
+            raise ValueError(
+                f"Cannot reopen '{name}' — directory '{cwd}' no longer exists"
+            )
+
+        session_id = entry["session_id"]
+        worktree = entry.get("worktree")
+        model = entry.get("model")
+
+        log.info(f"Reopening agent '{name}' (session={session_id[:8]})")
+
+        return await self.create(
+            name=name,
+            cwd=cwd,
+            worktree=worktree,
+            resume=session_id,
+            switch_to=True,
+            model=model,
+        )
 
     def __len__(self) -> int:
         """Number of agents."""
@@ -277,7 +357,7 @@ class AgentManager:
             mode: One of 'default', 'acceptEdits', 'plan', 'bypassPermissions'
         """
         self.global_permission_mode = mode
-        for agent in self.agents.values():
+        for agent in list(self.agents.values()):
             await agent.set_permission_mode(mode)
         if self.manager_observer:
             self.manager_observer.on_global_permission_mode_changed(mode)

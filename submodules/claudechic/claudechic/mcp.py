@@ -12,7 +12,10 @@ Exposes tools for Claude to manage agents within claudechic:
 
 from __future__ import annotations
 
+import asyncio
+import importlib.util
 import logging
+import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -88,6 +91,26 @@ def _track_mcp_tool(tool_name: str) -> None:
         )
 
 
+def _clear_pending_reply_if_matched(
+    sender_name: str | None, recipient_name: str
+) -> None:
+    """Clear _pending_reply_to if the sender is replying to their caller.
+
+    Called from tell_agent. If the sending agent has
+    _pending_reply_to == recipient_name, it means the agent is delivering
+    its required answer — clear the obligation.
+    """
+    if not sender_name or not _app or not _app.agent_mgr:
+        return
+    sender = _app.agent_mgr.find_by_name(sender_name)
+    if sender and sender._pending_reply_to == recipient_name:
+        sender._pending_reply_to = None
+        sender._reply_nudge_count = 0
+        log.debug(
+            "Agent '%s' fulfilled reply obligation to '%s'", sender_name, recipient_name
+        )
+
+
 def _send_prompt_fire_and_forget(
     agent,
     prompt: str,
@@ -135,7 +158,21 @@ def _make_spawn_agent(caller_name: str | None = None):
     @tool(
         "spawn_agent",
         "Create a new Claude agent in claudechic. The agent gets its own chat view and can work independently.",
-        {"name": str, "path": str, "prompt": str},
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "path": {"type": "string"},
+                "prompt": {"type": "string"},
+                "model": {"type": "string", "description": "Model to use (inherits caller's model if not specified)"},
+                "type": {"type": "string", "description": "Agent type for guardrail env vars"},
+                "requires_answer": {
+                    "type": "boolean",
+                    "description": "If true, the spawned agent is expected to reply back to the caller using tell_agent. It will be nudged if idle without replying.",
+                },
+            },
+            "required": ["name", "path", "prompt"],
+        },
     )
     async def spawn_agent(args: dict[str, Any]) -> dict[str, Any]:
         """Spawn a new agent, optionally with an initial prompt."""
@@ -148,19 +185,41 @@ def _make_spawn_agent(caller_name: str | None = None):
         default_cwd = _app.agent_mgr.active.cwd if _app.agent_mgr.active else Path.cwd()
         path = Path(args.get("path", str(default_cwd))).resolve()
         prompt = args.get("prompt")
+        agent_type = args.get("type")
+        requires_answer = args.get("requires_answer", False)
+
+        # Inherit caller's model if not explicitly specified
+        caller_model = None
+        if caller_name:
+            caller_agent = _app.agent_mgr.find_by_name(caller_name)
+            if caller_agent:
+                caller_model = caller_agent.model
+        model = args.get("model") or caller_model
 
         if not path.exists():
             return _error_response(f"Path '{path}' does not exist")
 
-        # Check if agent with this name already exists
+        # Check if agent with this name already exists (active or closed)
         if _app.agent_mgr.find_by_name(name):
             return _error_response(f"Agent '{name}' already exists")
+        if _app.agent_mgr.find_closed_by_name(name):
+            return _error_response(
+                f"A closed agent named '{name}' exists. "
+                f"Ask the user to run /agent reopen {name}"
+            )
 
         try:
             # Create agent via AgentManager (handles SDK connection)
-            agent = await _app.agent_mgr.create(name=name, cwd=path, switch_to=False)
+            agent = await _app.agent_mgr.create(
+                name=name, cwd=path, switch_to=False, model=model,
+                agent_type=agent_type,
+            )
         except Exception as e:
             return _error_response(f"Error creating agent: {e}")
+
+        # Track that this agent owes a reply to the caller
+        if requires_answer and caller_name:
+            agent._pending_reply_to = caller_name
 
         result = f"Created agent '{name}' in {path}"
 
@@ -245,6 +304,10 @@ def _make_ask_agent(caller_name: str | None = None):
             agent, prompt, caller_name=caller_name, expect_reply=True
         )
 
+        # NOTE: Do NOT clear _pending_reply_to here. ask_agent is a
+        # follow-up question, not a final answer. The obligation is only
+        # fulfilled when the agent uses tell_agent to deliver a result.
+
         return _text_response(
             f"Question queued for '{name}'. Delivery is asynchronous - the message may not arrive if the agent is disconnected."
         )
@@ -274,6 +337,9 @@ def _make_tell_agent(caller_name: str | None = None):
             return _error_response(error or "Agent not found")
 
         _send_prompt_fire_and_forget(agent, message, caller_name=caller_name)
+
+        # Clear pending reply if this agent is replying to its caller
+        _clear_pending_reply_if_matched(caller_name, name)
 
         return _text_response(f"Message queued for '{name}'. Delivery is asynchronous.")
 
@@ -427,13 +493,12 @@ async def _process_finish_resolution(
 
 async def _do_cleanup(agent: Any, info: Any) -> dict[str, Any]:
     """Attempt cleanup and return appropriate response."""
-    import asyncio
 
     success, warning = await asyncio.to_thread(finish_cleanup, info)
     if success:
         branch = info.branch_name
         agent.finish_state = None
-        _close_worktree_agent(agent)
+        await _close_worktree_agent(agent)
         msg = f"Successfully finished worktree '{branch}'"
         if warning:
             msg += f" ({warning})"
@@ -448,7 +513,7 @@ async def _do_cleanup(agent: Any, info: Any) -> dict[str, Any]:
     )
 
 
-def _close_worktree_agent(agent: Any) -> None:
+async def _close_worktree_agent(agent: Any) -> None:
     """Close a worktree agent after successful finish."""
     if _app is None or _app.agent_mgr is None:
         return
@@ -466,41 +531,104 @@ def _close_worktree_agent(agent: Any) -> None:
         if main:
             _app.agent_mgr.switch(main.id)
 
-    _app._do_close_agent(agent.id)
+    # Await directly to ensure agent is fully closed before returning
+    await _app._close_agent_core(agent.id)
 
 
-@tool(
-    "close_agent",
-    "Close an agent by name. Cannot close the last remaining agent.",
-    {"name": str},
-)
-async def close_agent(args: dict[str, Any]) -> dict[str, Any]:
-    """Close an agent."""
-    try:
-        if _app is None or _app.agent_mgr is None:
-            return _error_response("App not initialized")
+def _make_close_agent(caller_name: str | None = None):
+    """Create close_agent tool with caller name bound for safety checks."""
 
-        name = args["name"]
+    @tool(
+        "close_agent",
+        "Close an agent by name. Cannot close the last remaining agent or the calling agent.",
+        {"name": str},
+    )
+    async def close_agent(args: dict[str, Any]) -> dict[str, Any]:
+        """Close an agent."""
+        try:
+            if _app is None or _app.agent_mgr is None:
+                return _error_response("App not initialized")
 
-        # Can't close the last agent
-        if len(_app.agent_mgr) <= 1:
-            return _error_response("Cannot close the last agent")
+            name = args["name"]
 
-        agent, error = _find_agent_by_name(name)
-        if agent is None:
-            return _error_response(error or "Agent not found")
+            # Can't close yourself
+            if caller_name and name == caller_name:
+                return _error_response("An agent cannot close itself")
 
-        agent_id = agent.id
-        agent_name = agent.name
+            # Can't close the last agent
+            if len(_app.agent_mgr) <= 1:
+                return _error_response("Cannot close the last agent")
 
-        # Use app's close method which handles UI cleanup
-        _app._do_close_agent(agent_id)
+            agent, error = _find_agent_by_name(name)
+            if agent is None:
+                return _error_response(error or "Agent not found")
 
-        return _text_response(f"Closed agent '{agent_name}'")
-    except Exception as e:
-        agent_name = args.get("name", "unknown") if args else "unknown"
-        log.exception(f"close_agent failed for '{agent_name}'")
-        return _error_response(f"Failed to close agent '{agent_name}': {e}")
+            agent_id = agent.id
+            agent_name = agent.name
+
+            # Await the close directly so the agent count is accurate
+            # before this tool returns (prevents race conditions with
+            # rapid successive close calls).
+            await _app._close_agent_core(agent_id)
+
+            return _text_response(f"Closed agent '{agent_name}'")
+        except Exception as e:
+            agent_name = args.get("name", "unknown") if args else "unknown"
+            log.exception(f"close_agent failed for '{agent_name}'")
+            return _error_response(f"Failed to close agent '{agent_name}': {e}")
+
+    return close_agent
+
+
+def discover_mcp_tools(mcp_tools_dir: Path, **kwargs) -> list:
+    """Walk mcp_tools/, import each eligible .py, call get_tools()."""
+    tools = []
+    if not mcp_tools_dir.is_dir():
+        return tools
+
+    # Pre-load helper modules (underscore-prefixed) so tool files can import them
+    for py_file in sorted(mcp_tools_dir.glob("_*.py")):
+        if py_file.name == "__init__.py":
+            continue
+        module_name = f"mcp_tools.{py_file.stem}"
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, py_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+        except Exception:
+            log.warning("mcp_tools: failed to load helper %s", py_file.name, exc_info=True)
+
+    for py_file in sorted(mcp_tools_dir.glob("*.py")):
+        if py_file.name.startswith("_"):
+            continue
+
+        module_name = f"mcp_tools.{py_file.stem}"
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, py_file)
+            if spec is None or spec.loader is None:
+                log.warning("mcp_tools: could not load spec for %s", py_file.name)
+                continue
+
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+
+            get_tools_fn = getattr(module, "get_tools", None)
+            if get_tools_fn is None:
+                log.debug("mcp_tools: %s has no get_tools(), skipping", py_file.name)
+                continue
+
+            file_tools = get_tools_fn(**kwargs)
+            tools.extend(file_tools)
+            log.info("mcp_tools: loaded %d tool(s) from %s", len(file_tools), py_file.name)
+
+        except Exception:
+            log.warning("mcp_tools: failed to load %s, skipping", py_file.name, exc_info=True)
+            continue
+
+    return tools
 
 
 def create_chic_server(caller_name: str | None = None):
@@ -517,12 +645,46 @@ def create_chic_server(caller_name: str | None = None):
         _make_tell_agent(caller_name),
         _make_whoami(caller_name),
         list_agents,
-        close_agent,
+        _make_close_agent(caller_name),
     ]
 
     # finish_worktree is experimental - enable with experimental.finish_worktree: true
     if CONFIG.get("experimental", {}).get("finish_worktree", False):
         tools.append(finish_worktree)
+
+    # LSF cluster tools (always registered; LSF availability checked at runtime)
+    try:
+        from claudechic.cluster import (
+            cluster_jobs,
+            cluster_kill,
+            cluster_status,
+            cluster_submit,
+            _make_cluster_watch,
+        )
+
+        tools.extend([
+            cluster_jobs,
+            cluster_status,
+            cluster_submit,
+            cluster_kill,
+            _make_cluster_watch(
+                caller_name=caller_name,
+                send_notification=_send_prompt_fire_and_forget,
+                find_agent=_find_agent_by_name,
+            ),
+        ])
+    except ImportError:
+        log.debug("Cluster tools not available (missing dependencies)")
+
+    # Discover mcp_tools/ plugins
+    mcp_tools_dir = Path.cwd() / "mcp_tools"
+    discovered_tools = discover_mcp_tools(
+        mcp_tools_dir,
+        caller_name=caller_name,
+        send_notification=_send_prompt_fire_and_forget,
+        find_agent=_find_agent_by_name,
+    )
+    tools.extend(discovered_tools)
 
     return create_sdk_mcp_server(
         name="chic",

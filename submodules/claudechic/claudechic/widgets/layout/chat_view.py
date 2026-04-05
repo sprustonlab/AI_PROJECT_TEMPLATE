@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from textual.widget import Widget
 
@@ -138,27 +138,40 @@ class ChatView(AutoHideScroll):
         if not self._agent:
             return
 
-        # Group messages into turns (user + assistant pairs)
-        turns: list[tuple[UserContent | None, AssistantContent | None]] = []
+        # Group messages into turns (user + assistant pairs) with metadata
+        from claudechic.agent import MessageMetadata
+        turns: list[
+            tuple[
+                UserContent | None,
+                AssistantContent | None,
+                MessageMetadata | None,
+                MessageMetadata | None,
+            ]
+        ] = []
         current_user: UserContent | None = None
+        current_user_metadata: MessageMetadata | None = None
 
         for item in self._agent.messages:
             if item.role == "user" and isinstance(item.content, UserContent):
                 # Start new turn
                 if current_user is not None:
                     # Previous user had no assistant response
-                    turns.append((current_user, None))
+                    turns.append((current_user, None, current_user_metadata, None))
                 current_user = item.content
+                current_user_metadata = item.metadata
             elif item.role == "assistant" and isinstance(
                 item.content, AssistantContent
             ):
                 # Complete current turn
-                turns.append((current_user, item.content))
+                turns.append(
+                    (current_user, item.content, current_user_metadata, item.metadata)
+                )
                 current_user = None
+                current_user_metadata = None
 
         # Handle trailing user message with no response yet
         if current_user is not None:
-            turns.append((current_user, None))
+            turns.append((current_user, None, current_user_metadata, None))
 
         # Determine which turns to collapse (all but last RECENT_TURNS_FULL)
         collapse_before = max(0, len(turns) - RECENT_TURNS_FULL)
@@ -166,7 +179,7 @@ class ChatView(AutoHideScroll):
         # Count tools in recent turns for tool collapse threshold
         recent_tools = sum(
             sum(1 for b in asst.blocks if isinstance(b, ToolUse))
-            for _, asst in turns[collapse_before:]
+            for _, asst, _, _ in turns[collapse_before:]
             if asst is not None
         )
         collapse_threshold = recent_tools - RECENT_TOOLS_EXPANDED
@@ -175,7 +188,9 @@ class ChatView(AutoHideScroll):
         # Build widgets
         widgets: list[Widget] = []
 
-        for turn_idx, (user_content, assistant_content) in enumerate(turns):
+        for turn_idx, (user_content, assistant_content, user_metadata, assistant_metadata) in enumerate(
+            turns
+        ):
             if turn_idx < collapse_before and user_content and assistant_content:
                 # Old turn: collapse into single widget with lazy expansion
                 widgets.append(
@@ -185,17 +200,31 @@ class ChatView(AutoHideScroll):
                 # Recent turn: render fully
                 if user_content:
                     text, is_agent = format_agent_prompt(user_content.text)
+                    user_ts = user_metadata.timestamp if user_metadata else None
                     widgets.extend(
-                        self._create_user_widgets(text, user_content.images, is_agent)
+                        self._create_user_widgets(
+                            text,
+                            user_content.images,
+                            is_agent,
+                            timestamp=user_ts,
+                        )
                     )
                 if assistant_content:
                     new_widgets, tool_index = self._create_assistant_widgets(
-                        assistant_content, tool_index, collapse_threshold
+                        assistant_content,
+                        tool_index,
+                        collapse_threshold,
+                        metadata=assistant_metadata,
                     )
                     widgets.extend(new_widgets)
 
         # Single mount_all triggers one CSS recalculation instead of N
         self.mount_all(widgets)
+
+        # Restore streaming state so subsequent append_text/append_tool_use
+        # calls work correctly if agent is mid-response when view becomes visible.
+        self._restore_streaming_state(widgets)
+
         self.scroll_end(animate=False)
 
     def _create_collapsed_turn(
@@ -209,7 +238,12 @@ class ChatView(AutoHideScroll):
             # User message
             text, is_agent = format_agent_prompt(user_content.text)
             widgets.extend(
-                self._create_user_widgets(text, user_content.images, is_agent)
+                self._create_user_widgets(
+                    text,
+                    user_content.images,
+                    is_agent,
+                    timestamp=user_content.metadata.timestamp if user_content.metadata else None,
+                )
             )
             # Assistant response (collapse all tools, ignore returned tool_index)
             new_widgets, _ = self._create_assistant_widgets(
@@ -223,11 +257,15 @@ class ChatView(AutoHideScroll):
         )
 
     def _create_user_widgets(
-        self, text: str, images: list[ImageAttachment], is_agent: bool = False
+        self,
+        text: str,
+        images: list[ImageAttachment],
+        is_agent: bool = False,
+        timestamp: str | None = None,
     ) -> list[Widget]:
         """Create widgets for a user message (without mounting)."""
         widgets: list[Widget] = []
-        msg = ChatMessage(text, is_agent=is_agent)
+        msg = ChatMessage(text, is_agent=is_agent, timestamp=timestamp)
         msg.add_class("agent-message" if is_agent else "user-message")
         widgets.append(msg)
 
@@ -241,7 +279,11 @@ class ChatView(AutoHideScroll):
         return widgets
 
     def _create_assistant_widgets(
-        self, content: AssistantContent, tool_index: int, collapse_threshold: int
+        self,
+        content: AssistantContent,
+        tool_index: int,
+        collapse_threshold: int,
+        metadata: Any = None,
     ) -> tuple[list[Widget], int]:
         """Create widgets for an assistant message (without mounting).
 
@@ -252,11 +294,28 @@ class ChatView(AutoHideScroll):
 
         widgets: list[Widget] = []
         pending_tools = self._agent.pending_tools if self._agent else {}
+        # Track if we've added metadata header for this assistant message
+        metadata_added = False
+
         for block in content.blocks:
             if isinstance(block, TextBlock):
-                msg = ChatMessage(block.text)
+                if not metadata_added and metadata:
+                    msg = ChatMessage(
+                        block.text,
+                        timestamp=metadata.timestamp,
+                        model=getattr(metadata, "model", None),
+                        input_tokens=metadata.input_tokens,
+                        output_tokens=metadata.output_tokens,
+                        cache_creation_tokens=metadata.cache_creation_tokens,
+                        cache_read_tokens=metadata.cache_read_tokens,
+                        duration_ms=metadata.duration_ms,
+                        cost_usd=metadata.cost_usd,
+                    )
+                else:
+                    msg = ChatMessage(block.text)
                 msg.add_class("assistant-message")
                 widgets.append(msg)
+                metadata_added = True
             elif isinstance(block, ToolUse):
                 # Route nested tools to their parent TaskWidget
                 parent_id = block.parent_tool_use_id
@@ -313,6 +372,39 @@ class ChatView(AutoHideScroll):
                 block, collapsed=should_collapse, completed=completed, cwd=cwd
             )
 
+    def _restore_streaming_state(self, widgets: list[Widget]) -> None:
+        """Restore _current_response and _recent_tools from mounted widgets.
+
+        After _render_full() rebuilds from agent.messages, streaming state like
+        _current_response is reset. If the agent is mid-response (BUSY), subsequent
+        append_text() calls need _current_response to point to the last assistant
+        ChatMessage so text is appended to the correct widget instead of creating
+        duplicates.
+
+        _recent_tools must also be rebuilt so auto-collapse logic works correctly
+        for new tool uses arriving after re-render.
+        """
+        # Rebuild _recent_tools from the mounted tool widgets (most recent N)
+        tool_widgets = [
+            w
+            for w in widgets
+            if isinstance(w, (ToolUseWidget, TaskWidget, AgentToolWidget))
+        ]
+        # Keep only the last RECENT_TOOLS_EXPANDED for collapse tracking
+        if RECENT_TOOLS_EXPANDED > 0:
+            self._recent_tools = tool_widgets[-RECENT_TOOLS_EXPANDED:]
+        else:
+            self._recent_tools = []
+
+        # Restore _current_response to the last assistant ChatMessage if agent is
+        # mid-response. This ensures append_text(new_message=False) appends to the
+        # correct widget rather than creating a duplicate.
+        if self._agent and self._agent.status == AgentStatus.BUSY:
+            for w in reversed(widgets):
+                if isinstance(w, ChatMessage) and w.has_class("assistant-message"):
+                    self._current_response = w
+                    break
+
     # -----------------------------------------------------------------------
     # Streaming API - called by ChatApp during live response
     # -----------------------------------------------------------------------
@@ -324,7 +416,15 @@ class ChatView(AutoHideScroll):
             self._needs_rerender = True
             return
         formatted_text, is_agent = format_agent_prompt(text)
-        self._mount_user_message(formatted_text, images, is_agent=is_agent)
+        # Get timestamp from the most recent user ChatItem
+        timestamp = None
+        if self._agent and self._agent.messages:
+            last = self._agent.messages[-1]
+            if last.role == "user" and last.metadata:
+                timestamp = last.metadata.timestamp
+        self._mount_user_message(
+            formatted_text, images, is_agent=is_agent, timestamp=timestamp
+        )
         self.scroll_if_tailing()
 
     def start_response(self) -> None:
@@ -338,12 +438,44 @@ class ChatView(AutoHideScroll):
             self.mount(self._thinking_indicator)
             self.scroll_if_tailing()
 
-    def end_response(self) -> None:
-        """Clean up at end of response."""
+    def end_response(self, result: Any = None) -> None:
+        """Clean up at end of response, optionally updating metadata with token usage.
+
+        Args:
+            result: Optional ResultMessage with usage/duration/cost data.
+        """
         if self.is_hidden:
             self._needs_rerender = True
             return
         self._hide_thinking()
+        # Update the current response's metadata header with token usage + model
+        if self._current_response and result:
+            from claudechic.widgets.content.message import MessageMetadataHeader
+
+            meta_widget = self._current_response.query_one_optional(
+                "MessageMetadataHeader", MessageMetadataHeader
+            )
+            if meta_widget:
+                usage = getattr(result, "usage", None) or {}
+                # Get model and timestamp from the last assistant ChatItem metadata
+                model = None
+                timestamp = None
+                if self._agent and self._agent.messages:
+                    for item in reversed(self._agent.messages):
+                        if item.role == "assistant" and item.metadata:
+                            model = item.metadata.model
+                            timestamp = item.metadata.timestamp
+                            break
+                meta_widget.update_metadata(
+                    model=model,
+                    timestamp=timestamp,
+                    input_tokens=usage.get("input_tokens"),
+                    output_tokens=usage.get("output_tokens"),
+                    cache_creation_tokens=usage.get("cache_creation_input_tokens"),
+                    cache_read_tokens=usage.get("cache_read_input_tokens"),
+                    duration_ms=getattr(result, "duration_ms", None),
+                    cost_usd=getattr(result, "total_cost_usd", None),
+                )
         self._current_response = None
 
     def append_text(
@@ -371,7 +503,14 @@ class ChatView(AutoHideScroll):
 
         # Create new message widget if needed
         if new_message or not self._current_response:
-            self._current_response = ChatMessage("")
+            # Get timestamp from the most recent assistant ChatItem
+            timestamp = None
+            if self._agent and self._agent.messages:
+                for item in reversed(self._agent.messages):
+                    if item.role == "assistant" and item.metadata:
+                        timestamp = item.metadata.timestamp
+                        break
+            self._current_response = ChatMessage("", timestamp=timestamp)
             self._current_response.add_class("assistant-message")
             self.mount(self._current_response)
 
@@ -401,31 +540,33 @@ class ChatView(AutoHideScroll):
             task.add_tool_use(block)
             return
 
-        # Auto-collapse old tools
-        while len(self._recent_tools) >= RECENT_TOOLS_EXPANDED > 0:
-            old = self._recent_tools.pop(0)
-            old.collapse()
+        # Batch collapse + mount to avoid multiple CSS recalculations
+        with self.app.batch_update():
+            # Auto-collapse old tools
+            while len(self._recent_tools) >= RECENT_TOOLS_EXPANDED > 0:
+                old = self._recent_tools.pop(0)
+                old.collapse()
 
-        # Create widget based on tool type
-        collapsed = RECENT_TOOLS_EXPANDED == 0 or tool.name in COLLAPSE_BY_DEFAULT
-        cwd = self._agent.cwd if self._agent else None
-        if tool.name == ToolName.TASK:
-            widget = TaskWidget(block, collapsed=collapsed, cwd=cwd)
-            self._active_task_widgets[tool.id] = widget
-        elif tool.name.startswith("mcp__chic__"):
-            widget = AgentToolWidget(block, cwd=cwd)
-        elif tool.name == ToolName.EXIT_PLAN_MODE:
-            # Pass agent's plan_path for correct plan file lookup
-            plan_path = self._agent.plan_path if self._agent else None
-            widget = ToolUseWidget(
-                block, collapsed=collapsed, cwd=cwd, plan_path=plan_path
-            )
-        else:
-            widget = ToolUseWidget(block, collapsed=collapsed, cwd=cwd)
+            # Create widget based on tool type
+            collapsed = RECENT_TOOLS_EXPANDED == 0 or tool.name in COLLAPSE_BY_DEFAULT
+            cwd = self._agent.cwd if self._agent else None
+            if tool.name == ToolName.TASK:
+                widget = TaskWidget(block, collapsed=collapsed, cwd=cwd)
+                self._active_task_widgets[tool.id] = widget
+            elif tool.name.startswith("mcp__chic__"):
+                widget = AgentToolWidget(block, cwd=cwd)
+            elif tool.name == ToolName.EXIT_PLAN_MODE:
+                # Pass agent's plan_path for correct plan file lookup
+                plan_path = self._agent.plan_path if self._agent else None
+                widget = ToolUseWidget(
+                    block, collapsed=collapsed, cwd=cwd, plan_path=plan_path
+                )
+            else:
+                widget = ToolUseWidget(block, collapsed=collapsed, cwd=cwd)
 
-        self._pending_tool_widgets[tool.id] = widget
-        self._recent_tools.append(widget)
-        self.mount(widget)
+            self._pending_tool_widgets[tool.id] = widget
+            self._recent_tools.append(widget)
+            self.mount(widget)
         self.scroll_if_tailing()
 
     def update_tool_result(
@@ -486,10 +627,16 @@ class ChatView(AutoHideScroll):
     # -----------------------------------------------------------------------
 
     def _mount_user_message(
-        self, text: str, images: list[ImageAttachment], is_agent: bool = False
+        self,
+        text: str,
+        images: list[ImageAttachment],
+        is_agent: bool = False,
+        timestamp: str | None = None,
     ) -> None:
         """Mount a user message widget with optional image attachments."""
-        for widget in self._create_user_widgets(text, images, is_agent):
+        for widget in self._create_user_widgets(
+            text, images, is_agent, timestamp=timestamp
+        ):
             self.mount(widget)
 
     def _hide_thinking(self) -> None:

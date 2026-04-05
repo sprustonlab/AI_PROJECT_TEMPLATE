@@ -35,15 +35,19 @@ async def test_app_mounts_basic_widgets(mock_sdk):
 
 @pytest.mark.asyncio
 async def test_permission_mode_cycle(mock_sdk):
-    """Shift+Tab cycles permission mode: bypassPermissions -> acceptEdits -> plan -> default -> bypassPermissions.
+    """Shift+Tab cycles permission mode: default -> bypassPermissions -> acceptEdits -> plan -> default.
 
-    Note: Initial mode is bypassPermissions (from CONFIG default).
-    Cycle goes from most permissive to most restrictive, then back to bypass.
+    Note: Initial mode is 'default' (fresh install behavior).
+    Cycle goes through all modes and wraps back to default.
     """
     app = ChatApp()
     async with app.run_test() as pilot:
         assert app._agent is not None
-        # Initial mode is bypassPermissions (CONFIG default)
+        # Initial mode is 'default' (fresh install behavior)
+        assert app._agent.permission_mode == "default"
+
+        # Cycle: default -> bypassPermissions
+        await pilot.press("shift+tab")
         assert app._agent.permission_mode == "bypassPermissions"
 
         # Cycle: bypassPermissions -> acceptEdits
@@ -54,13 +58,9 @@ async def test_permission_mode_cycle(mock_sdk):
         await pilot.press("shift+tab")
         assert app._agent.permission_mode == "plan"
 
-        # Cycle: plan -> default
+        # Cycle: plan -> default (back to start)
         await pilot.press("shift+tab")
         assert app._agent.permission_mode == "default"
-
-        # Cycle: default -> bypassPermissions (back to start)
-        await pilot.press("shift+tab")
-        assert app._agent.permission_mode == "bypassPermissions"
 
 
 @pytest.mark.asyncio
@@ -69,16 +69,16 @@ async def test_permission_mode_footer_updates(mock_sdk):
     app = ChatApp()
     async with app.run_test() as pilot:
         footer = app.query_one(StatusFooter)
-        # Initial mode is bypassPermissions (CONFIG default)
+        # Initial mode is 'default' (fresh install behavior)
+        assert footer.permission_mode == "default"
+
+        # First cycle: default -> bypassPermissions
+        await pilot.press("shift+tab")
         assert footer.permission_mode == "bypassPermissions"
 
-        # First cycle: bypassPermissions -> acceptEdits
+        # Second cycle: bypassPermissions -> acceptEdits
         await pilot.press("shift+tab")
         assert footer.permission_mode == "acceptEdits"
-
-        # Second cycle: acceptEdits -> plan
-        await pilot.press("shift+tab")
-        assert footer.permission_mode == "plan"
 
 
 @pytest.mark.asyncio

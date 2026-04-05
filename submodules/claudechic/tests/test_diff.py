@@ -95,13 +95,14 @@ index abc123..def456 100644
 
 class TestMergeDiffContent:
     def test_merges_hunks_to_files(self):
+        """Use a path containing 'b/' to also cover regression #54."""
         files = [
-            FileChange(path="file.py", status="modified", hunks=[]),
+            FileChange(path="bokehjs/src/lib/patch.ts", status="modified", hunks=[]),
         ]
-        diff_text = """diff --git a/file.py b/file.py
+        diff_text = """diff --git a/bokehjs/src/lib/patch.ts b/bokehjs/src/lib/patch.ts
 index abc..def 100644
---- a/file.py
-+++ b/file.py
+--- a/bokehjs/src/lib/patch.ts
++++ b/bokehjs/src/lib/patch.ts
 @@ -1,2 +1,3 @@
  old
 +new

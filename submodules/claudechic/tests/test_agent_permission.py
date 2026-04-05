@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 from contextlib import ExitStack
 
 from claudechic.agent import Agent

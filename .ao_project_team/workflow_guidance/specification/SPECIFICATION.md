@@ -74,6 +74,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | **Exclude Pattern** | A regex (`exclude_if_matches`) that, when matched, prevents the rule from firing — checked before the detect pattern. |
 | **Role Scoping** | `roles` — rule fires *only* for these roles (include filter). `exclude_roles` — rule *never* fires for these roles (exclude filter). |
 | **Phase Scoping** | `phases` — rule fires only during these phases (include filter). `exclude_phases` — rule *never* fires during these phases (exclude filter). Within the same manifest, bare phase names are used; the loader qualifies them at parse time. Cross-workflow references (e.g. in `global/*.yaml`) use fully qualified IDs. |
+| **HitRecord / Hit** | A single rule match event recorded in the audit trail. Contains `rule_id`, `agent_role`, `tool_name`, `enforcement`, `timestamp`, and `outcome`. Written as JSONL to `.claude/hits.jsonl`. |
 
 ### Phases
 
@@ -102,6 +103,9 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | **HintSpec** | Internal object representing a hint after manifest parsing. Consumed by the existing hints pipeline. |
 | **Hint Lifecycle** | Controls display behavior: `show-once` (displayed once, suppressed), `show-until-resolved` (repeated until condition passes). |
 | **CheckFailed Adapter** | Bridges failing checks into the hints pipeline. When a check fails and has `on_failure` config, produces a `HintSpec` surfaced through `run_pipeline()`. |
+| **Toast** | A TUI notification displayed briefly to the user. Used by the hints pipeline (`run_pipeline()`) to surface advisory hints and check failure messages. |
+| **`run_pipeline()`** | The 6-stage hints evaluation pipeline: activation → trigger → lifecycle → sort → budget → present. Converts `HintSpec` objects into displayed toasts. |
+| **AlwaysTrue** | A `TriggerCondition` implementation that always returns `True`. Used by the `CheckFailed` adapter — when a check has already failed, the resulting hint fires immediately without further evaluation. |
 
 ### Agent Folders
 
@@ -130,15 +134,11 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | **Namespace** | Prefix applied to bare IDs at load time: `global:<id>` for items in `global/*.yaml`, `<workflow_id>:<id>` for workflow items. All IDs are namespaced at runtime. IDs in YAML are written bare — the loader prefixes automatically. |
 | **Qualified ID** | The runtime form: `namespace:name`. Examples: `global:pip_block`, `project-team:close_agent`. |
 
-### Additional Terms
+### Workflow
 
 | Term | Definition |
 |------|-----------|
 | **WorkflowManifest** | Parsed representation of a workflow's YAML manifest. Contains the `workflow_id`, phases list, and metadata. Passed to `WorkflowEngine` at construction. |
-| **HitRecord / Hit** | A single rule match event recorded in the audit trail. Contains `rule_id`, `agent_role`, `tool_name`, `enforcement`, `timestamp`, and `outcome`. Written as JSONL to `.claude/hits.jsonl`. |
-| **Toast** | A TUI notification displayed briefly to the user. Used by the hints pipeline (`run_pipeline()`) to surface advisory hints and check failure messages. |
-| **`run_pipeline()`** | The 6-stage hints evaluation pipeline: activation → trigger → lifecycle → sort → budget → present. Converts `HintSpec` objects into displayed toasts. |
-| **AlwaysTrue** | A `TriggerCondition` implementation that always returns `True`. Used by the `CheckFailed` adapter — when a check has already failed, the resulting hint fires immediately without further evaluation. |
 
 ### Content Delivery
 

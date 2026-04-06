@@ -42,7 +42,7 @@ Specifically:
 | Term | Definition |
 |------|-----------|
 | **Workflow** | A named configuration — YAML manifest + markdown content in a directory under `workflows/` — that defines phases, rules, checks, and hints. Each workflow has a `workflow_id` (kebab-case, e.g. `project-team`) used in namespacing. |
-| **Manifest** | A YAML file declaring rules, phases, checks, and hints. Two kinds: **global manifests** (`global/*.yaml`, always active, no phases — separate files for rules, checks, hints) and **workflow manifest** (`workflows/<name>/<name>.yaml`, scoped to one workflow). All files in `global/` share the `global` namespace. Workflow manifest filename matches directory name (folder name = identity). |
+| **Manifest** | A YAML file declaring rules, phases, checks, and hints. Two kinds: **global manifests** (`global/*.yaml`, always active, no phases — each file is a bare list, section inferred from filename: `rules.yaml` → rules parser) and **workflow manifest** (`workflows/<name>/<name>.yaml`, scoped to one workflow, dict with section keys). All files in `global/` share the `global` namespace. Workflow manifest filename matches directory name (folder name = identity). |
 | **Manifest Loader** | The unified system that reads all manifest files, discovers them by directory convention, and distributes each YAML section to a typed parser. Single code path — callers filter results. |
 | **ManifestSection Protocol** | A typed parser interface (`ManifestSection[T]`) that each section kind implements. Three built-in parsers: rules, checks, hints. Adding a new section type means adding a parser — the loader itself does not change. |
 | **Workflow Engine** | Manages workflow state, phase transitions, check execution, and hint delivery. Separate from the loader. |
@@ -139,10 +139,34 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | Term | Definition |
 |------|-----------|
 | **WorkflowManifest** | Parsed representation of a workflow's YAML manifest. Contains the `workflow_id`, phases list, and metadata. Passed to `WorkflowEngine` at construction. |
+| **Workflow Command** | A slash command auto-discovered from a workflow directory at startup. Name derived from `workflow_id` (kebab-case). Activates the workflow when invoked. Only registered if manifest parses without errors. |
+| **Active Workflow** | The currently activated workflow (at most one). Set by invoking a workflow command or restored from chicsession on session resume. Queried via `/workflow list`. |
+
+### Naming Convention: Bare Noun vs `Decl`
+
+If `ManifestSection[T]` produces an object that IS the runtime object (parsed = evaluated), `T` gets the bare noun: `Rule`, `Injection`, `Phase`. If it produces a YAML declaration that's later converted to a different runtime type, `T` gets the `Decl` suffix: `CheckDecl` → `_build_check()` → `Check` (executable protocol), `HintDecl` → adapter → `HintSpec` (pipeline input). This convention signals where a conversion step exists.
 
 ### Content Delivery
 
 **Pull-based:** The engine does NOT inject content mid-session. Agents call the `get_phase` MCP tool to discover the current phase, then read their own markdown files. The only exception is `/compact` recovery via the PostCompact hook. All phase queries go through the in-memory engine via MCP tools.
+
+### Workflow Status in TUI
+
+When a workflow is active, the existing `ChicsessionLabel` widget in the right sidebar displays workflow info as nested sub-elements:
+
+```
+Chicsession
+  my-project
+  Workflow: project-team
+  Phase: specification
+```
+
+- **No chicsession, no workflow:** shows "none" (existing behavior)
+- **Chicsession active, no workflow:** shows session name only (existing behavior)
+- **Chicsession + active workflow:** shows session name + workflow name + current phase
+- Phase line updates on each `advance_phase` transition
+
+The `ChicsessionLabel` widget gains two optional reactive properties: `workflow_text` and `phase_text`. Set by the engine's `persist_fn` callback (same trigger as chicsession auto-save). Cleared on workflow deactivation. No new widget — extends the existing one.
 
 ### Failure Modes
 
@@ -175,9 +199,9 @@ The system has six independent axes. Any combination of axis values produces a w
 
 The kind of guidance declared in a manifest — `rules`, `checks`, `hints`, `phases`. Each has its own parser, runtime semantics, and delivery mechanism. The loader dispatches YAML sections to typed parsers without knowing what a "rule" or "check" means.
 
-**Compositional law:** `ManifestSection[T].parse(raw_yaml_section) -> list[T]`. The loader doesn't branch on section type — it dispatches uniformly.
+**Compositional law:** `ManifestSection[T].parse(raw_list) -> list[T]`. The loader doesn't branch on section type — it dispatches uniformly. For global files, the section key is inferred from the filename; for workflow manifests, it comes from the YAML dict key.
 
-**Seam:** Raw YAML dict (output of `yaml.safe_load`) crosses the boundary. The loader doesn't interpret section contents. The parser doesn't know about other sections or about the file it came from.
+**Seam:** Raw YAML list (output of `yaml.safe_load`) crosses the boundary. The loader doesn't interpret section contents. The parser doesn't know about other sections or about the file it came from.
 
 ### Axis 2: Check Type
 
@@ -302,31 +326,40 @@ Folder name = identity everywhere: manifest filename, rule ID namespace, agent f
 
 ```
 claudechic/
-  workflows/                    # NEW package
+  workflows/                    # Orchestration layer — imports from guardrails/, checks/, hints/
     __init__.py                 # Public API: ManifestLoader, WorkflowEngine, etc.
     loader.py                   # ManifestSection[T] dispatcher, manifest discovery
     engine.py                   # Phase transitions, state persistence, advance_checks
-    checks.py                   # Check protocol + 4 built-in types + CheckFailed adapter
+    phases.py                   # Phase dataclass (bridge type — imports CheckDecl + HintDecl)
     agent_folders.py            # Prompt assembly from identity + phase files
-    manifest_types.py           # Parsed types: Phase, CheckSpec, HintDecl
+
+  checks/                       # NEW top-level package — check protocol + built-ins
+    __init__.py                 # Public API: Check, CheckResult, CheckDecl, register_check_type
+    protocol.py                 # Check protocol, CheckResult, CheckDecl (leaf — stdlib only)
+    builtins.py                 # 4 built-in types + registry (imports protocol)
+    adapter.py                  # CheckFailed → HintSpec bridge (imports protocol + hints/types)
 
   guardrails/                   # EXISTING, refactored
     __init__.py                 # MODIFIED — add exports from hooks.py
-    rules.py                    # MODIFIED — Rule gains namespace field; load_rules() replaced
+    rules.py                    # MODIFIED — Rule + Injection; namespace field; load_rules() replaced
     hooks.py                    # NEW — hook closure creation (extracted from app.py)
     hits.py                     # NEW — HitRecord, HitLogger (append-only JSONL audit trail)
+    tokens.py                   # NEW — OverrideToken, OverrideTokenStore (leaf — stdlib only)
 
   hints/                        # NEW claudechic package (absorbed from template-side)
     __init__.py                 # Public API: evaluate hints
-    _types.py                   # HintSpec, HintLifecycle, TriggerCondition (protocols + impls)
-    _engine.py                  # run_pipeline() — 6-stage evaluation pipeline
-    _state.py                   # ProjectState, CopierAnswers, HintStateStore, ActivationConfig
+    types.py                    # HintSpec, HintLifecycle, TriggerCondition, HintDecl
+    engine.py                   # run_pipeline() — 6-stage evaluation pipeline
+    state.py                    # ProjectState, CopierAnswers, HintStateStore, ActivationConfig
 ```
 
 The axis structure is visible in folders:
-- `workflows/` = engine/loader infrastructure (axes 1, 2, 6)
+- `workflows/` = orchestration layer (axes 1, 2, 6) — imports from the three leaf packages
+- `checks/` = check protocol, built-in types, and CheckFailed adapter (axis 2)
 - `guardrails/` = rule evaluation and enforcement delivery (axis 4 for rules — all enforcement levels)
 - `hints/` = advisory delivery + lifecycle (axes 4, 5 for hints)
+- Three leaf packages (`guardrails/`, `checks/`, `hints/`) — none import from `workflows/`
+- `workflows/` is the orchestration layer importing from all three. No cycles.
 - Scope filtering (axis 3) lives in loader as composable predicates
 
 ---
@@ -386,10 +419,10 @@ class ManifestSection(Protocol[T_co]):
 | Section Key | T (parsed type) | Description |
 |-------------|-----------------|-------------|
 | `rules` | `Rule` | Rule (dataclass in `guardrails/rules.py`, extended with required `namespace` field) |
-| `injections` | `Injection` | Tool-input modification declaration — trigger, detect, inject_value, scope metadata |
-| `checks` | `CheckSpec` | Check specification — type + params, not the executable check itself |
-| `hints` | `HintDecl` | Hint declaration — message + lifecycle + scope metadata |
-| `phases` | `Phase` | Phase definition — id, file reference, advance_checks, nested hints |
+| `injections` | `Injection` | Tool-input modification declaration (dataclass in `guardrails/rules.py`) |
+| `checks` | `CheckDecl` | Check declaration — type + params (dataclass in `checks/protocol.py`), not the executable check itself |
+| `hints` | `HintDecl` | Hint declaration — message + lifecycle + scope metadata (dataclass in `hints/types.py`) |
+| `phases` | `Phase` | Phase definition — id, file reference, advance_checks, nested hints (dataclass in `workflows/phases.py`) |
 
 ### Parse Method Contract
 
@@ -415,14 +448,27 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
+class WorkflowData:
+    """Per-workflow parsed data."""
+    workflow_id: str
+    path: Path
+    manifest: WorkflowManifest
+    has_errors: bool = False        # True if any parse error in this workflow
+
+@dataclass(frozen=True)
 class LoadResult:
     """Complete result of loading all manifests."""
-    rules: list[Rule] = field(default_factory=list)
+    rules: list[Rule] = field(default_factory=list)           # All rules (global + all workflows)
     injections: list[Injection] = field(default_factory=list)
-    checks: list[CheckSpec] = field(default_factory=list)
+    checks: list[CheckDecl] = field(default_factory=list)
     hints: list[HintDecl] = field(default_factory=list)
     phases: list[Phase] = field(default_factory=list)
     errors: list[LoadError] = field(default_factory=list)
+    workflows: dict[str, WorkflowData] = field(default_factory=dict)  # Per-workflow data, keyed by workflow_id
+
+    def get_workflow(self, wf_id: str) -> WorkflowData | None:
+        """Look up per-workflow data by workflow_id."""
+        return self.workflows.get(wf_id)
 
 
 @dataclass(frozen=True)
@@ -537,18 +583,38 @@ class ManifestLoader:
                 errors.append(LoadError(source=str(path), message=str(e)))
                 continue
 
-            if not isinstance(data, dict):
-                errors.append(LoadError(source=str(path), message="not a YAML mapping"))
-                continue
-
             # Determine namespace: global/ files get "global", workflow files get workflow_id
             if self._is_global_path(path):
                 namespace = "global"
             else:
+                if not isinstance(data, dict):
+                    errors.append(LoadError(source=str(path), message="not a YAML mapping"))
+                    continue
                 wf_id = data.get("workflow_id")
                 if wf_id:
                     namespace = str(wf_id)
 
+            # Global files: bare list → infer section key from filename stem
+            # e.g. global/rules.yaml (top-level list) → section_key "rules"
+            if isinstance(data, list) and self._is_global_path(path):
+                key = path.stem  # "rules", "checks", "hints", "injections"
+                parser = self._parsers.get(key)
+                if parser is None:
+                    errors.append(LoadError(
+                        source=str(path),
+                        message=f"No parser registered for '{key}' (inferred from filename)",
+                    ))
+                else:
+                    parsed = parser.parse(data, namespace=namespace, source_path=str(path))
+                    collected[key].extend(parsed)
+                continue
+
+            if not isinstance(data, dict):
+                errors.append(LoadError(source=str(path), message="not a YAML mapping"))
+                continue
+
+            # Dict-based files: dispatch by section keys (workflow manifests, or
+            # global files that use section keys — both supported)
             for key, parser in self._parsers.items():
                 section = data.get(key)
                 if section is None:
@@ -639,26 +705,25 @@ def _validate(self, collected: dict[str, list]) -> list[LoadError]:
     return errors
 ```
 
+### Manifest Reload Semantics
+
+**When does the loader run?**
+
+| Consumer | When it calls `loader.load()` | Mid-session edits? |
+|----------|-------------------------------|---------------------|
+| **Rules/Injections** (hook closure) | Every tool call — fresh load, no cache | ✅ Immediate — next tool call sees changes |
+| **Advance checks** (engine) | Each `attempt_phase_advance()` call | ✅ Next advance attempt sees changes |
+| **Global setup checks** (engine) | Once at startup | ❌ Requires restart or `/workflow reload` |
+| **Workflow setup checks** (engine) | On workflow activation (`/{workflow-id}`) | ✅ Re-run on next activation |
+| **All manifests** (startup + `/workflow reload`) | Startup and on `/workflow reload` | ✅ `/workflow reload` re-parses everything |
+| **Phase definitions** (engine) | Once at engine init | ❌ Requires session restart — engine holds `self._manifest` |
+| **Hints** (engine) | On phase transitions and startup | ⚠️ Phase-scoped hints refresh on transition; global hints at startup only |
+
+**Design rationale:** Rules are the hot path (every tool call) and must be live-reloadable — a user fixing a bad regex or adding a new rule should see the effect immediately. Phase structure and setup checks are session-level concerns — changing them mid-session would invalidate engine state (e.g., current phase might no longer exist). Restart is the right answer.
+
 ### NFS Performance Strategy
 
-Rules are loaded fresh on every tool call. No mtime caching — NFS is unreliable on HPC clusters.
-
-**Cost analysis:** ~2 small YAML files, ~0.5ms each for `yaml.safe_load`. Accept the I/O cost for simplicity.
-
-**Day-one optimization — compiled regex cache:**
-```python
-_REGEX_CACHE: dict[str, re.Pattern[str]] = {}
-
-def cached_compile(pattern: str) -> re.Pattern[str]:
-    """Compile regex with caching. Safe for concurrent reads."""
-    if pattern not in _REGEX_CACHE:
-        _REGEX_CACHE[pattern] = re.compile(pattern)
-    return _REGEX_CACHE[pattern]
-```
-
-**If optimization is needed later (priority order):**
-1. Content hash cache (SHA256 before parsing — marginal gain)
-2. Lazy section parsing (breaks single-path principle — last resort)
+Rules are loaded fresh on every tool call. No mtime caching. See [APPENDIX.md](APPENDIX.md) for NFS cost analysis and optimization strategies.
 
 ### Error Strategy Matrix
 
@@ -702,7 +767,7 @@ Phase-nested hints are extracted by the `PhasesParser` into `Phase.hints` field,
 ### Check Protocol
 
 ```python
-# claudechic/workflows/checks.py
+# claudechic/checks/protocol.py
 
 from __future__ import annotations
 
@@ -909,8 +974,8 @@ _CHECK_REGISTRY: dict[str, Callable[[dict], Check]] = {}
 def register_check_type(name: str, factory: Callable[[dict], Check]) -> None:
     _CHECK_REGISTRY[name] = factory
 
-def _build_check(self, check_spec: CheckSpec) -> Check:
-    """Map CheckSpec to Check objects via registry."""
+def _build_check(self, check_spec: CheckDecl) -> Check:
+    """Map CheckDecl to Check objects via registry."""
     factory = _CHECK_REGISTRY.get(check_spec.type)
     if factory is None:
         raise ValueError(f"Unknown check type: {check_spec.type}")
@@ -997,7 +1062,7 @@ class WorkflowEngine:
         workflow_id: str,
         current_phase: str,
         next_phase: str,
-        advance_checks: list[CheckSpec],
+        advance_checks: list[CheckDecl],
     ) -> bool:
         """AND semantics, sequential, short-circuit on first failure."""
         for i, spec in enumerate(advance_checks):
@@ -1015,7 +1080,7 @@ class WorkflowEngine:
                     )
                     hint_data = check_failed_to_hint(result, on_failure, check_id)
                     if hint_data:
-                        from claudechic.hints._engine import run_pipeline
+                        from claudechic.hints.engine import run_pipeline
                         await run_pipeline([hint_data], self._hint_state)
                 return False  # Phase transition blocked
 
@@ -1121,7 +1186,7 @@ def _make_persist_fn(self) -> Callable[[], None]:
 ### Setup Check Execution
 
 ```python
-async def run_setup_checks(self, check_specs: list[CheckSpec]) -> list[CheckResult]:
+async def run_setup_checks(self, check_specs: list[CheckDecl]) -> list[CheckResult]:
     """Run setup checks from global/checks.yaml at startup.
 
     Unlike advance_checks, setup checks do NOT short-circuit.
@@ -1146,21 +1211,31 @@ async def run_setup_checks(self, check_specs: list[CheckSpec]) -> list[CheckResu
 
 ### PostCompact Hook
 
+The PostCompact hook is created **per-agent** alongside enforcement hooks, with the role captured in the closure at agent spawn time — same pattern as `create_guardrail_hooks()`. No runtime role lookup, no fallback.
+
 ```python
-def get_post_compact_hook(self) -> dict[str, list[HookMatcher]]:
-    """PostCompact hook: re-inject phase context after /compact."""
-    engine = self
+def create_post_compact_hook(
+    engine: "WorkflowEngine",
+    agent_role: str | None = None,
+) -> dict[str, list[HookMatcher]]:
+    """PostCompact hook: re-inject phase context after /compact.
+
+    Created per-agent with role captured at spawn time.
+    If no role, skip prompt assembly — don't guess.
+    """
 
     async def reinject_phase_context(hook_input: dict, match: str | None, ctx: object) -> dict:
         current_phase = engine.get_current_phase()
         if not current_phase:
             return {}
 
-        role = hook_input.get("agent_role")
+        if not agent_role:
+            return {}  # No role → no agent folder → nothing to inject
+
         prompt_content = assemble_phase_prompt(
             workflows_dir=engine.workflows_dir,
             workflow_id=engine.manifest.workflow_id,
-            role_name=role or "coordinator",
+            role_name=agent_role,
             current_phase=current_phase,
         )
 
@@ -1175,51 +1250,123 @@ def get_post_compact_hook(self) -> dict[str, list[HookMatcher]]:
 
 **Content re-injected:** identity.md + current phase file (the full agent prompt). This restores the agent's guidance context lost during compaction.
 
-### Active Workflow Determination
+### Workflow Activation Model
 
-At most one workflow manifest is active besides the `global/` manifests. The engine auto-detects from loader results:
+Workflows are activated explicitly via auto-discovered slash commands — never auto-detected.
+
+**Startup lifecycle:**
+1. Parse ALL manifests (global + all workflows). Pay I/O cost once.
+2. Surface parse errors as `show-until-resolved` hints via CheckFailed adapter — not app failures. Bad YAML, invalid regex, unknown phase references, duplicate IDs → user sees toast, app continues.
+3. Register slash commands ONLY for workflows that parsed cleanly. Broken manifest = no command registered.
+4. Run global setup checks (from `global/checks.yaml`).
+5. If resuming a session with `chicsession.workflow_state`, auto-reactivate that workflow (honoring prior explicit intent).
+
+**Slash commands:**
+
+| Command | Action |
+|---|---|
+| `/{workflow-id}` | Activate this workflow. Created from parsed data (zero I/O). Creates engine, runs workflow setup checks, begins first phase. Only one workflow active at a time. |
+| `/{workflow-id} stop` | Deactivate workflow. Destroys engine, clears `workflow_state` from chicsession. Returns to global-only mode. |
+| `/workflow list` | Show all discovered workflows with status: valid/broken/active. |
+| `/workflow reload` | Re-parse all manifests. Update command registrations (new valid → register, newly broken → deregister). Update error hints. Mid-session fix path — no restart needed. |
+
+**Command naming:** derived from `workflow_id` field in manifest YAML (kebab-case). If `workflow_id` is absent, derive from folder name: `project_team` → `project-team`. Collision with built-in command names checked at registration — collision logs warning and skips registration.
+
+**Discovery mechanism:**
 
 ```python
-def _resolve_active_workflow(
-    load_result: LoadResult,
-) -> str | None:
-    """Determine the active workflow from loaded manifests.
+# At startup or /workflow reload:
+def discover_and_register_workflows(
+    global_dir: Path,
+    workflows_dir: Path,
+    loader: ManifestLoader,
+) -> tuple[LoadResult, dict[str, Path]]:
+    """Parse all manifests. Register valid workflow commands.
 
-    Rules:
-    - If no workflow manifests (only global/ files) → no engine, return None
-    - If exactly one workflow manifest → that's the active workflow
-    - If multiple → use first alphabetical, log warning
-
-    Returns the workflow_id of the active workflow, or None.
+    Returns:
+        - LoadResult with all parsed data (global + workflows)
+        - Registry mapping workflow_id → directory path (valid only)
     """
-    # Collect unique workflow namespaces (exclude global)
-    workflow_ids: list[str] = []
-    seen: set[str] = set()
-    for phase in load_result.phases:
-        ns = phase.id.split(":")[0]
-        if ns != "global" and ns not in seen:
-            workflow_ids.append(ns)
-            seen.add(ns)
+    result = loader.load()  # Parse everything
 
-    if not workflow_ids:
-        return None
-    if len(workflow_ids) > 1:
-        logger.warning(
-            "Multiple workflows found: %s. Using '%s'. "
-            "Multi-workflow is out of scope.",
-            workflow_ids, workflow_ids[0],
-        )
-    return workflow_ids[0]
+    # Surface parse errors as hints (not failures)
+    for error in result.errors:
+        hint = parse_error_to_hint(error)  # → show-until-resolved toast
+        # Queue hint for display
+
+    # Build registry of valid workflows
+    registry: dict[str, Path] = {}
+    for wf_id, wf_data in result.workflows.items():
+        if wf_data.has_errors:
+            continue  # No command for broken workflows
+        registry[wf_id] = wf_data.path
+        register_slash_command(wf_id)  # /project-team
+
+    return result, registry
 ```
+
+**Activation (on `/{workflow-id}`):**
+
+```python
+def activate_workflow(wf_id: str, restored_state: dict | None = None):
+    """Activate a workflow from already-parsed manifest data.
+
+    Called by slash command or session resume. Zero I/O — data already parsed.
+    """
+    wf_data = self._load_result.get_workflow(wf_id)
+    if wf_data is None:
+        return "Unknown workflow. Run /workflow list."
+
+    # Create engine from parsed data
+    self._workflow_engine = WorkflowEngine.from_session_state(
+        state=restored_state,
+        manifest=wf_data.manifest,
+        persist_fn=self._make_persist_fn(),
+        confirm_callback=self._make_confirm_callback(),
+    )
+
+    # Run workflow-specific setup checks
+    wf_checks = [c for c in self._load_result.checks if c.namespace == wf_id]
+    if wf_checks:
+        await self._workflow_engine.run_setup_checks(wf_checks)
+
+    # Workflow rules now active — hook closure sees them on next tool call
+```
+
+**Session resume:**
+
+```python
+# On session resume:
+session = load_chicsession(...)
+if session.workflow_state:
+    wf_id = session.workflow_state.get("workflow_id")
+    if wf_id and wf_id in self._workflow_registry:
+        activate_workflow(wf_id, restored_state=session.workflow_state)
+```
+
+**Before activation:** only global rules evaluate on tool calls. Workflow rules are parsed but dormant. The hook closure filters by active workflow:
+
+```python
+# In hook evaluation, before rule loop:
+active_wf = engine.workflow_id if engine else None
+for rule in result.rules:
+    # Skip workflow-scoped rules if that workflow isn't active
+    if rule.namespace != "global" and rule.namespace != active_wf:
+        continue
+    # ... rest of evaluation
+```
+
+**`/workflow reload`:**
+Re-runs `discover_and_register_workflows()`. Updates `self._load_result` and `self._workflow_registry`. If the currently active workflow becomes broken, deactivates it and surfaces an error hint. New workflows get commands registered. Fixed workflows get commands re-registered.
 
 ### Engine Initialization
 
-When the app starts, it creates the manifest loader, loads manifests, resolves the active workflow, and initializes the engine:
+When the app starts, it creates the manifest loader, parses all manifests, registers workflow commands, and runs global setup checks:
 
 ```python
 # In app.py on_mount() or _connect_initial_client():
 
-# 1. Create shared loader and hit logger (created once at app init)
+# 1. Create shared loader, hit logger, and token store (created once at app init)
 self._manifest_loader = ManifestLoader(self._global_dir, self._workflows_dir)
 self._manifest_loader.register(RulesParser())
 self._manifest_loader.register(InjectionsParser())
@@ -1228,38 +1375,37 @@ self._manifest_loader.register(HintsParser())
 self._manifest_loader.register(PhasesParser())
 
 from claudechic.guardrails.hits import HitLogger
+from claudechic.guardrails.tokens import OverrideTokenStore
 self._hit_logger = HitLogger(self._claude_dir / "hits.jsonl")
+self._token_store = OverrideTokenStore()  # Lives for app lifetime, independent of engine
 
-# 2. Initial load
-result = self._manifest_loader.load()
+# 2. Parse all manifests and register workflow commands
+self._load_result, self._workflow_registry = discover_and_register_workflows(
+    self._global_dir, self._workflows_dir, self._manifest_loader
+)
 
-# 3. Resolve active workflow
-active_wf = _resolve_active_workflow(result)
-if active_wf is None:
-    self._workflow_engine = None  # No workflow — rules still evaluate via global/*.yaml
-else:
-    manifest = self._build_manifest(active_wf, result)
-    session = self._current_session
+# 3. Run global setup checks from global/checks.yaml
+global_checks = [c for c in self._load_result.checks if c.namespace == "global"]
+if global_checks:
+    await run_global_setup_checks(global_checks)
 
-    # Restore from chicsession or initialize fresh
-    self._workflow_engine = WorkflowEngine.from_session_state(
-        state=session.workflow_state if session else None,
-        manifest=manifest,
-        persist_fn=self._make_persist_fn(),
-        confirm_callback=self._make_confirm_callback(),
-    )
+# 4. Session resume — auto-reactivate workflow from prior session
+session = self._current_session
+if session and session.workflow_state:
+    wf_id = session.workflow_state.get("workflow_id")
+    if wf_id and wf_id in self._workflow_registry:
+        activate_workflow(wf_id, restored_state=session.workflow_state)
 
-# 4. Run setup checks from global/checks.yaml
-if result.checks and self._workflow_engine:
-    await self._workflow_engine.run_setup_checks(result.checks)
+# No workflow active yet — only global rules evaluate on tool calls.
+# User activates via /{workflow-id} slash command.
 ```
 
-**State initialization:** On startup or session resume, the engine restores from chicsession state or initializes to the first phase:
+**State initialization:** On activation or session resume, the engine restores from chicsession state or initializes to the first phase:
 
 ```python
 # In app.py — engine initialization
 
-# Fresh start (no existing session):
+# Fresh activation (via slash command):
 engine = WorkflowEngine(
     manifest=manifest,
     persist_fn=self._make_persist_fn(),
@@ -1364,10 +1510,6 @@ async def request_override(rule_id: str, tool_name: str, tool_input: dict) -> st
         tool_name: The tool that was blocked.
         tool_input: The exact tool input dict that was blocked.
     """
-    engine = app.workflow_engine
-    if engine is None:
-        return "No active workflow."
-
     approved = await app._show_override_prompt(
         rule_id,
         f"Agent wants to run blocked action:\n"
@@ -1378,19 +1520,24 @@ async def request_override(rule_id: str, tool_name: str, tool_input: dict) -> st
     )
 
     if approved:
-        engine.store_override_token(rule_id, tool_name, tool_input)
+        app._token_store.store(rule_id, tool_name, tool_input)
         return f"Override approved for rule {rule_id}. Retry the exact same command."
     else:
         return f"Override denied."
 ```
 
-### Override Token State on Engine
+### Override Token Store (`guardrails/tokens.py`)
 
-The engine tracks one-time override tokens in memory. Tokens are consumed on use — NOT persisted, NOT session-wide. Each token authorizes exactly one execution of one specific command.
+Override tokens are an enforcement concern, not a workflow concern. The `OverrideTokenStore` is created at app init and lives for the app lifetime — independent of whether any workflow is active. This is critical because global `warn`/`deny` rules need the ack mechanism even before a workflow is activated.
+
+Tokens are consumed on use — NOT persisted, NOT session-wide. Each token authorizes exactly one execution of one specific command.
 
 ```python
+# claudechic/guardrails/tokens.py
+
 import hashlib
 import json
+from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class OverrideToken:
@@ -1406,29 +1553,32 @@ def _hash_tool_input(tool_input: dict) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
-class WorkflowEngine:
-    def __init__(self, ...):
-        # ... existing fields ...
-        self._override_tokens: list[OverrideToken] = []  # One-time tokens, consumed on use
+class OverrideTokenStore:
+    """One-time override tokens for warn/deny enforcement.
 
-    def store_override_token(self, rule_id: str, tool_name: str, tool_input: dict) -> None:
-        """Store a one-time override token after user approval."""
-        token = OverrideToken(
+    Lifecycle: created at app init, lives for app lifetime.
+    Independent of workflow engine existence.
+    """
+
+    def __init__(self) -> None:
+        self._tokens: list[OverrideToken] = []
+
+    def store(self, rule_id: str, tool_name: str, tool_input: dict) -> None:
+        """Store a one-time override token after acknowledgment or user approval."""
+        self._tokens.append(OverrideToken(
             rule_id=rule_id,
             tool_name=tool_name,
             tool_input_hash=_hash_tool_input(tool_input),
-        )
-        self._override_tokens.append(token)
-        logger.info("Override token stored for rule '%s'", rule_id)
+        ))
 
-    def consume_override_token(self, rule_id: str, tool_name: str, tool_input: dict) -> bool:
+    def consume(self, rule_id: str, tool_name: str, tool_input: dict) -> bool:
         """Consume a one-time override token if one matches. Returns True if consumed."""
         input_hash = _hash_tool_input(tool_input)
-        for i, token in enumerate(self._override_tokens):
+        for i, token in enumerate(self._tokens):
             if (token.rule_id == rule_id
                     and token.tool_name == tool_name
                     and token.tool_input_hash == input_hash):
-                self._override_tokens.pop(i)
+                self._tokens.pop(i)
                 return True
         return False
 ```
@@ -1455,7 +1605,7 @@ Three enforcement levels plus one separate mechanism:
 
 **Key design decisions:**
 - **Per-command scoping** for both `warn` and `deny` — each invocation must be individually acknowledged/approved. No session-wide suppression.
-- **Unified token mechanism** — both `warn` and `deny` use the same `OverrideToken(rule_id, tool_name, tool_input_hash)` and `consume_override_token()`. One in-memory list `_override_tokens: list[OverrideToken]` on the engine.
+- **Unified token mechanism** — both `warn` and `deny` use the same `OverrideToken(rule_id, tool_name, tool_input_hash)` and `OverrideTokenStore.consume()`. One in-memory `OverrideTokenStore` in `guardrails/tokens.py`, created at app init (independent of workflow engine).
 - **`warn` = 2 actions** — agent calls `acknowledge_warning` MCP tool (stores token, no TUI prompt), then retries. Agent authority — no user involvement.
 - **`deny` = 2 actions** — agent calls `request_override` MCP tool (TUI SelectionPrompt, user sees exact command), then retries. User authority — explicit escalation required.
 
@@ -1470,10 +1620,7 @@ Three enforcement levels plus one separate mechanism:
 async def acknowledge_warning(rule_id: str, tool_name: str, tool_input: dict) -> str:
     """Acknowledge a warn-level rule to proceed past it.
     Stores a one-time token. Retry the exact same command to execute."""
-    engine = app.workflow_engine
-    if engine is None:
-        return "No active workflow."
-    engine.store_override_token(rule_id, tool_name, tool_input)
+    app._token_store.store(rule_id, tool_name, tool_input)
     return f"Warning acknowledged for rule {rule_id}. Retry the exact same command."
 ```
 
@@ -1483,12 +1630,12 @@ async def acknowledge_warning(rule_id: str, tool_name: str, tool_input: dict) ->
 
 ### `deny` — User-Authority Override Token
 
-See §7 for the `request_override` MCP tool and `OverrideToken` implementation. Key properties:
+See §7 for the `request_override` MCP tool and `guardrails/tokens.py` for the `OverrideTokenStore` implementation. Key properties:
 
 - Token is keyed by `(rule_id, tool_name, hash(tool_input))` — approves a *specific action*, not a blanket rule suppression
 - Token is **consumed on use** — next invocation of the same command is blocked again
 - Tokens are **NOT persisted** — reset on session restart
-- Uses the SAME `OverrideToken` and `consume_override_token()` as `warn` — unified mechanism
+- Uses the SAME `OverrideToken` and `OverrideTokenStore.consume()` as `warn` — unified mechanism
 - **Agent flow**: blocked → calls `request_override(rule_id, tool_name, tool_input)` → user sees exact command in TUI → approves → agent retries exact same command → token consumed → allowed
 
 ### `inject` — Tool-Input Modification (Separate Section)
@@ -1539,6 +1686,7 @@ Two-step evaluation when a tool call arrives:
 
 **Step 2 — Enforcement:** For each non-inject rule:
 
+0. **Filter namespace** — skip rules from inactive workflow namespaces. Only global rules and rules from the active workflow are evaluated. `rule.namespace != "global" and rule.namespace != active_wf` → skip.
 1. **Match trigger** — `matches_trigger(rule, tool_name)`: splits `PreToolUse/Bash` on `/`, compares tool name. Bare `PreToolUse` matches all.
 2. **Check role skip** — `should_skip_for_role(rule, agent_role)`: `roles` = only fires for listed roles; `exclude_roles` = never fires for listed roles.
 3. **Check phase skip** — `should_skip_for_phase(rule, current_phase)`: evaluates `phases`/`exclude_phases` against current qualified phase ID.
@@ -1547,8 +1695,8 @@ Two-step evaluation when a tool call arrives:
 6. **Log hit** — every rule match is recorded as a `HitRecord` regardless of enforcement level (see §8.1).
 7. **Apply enforcement:**
    - `log` → allow (hit logged, no block, continue to next rule)
-   - `warn` → check `consume_override_token(rule.id, tool_name, tool_input)`; if token consumed → allow (outcome: `ack`, continue); otherwise → block with `acknowledge_warning` instructions
-   - `deny` → check `consume_override_token(rule.id, tool_name, tool_input)`; if token consumed → allow (outcome: `overridden`, continue); otherwise → block with `request_override` instructions
+   - `warn` → check `consume_override(rule.id, tool_name, tool_input)`; if token consumed → allow (outcome: `ack`, continue); otherwise → block with `acknowledge_warning` instructions
+   - `deny` → check `consume_override(rule.id, tool_name, tool_input)`; if token consumed → allow (outcome: `overridden`, continue); otherwise → block with `request_override` instructions
 
 ### Helper Functions
 
@@ -1603,6 +1751,7 @@ from claude_agent_sdk.types import HookMatcher
 from claudechic.guardrails.hits import HitRecord, HitLogger
 
 GetPhaseCallback = Callable[[], str | None]
+GetActiveWfCallback = Callable[[], str | None]
 OverrideTokenConsumer = Callable[[str, str, dict], bool]  # (rule_id, tool_name, tool_input) -> consumed
 
 
@@ -1611,6 +1760,7 @@ def create_guardrail_hooks(
     hit_logger: HitLogger,
     agent_role: str | None = None,
     get_phase: GetPhaseCallback | None = None,
+    get_active_wf: GetActiveWfCallback | None = None,
     consume_override: OverrideTokenConsumer | None = None,
 ) -> dict[str, list[HookMatcher]]:
     """Create PreToolUse hooks that evaluate rules (all enforcement levels).
@@ -1622,6 +1772,8 @@ def create_guardrail_hooks(
         agent_role: Role type captured at agent creation time.
         get_phase: Callback returning current phase (in-memory engine lookup).
                    If None, phase filtering is skipped.
+        get_active_wf: Callback returning the active workflow_id (in-memory).
+                       If None, all workflow rules evaluate (no namespace filter).
         consume_override: Callback that checks and consumes a one-time override
                          token for a deny rule. Returns True if token was consumed.
                          If None, no overrides are possible.
@@ -1641,6 +1793,7 @@ def create_guardrail_hooks(
                 return {"decision": "block", "message": "Rules unavailable — global/ or workflows/ unreadable"}
 
         current_phase = get_phase() if get_phase else None
+        active_wf = get_active_wf() if get_active_wf else None
 
         # Step 1: Apply injections (from `injections:` section)
         for injection in result.injections:
@@ -1654,6 +1807,9 @@ def create_guardrail_hooks(
 
         # Step 2: Evaluate enforcement rules
         for rule in result.rules:
+            # Step 0: Skip rules from inactive workflows
+            if rule.namespace != "global" and rule.namespace != active_wf:
+                continue
             if not matches_trigger(rule, tool_name):
                 continue
             if should_skip_for_role(rule, agent_role):
@@ -1832,8 +1988,9 @@ def _merged_hooks(self, agent_type: str | None = None) -> dict[HookEvent, list[H
         agent_role=agent_type,
         get_phase=(self._workflow_engine.get_current_phase
                    if self._workflow_engine else None),
-        consume_override=(self._workflow_engine.consume_override_token
-                          if self._workflow_engine else None),
+        get_active_wf=(lambda: self._workflow_engine.workflow_id
+                       if self._workflow_engine else None),
+        consume_override=self._token_store.consume,  # App-level, always available
     )
     for event, matchers in rule_hooks.items():
         hooks.setdefault(event, []).extend(matchers)
@@ -1971,14 +2128,14 @@ The template-side `hints/` package (`AI_PROJECT_TEMPLATE/hints/`) has exactly th
 
 | Template-Side File | → claudechic Location | Contents |
 |---|---|---|
-| `hints/_types.py` | `claudechic/hints/_types.py` | `TriggerCondition` (Protocol), `HintLifecycle` (Protocol), `HintSpec` (frozen dataclass), `HintRecord`, lifecycle impls: `ShowOnce`, `ShowUntilResolved`, `ShowEverySession`, `CooldownPeriod(seconds)` |
-| `hints/_engine.py` | `claudechic/hints/_engine.py` | `run_pipeline()` — 6-stage evaluation: activation → trigger → lifecycle → sort → budget → present |
-| `hints/_state.py` | `claudechic/hints/_state.py` | `ProjectState`, `CopierAnswers`, `HintStateStore` (`.claude/hints_state.json`), `ActivationConfig` |
+| `hints/_types.py` | `claudechic/hints/types.py` | `TriggerCondition` (Protocol), `HintLifecycle` (Protocol), `HintSpec` (frozen dataclass), `HintDecl`, `HintRecord`, lifecycle impls: `ShowOnce`, `ShowUntilResolved`, `ShowEverySession`, `CooldownPeriod(seconds)` |
+| `hints/_engine.py` | `claudechic/hints/engine.py` | `run_pipeline()` — 6-stage evaluation: activation → trigger → lifecycle → sort → budget → present |
+| `hints/_state.py` | `claudechic/hints/state.py` | `ProjectState`, `CopierAnswers`, `HintStateStore` (`.claude/hints_state.json`), `ActivationConfig` |
 | `hints/__init__.py` | `claudechic/hints/__init__.py` | Public API: `evaluate()` entry point |
 
 **Key types reused:**
 ```python
-# From hints/_types.py (existing, moved to claudechic)
+# From hints/types.py (existing, moved to claudechic)
 
 class TriggerCondition(Protocol):
     def check(self, state: ProjectState) -> bool: ...
@@ -2081,23 +2238,27 @@ YAML keys map directly to code field names. No translation layer needed.
 | `phases` | `phases` | `list[str]` | Rule fires only during these phases. Bare names in same manifest (auto-qualified); qualified IDs for cross-workflow refs. |
 | `exclude_phases` | `exclude_phases` | `list[str]` | Rule never fires during these phases. Same qualification rules as `phases`. |
 | `inject_value` | `inject_value` | `str` | Injection: what to inject (in `injections:` section) |
-| `advance_checks[].type` | `CheckSpec.type` | `str` | Check type name |
-| `advance_checks[].params` | `CheckSpec.params` | `dict` | Check-specific parameters |
+| `advance_checks[].type` | `CheckDecl.type` | `str` | Check type name |
+| `advance_checks[].params` | `CheckDecl.params` | `dict` | Check-specific parameters |
 | `hints[].lifecycle` | `HintDecl.lifecycle` | `str` | `show-once`, `show-until-resolved`, etc. |
 
-### Manifest Types
+### Manifest Types (Dissolved — No `manifest_types.py`)
+
+Each type lives in the package that owns its domain:
 
 ```python
-# claudechic/workflows/manifest_types.py
-
+# claudechic/checks/protocol.py
 @dataclass(frozen=True)
-class CheckSpec:
+class CheckDecl:
     id: str
     type: str  # "command-output-check", "file-exists-check", etc.
     params: dict[str, Any]
     on_failure: dict | None = None
     when: dict | None = None
+```
 
+```python
+# claudechic/hints/types.py
 @dataclass(frozen=True)
 class HintDecl:
     id: str
@@ -2106,12 +2267,18 @@ class HintDecl:
     cooldown_seconds: int | None = None
     phase: str | None = None       # qualified phase ID, or None for unscoped
     namespace: str = ""
+```
+
+```python
+# claudechic/workflows/phases.py — bridge type (imports from two leaf packages)
+from claudechic.checks.protocol import CheckDecl
+from claudechic.hints.types import HintDecl
 
 @dataclass(frozen=True)
 class Phase:
     id: str                         # namespace-qualified
     file: str
-    advance_checks: list[CheckSpec] = field(default_factory=list)
+    advance_checks: list[CheckDecl] = field(default_factory=list)
     hints: list[HintDecl] = field(default_factory=list)
 ```
 
@@ -2204,20 +2371,24 @@ class RulesParser:
 1. `claudechic/workflows/__init__.py`
 2. `claudechic/workflows/loader.py`
 3. `claudechic/workflows/engine.py`
-4. `claudechic/workflows/checks.py`
+4. `claudechic/workflows/phases.py` — `Phase` dataclass (bridge type, imports `CheckDecl` + `HintDecl`)
 5. `claudechic/workflows/agent_folders.py`
-6. `claudechic/workflows/manifest_types.py`
-7. `claudechic/guardrails/hooks.py`
-8. `claudechic/guardrails/hits.py` — `HitRecord` dataclass, `HitLogger` (append-only JSONL writer), hit outcome tracking
-9. `claudechic/hints/__init__.py`
-10. `claudechic/hints/_types.py`
-11. `claudechic/hints/_engine.py`
-12. `claudechic/hints/_state.py`
+6. `claudechic/checks/__init__.py` — Public API: `Check`, `CheckResult`, `CheckDecl`, `register_check_type`, `check_failed_to_hint`
+7. `claudechic/checks/protocol.py` — `Check` protocol, `CheckResult`, `CheckDecl` (leaf — stdlib only)
+8. `claudechic/checks/builtins.py` — 4 built-in types + `_CHECK_REGISTRY` + `register_check_type`
+9. `claudechic/checks/adapter.py` — `CheckFailed` → `HintSpec` bridge
+10. `claudechic/guardrails/hooks.py`
+11. `claudechic/guardrails/hits.py` — `HitRecord` dataclass, `HitLogger` (append-only JSONL writer), hit outcome tracking
+12. `claudechic/guardrails/tokens.py` — `OverrideToken`, `OverrideTokenStore` (leaf — stdlib only)
+13. `claudechic/hints/__init__.py`
+14. `claudechic/hints/types.py` — `HintSpec`, `HintLifecycle`, `TriggerCondition`, `HintDecl`
+15. `claudechic/hints/engine.py` — `run_pipeline()` — 6-stage evaluation pipeline
+16. `claudechic/hints/state.py` — `ProjectState`, `CopierAnswers`, `HintStateStore`, `ActivationConfig`
 
 **MODIFY:**
 1. `claudechic/guardrails/rules.py` — Add `namespace` field; simplify `should_skip_for_phase()` signature; delete `load_rules()` and `read_phase_state()`
 2. `claudechic/guardrails/__init__.py` — Add hooks.py exports
-3. `claudechic/app.py` — Extract `_guardrail_hooks` body to `guardrails/hooks.py`; update `_merged_hooks`; add engine init with `persist_fn` wiring; pass `consume_override_token` to hooks; init `HitLogger`; add `_show_override_prompt` for `request_override` MCP; add PostCompact
+3. `claudechic/app.py` — Extract `_guardrail_hooks` body to `guardrails/hooks.py`; update `_merged_hooks`; add engine init with `persist_fn` wiring; pass `token_store.consume` to hooks; init `HitLogger` + `OverrideTokenStore`; add `_show_override_prompt` for `request_override` MCP; add PostCompact
 4. `claudechic/mcp.py` — Add agent folder prompt assembly to `spawn_agent`; add `advance_phase`, `get_phase`, `request_override`, and `acknowledge_warning` MCP tools
 5. `claudechic/chicsessions.py` — Add `workflow_state: dict | None = None` field to `Chicsession` dataclass
 
@@ -2242,482 +2413,104 @@ class RulesParser:
 app.py
   ├── guardrails/hooks.py           (create_guardrail_hooks — rule-evaluation hooks)
   ├── guardrails/hits.py            (HitLogger — created at app init)
+  ├── guardrails/tokens.py          (OverrideTokenStore — created at app init)
   ├── guardrails/rules.py           (Rule — type hints only)
-  ├── workflows/engine.py           (WorkflowEngine — phase state, override tokens, checks)
+  ├── workflows/engine.py           (WorkflowEngine — phase state, checks)
   ├── workflows/agent_folders.py    (assemble_phase_prompt)
   ├── chicsessions.py               (Chicsession — workflow_state field)
   └── hints/__init__.py             (run_pipeline — toast scheduling)
 
 guardrails/hooks.py
-  ├── guardrails/rules.py           (matches_trigger, should_skip_for_role, should_skip_for_phase)
+  ├── guardrails/rules.py           (Rule, Injection, matches_trigger, should_skip_for_role, should_skip_for_phase)
   ├── guardrails/hits.py            (HitRecord, HitLogger)
   └── claude_agent_sdk.types        (HookMatcher)
 
 guardrails/hits.py
   └── (json, pathlib, time only — no claudechic imports)
 
+guardrails/tokens.py
+  └── (hashlib, json, dataclasses only — no claudechic imports)
+
 workflows/engine.py
-  ├── workflows/manifest_types.py   (Phase, CheckSpec)
-  ├── workflows/checks.py           (Check, CheckResult, check_failed_to_hint)
+  ├── workflows/phases.py           (Phase)
+  ├── checks/protocol.py            (Check, CheckResult, CheckDecl)
+  ├── checks/builtins.py            (register_check_type, _build_check)
+  ├── checks/adapter.py             (check_failed_to_hint)
   ├── workflows/agent_folders.py    (assemble_agent_prompt)
   ├── guardrails/rules.py           (match_rule, matches_trigger, should_skip_*)
   └── claude_agent_sdk.types        (HookMatcher)
 
 workflows/loader.py
-  ├── workflows/manifest_types.py   (all types)
-  ├── guardrails/rules.py           (Rule — for rule parsing)
+  ├── guardrails/rules.py           (Rule, Injection — for rule/injection parsing)
+  ├── checks/protocol.py            (CheckDecl)
+  ├── hints/types.py                (HintDecl)
+  ├── workflows/phases.py           (Phase)
   └── yaml
 
-workflows/checks.py
-  ├── workflows/manifest_types.py   (CheckSpec)
-  └── hints/_types.py               (HintSpec — for CheckFailed adapter only)
+workflows/phases.py                 (bridge type — the one file importing from two leaf packages)
+  ├── checks/protocol.py            (CheckDecl)
+  └── hints/types.py                (HintDecl)
 
 workflows/agent_folders.py
   └── (pathlib only — no claudechic imports)
 
-workflows/manifest_types.py
-  ├── guardrails/rules.py           (Rule)
-  └── (dataclasses, pathlib)
-
-hints/_types.py
+checks/protocol.py
   └── (dataclasses only — no claudechic imports)
 
-hints/_engine.py
-  ├── hints/_types.py
-  └── hints/_state.py
+checks/builtins.py
+  └── checks/protocol.py            (Check, CheckResult, CheckDecl)
 
-hints/_state.py
+checks/adapter.py
+  ├── checks/protocol.py            (CheckResult)
+  └── hints/types.py                (HintSpec)
+
+hints/types.py
+  └── (dataclasses only — no claudechic imports)
+
+hints/engine.py
+  ├── hints/types.py
+  └── hints/state.py
+
+hints/state.py
   └── (json, pathlib only)
 
 hints/__init__.py
-  ├── hints/_types.py
-  ├── hints/_engine.py
-  └── hints/_state.py
+  ├── hints/types.py
+  ├── hints/engine.py
+  └── hints/state.py
 ```
 
 ### Circular Import Verification
 
-**No cycles exist:**
-- `workflows/` → `guardrails/rules.py`: one-way
-- `guardrails/hooks.py` → `guardrails/rules.py`: one-way
-- `guardrails/hooks.py` → `guardrails/hits.py`: one-way
-- `guardrails/hits.py` → (stdlib only): leaf node
-- `workflows/checks.py` → `hints/_types.py`: one-way
-- `hints/` never imports `workflows/` or `guardrails/`
-- `guardrails/` never imports `workflows/` or `hints/`
-- `app.py` imports from all three packages but none import `app.py`
+**Three leaf packages — no cycles:**
+- `guardrails/` → (stdlib only within package; `tokens.py` and `hits.py` are leaf nodes; no imports from workflows/, checks/, or hints/)
+- `checks/protocol.py` → (stdlib only): leaf node
+- `checks/builtins.py` → `checks/protocol.py`: one-way within package
+- `checks/adapter.py` → `checks/protocol.py` + `hints/types.py`: one-way
+- `hints/` → (stdlib only within package; no imports from workflows/, checks/, or guardrails/)
+- `workflows/` → `guardrails/rules.py`, `checks/protocol.py`, `hints/types.py`: one-way (orchestration layer)
+- `workflows/phases.py` → `checks/protocol.py` + `hints/types.py`: one-way (bridge type)
+- `app.py` imports from all four packages but none import `app.py`
+
+**Architecture invariant:** `guardrails/`, `checks/`, `hints/` are leaf packages — none import from `workflows/`. `workflows/` is the orchestration layer that imports from all three.
 
 ### Seam Cleanliness
 
 | Boundary | Clean? | Notes |
 |---|---|---|
-| `workflows/` → `guardrails/rules.py` | ✅ | Only imports `Rule` type and matching functions |
-| `workflows/checks.py` → `hints/_types.py` | ✅ | Only imports `HintSpec` dataclass |
+| `workflows/` → `guardrails/rules.py` | ✅ | Only imports `Rule`, `Injection`, and matching functions |
+| `workflows/` → `checks/protocol.py` | ✅ | Only imports `Check`, `CheckResult`, `CheckDecl` |
+| `workflows/` → `hints/types.py` | ✅ | Only imports `HintDecl` |
+| `checks/adapter.py` → `hints/types.py` | ✅ | Only imports `HintSpec` dataclass (CheckFailed bridge) |
 | `app.py` → `guardrails/hooks.py` | ✅ | Factory function, passes loader + hit_logger + callbacks |
 | `app.py` → `workflows/engine.py` | ✅ | Engine API, passes persist_fn + confirm callback for ManualConfirm |
-| `hints/` standalone | ✅ | Zero imports from workflows/ or guardrails/ |
+| `hints/` standalone | ✅ | Zero imports from workflows/, checks/, or guardrails/ |
+| `guardrails/` standalone | ✅ | Zero imports from workflows/, checks/, or hints/ |
+| `checks/` semi-standalone | ✅ | Only `adapter.py` imports from `hints/types.py`; `protocol.py` and `builtins.py` are self-contained |
 
 ---
 
-## 13. Risk Register
-
-### R1: NFS Performance on Every Tool Call
-
-**Risk:** Multi-manifest loading (2+ files, 4+ NFS ops) on every `PreToolUse` hook invocation. Existing code logs warnings >5ms.
-
-**Severity:** Medium.
-
-**Mitigation:** Accept I/O cost for small YAML files (~0.5ms each). Regex cache from day one. Profile before adding complexity. If optimization needed: content hash cache → lazy section parsing (last resort).
-
-### R2: Folder-Name Coupling
-
-**Risk:** Folder name = identity ties together manifest filename, namespace, agent folder names, and role type. Renaming requires coordinating multiple locations.
-
-**Severity:** Medium.
-
-**Mitigation:** `workflow_id` in YAML is source of truth for namespace. Folder name is convention. Loader validates that folder names match manifest `workflow_id` at startup where possible.
-
-### R3: Pull-Based Content Delivery Staleness
-
-**Risk:** Phase transitions triggered by coordinator won't be noticed by other agents until they next query via `get_phase` MCP tool. Agents may operate under stale phase guidance.
-
-**Severity:** Medium.
-
-**Mitigation:** Design accepts this — pull-based is intentional. Agents receive phase context at spawn time. The coordinator uses `tell_agent` to notify agents of transitions. Agents can call `get_phase` MCP tool to re-check. PostCompact hook restores context after `/compact`.
-
-### R4: ManualConfirm TUI Coupling
-
-**Risk:** ManualConfirm is the only check requiring user interaction — breaks "checks are pure" mental model.
-
-**Severity:** Low (mitigated by design).
-
-**Mitigation:** Callback injection. ManualConfirm receives `AsyncConfirmCallback` at construction. Never sees TUI, app, or widgets. Swap test passes (CLI, test, web UI all work with different callbacks).
-
-### ~~R5: `warn` Enforcement Infinite Loop~~ — RESOLVED
-
-Eliminated by the unified one-time token mechanism. `warn` rules block the tool call; the agent calls `acknowledge_warning` MCP tool (stores token), then retries. The hook's `consume_override_token()` detects and consumes the token. Per-command scoping means no session state, no loop risk — each invocation is independently evaluated.
-
-### R6: Silent Rule Loss on Parse Error
-
-**Risk:** YAML syntax error in a `global/*.yaml` file silently drops those global rules. No protection, no notification.
-
-**Severity:** Medium.
-
-**Mitigation:** Prominent warning/hint when a manifest fails to parse. `LoadResult.errors` is always checked. Fail-closed only for `global/` or `workflows/` directory unreadable. Individual manifest failures logged loudly.
-
-### ~~R7: NFS Atomic Write Visibility~~ — REMOVED
-
-Eliminated by moving persistence to chicsession. The session system handles its own I/O; the engine has no direct file writes.
-
-### R8: hints/ Package Name Collision
-
-**Risk:** `claudechic/hints/` vs template-side `hints/` — different systems, similar names.
-
-**Severity:** Low.
-
-**Mitigation:** Different import paths: `claudechic.hints` vs dynamic load of `{project}/hints`. No collision at Python level. Migration absorbs template-side infrastructure in one step.
-
-### R9: PostCompact Hook SDK Protocol
-
-**Risk:** The PostCompact hook return value format (`phase_context` key) is speculative. SDK may not support context injection this way.
-
-**Severity:** Medium.
-
-**Mitigation:** Verify SDK docs/source for PostCompact hook protocol before implementing. Fallback: write to a file that the SDK's system prompt mechanism reads, or use SystemMessage injection.
-
-### ~~R10: Corrupted state.json Recovery~~ — REMOVED
-
-Eliminated by moving persistence to chicsession. Session system manages its own integrity.
-
-### R11: Single Point of Failure (Engine Process)
-
-**Risk:** In-memory phase state is lost if the engine process crashes.
-
-**Severity:** Low — if the app crashes, all agents die anyway (they run as subprocesses). Chicsession auto-save on every phase transition (~6 writes per workflow run) ensures session resume loses at most the in-progress phase transition.
-
-**Mitigation:** `persist_fn` fires on every successful phase transition, saving `engine.to_session_state()` to `Chicsession.workflow_state`. On session resume, `WorkflowEngine.from_session_state()` restores the last persisted phase.
-
-### R12: Agent `get_phase` MCP Tool Call Cost
-
-**Risk:** Agents must make an MCP tool call to query the current phase, adding latency compared to a direct file read.
-
-**Severity:** Low — agents rarely poll mid-task. Phase is injected into the agent prompt at spawn time. The `get_phase` MCP tool is only needed if an agent wants to re-check the phase after a transition it wasn't notified about.
-
-**Mitigation:** Engine's `get_current_phase()` is an in-memory attribute lookup — the MCP call overhead is the transport only, no I/O.
-
----
-
-## 14. Examples
-
-### Example 1: Full `project_team.yaml` Manifest
-
-```yaml
-# workflows/project_team/project_team.yaml
-workflow_id: project-team
-
-rules:
-  - id: pytest_output
-    trigger: PreToolUse/Bash
-    enforcement: deny
-    phases: [testing]
-    detect: { pattern: '(?:^|&&|\|\||;|\brun\s+)\s*pytest\b', field: command }
-    message: "Redirect pytest output to .test_runs/"
-
-  - id: close_agent
-    trigger: PreToolUse/mcp__chic__close_agent
-    enforcement: deny
-    phases: [specification]
-    roles: [implementer]
-    message: "Close agent during specification — user approval required."
-
-  - id: force_push_warn
-    trigger: PreToolUse/Bash
-    enforcement: warn
-    detect: { pattern: 'git\s+push\s+.*--force', field: command }
-    message: "Force push detected — verify this is intentional."
-
-  - id: tool_usage_tracking
-    trigger: PreToolUse/Bash
-    enforcement: log
-    detect: { pattern: '\b(curl|wget)\b', field: command }
-    message: "Network tool usage detected."
-
-phases:
-  - id: vision
-    file: coordinator/vision.md
-  - id: setup
-    file: coordinator/setup.md
-  - id: specification
-    file: coordinator/specification.md
-  - id: implementation
-    file: coordinator/implementation.md
-    advance_checks:
-      - type: manual-confirm
-        question: "Are all implementation tasks complete?"
-    hints:
-      - message: "Focus on writing code, not running the full test suite"
-        lifecycle: show-once
-  - id: testing
-    file: coordinator/testing.md
-    advance_checks:
-      - type: command-output-check
-        command: "pixi run pytest --tb=short 2>&1 | tail -1"
-        pattern: "passed"
-  - id: signoff
-    file: coordinator/signoff.md
-```
-
-**After loading, rule IDs become:**
-- `project-team:pytest_output` (deny)
-- `project-team:close_agent` (deny)
-- `project-team:force_push_warn` (warn)
-- `project-team:tool_usage_tracking` (log)
-
-**Note:** `pip_block` is in `global/rules.yaml` only (as `global:pip_block`), not duplicated here.
-
-**Phase IDs become:**
-- `project-team:vision`, `project-team:setup`, ..., `project-team:signoff`
-
-### Example 2: `global/` Directory with Rules and Setup Checks
-
-```yaml
-# global/rules.yaml
-rules:
-  - id: pip_block
-    trigger: PreToolUse/Bash
-    enforcement: deny
-    detect: { pattern: '\bpip\s+install\b', field: command }
-    message: "Use pixi, not pip."
-```
-
-```yaml
-# global/checks.yaml
-checks:
-  - id: github_auth
-    type: command-output-check
-    command: "git ls-remote https://github.com/sprustonlab/claudechic.git HEAD 2>&1 | head -1"
-    pattern: "[0-9a-f]{40}"
-    on_failure:
-      message: "GitHub authentication failed. Run: gh auth login"
-      severity: warning
-      lifecycle: show-until-resolved
-
-  - id: cluster_ssh
-    type: command-output-check
-    when: { copier: use_cluster }
-    command: "ssh -o ConnectTimeout=5 -o BatchMode=yes ${cluster_ssh_target} hostname 2>&1"
-    pattern: "^[a-zA-Z]"
-    on_failure:
-      message: "Cannot SSH to cluster. Run: ssh-copy-id ${cluster_ssh_target}"
-      severity: warning
-      lifecycle: show-until-resolved
-```
-
-All files in `global/` share the `global` namespace. **After loading, IDs become:** `global:pip_block`, `global:github_auth`, `global:cluster_ssh`.
-
-**At startup:** Engine runs all setup checks (no short-circuit). `github_auth` runs always. `cluster_ssh` runs only if `use_cluster` is truthy in copier answers. Failures produce hints via CheckFailed adapter with `show-until-resolved` lifecycle.
-
-### Example 3: Phase Transition Walkthrough
-
-Coordinator decides implementation is done, calls the `advance_phase` MCP tool:
-
-1. **MCP tool `advance_phase` invoked** — engine determines current phase is `project-team:implementation`, next is `project-team:testing`.
-
-2. **Engine reads advance_checks for `implementation` phase:**
-   ```yaml
-   advance_checks:
-     - type: manual-confirm
-       question: "Are all implementation tasks complete?"
-   ```
-
-3. **Engine builds check:** `ManualConfirm(question="Are all implementation tasks complete?", confirm_fn=<callback>)`
-
-4. **Engine calls `check.check()`:**
-   - Callback fires → SelectionPrompt appears in TUI
-   - User sees: `✅ Check: Are all implementation tasks complete?` with Yes/No options
-
-5. **User selects "Yes":**
-   - `CheckResult(passed=True, evidence="User confirmed")`
-   - All checks passed (only one in this case)
-
-6. **Engine updates in-memory state + persists via chicsession:**
-   ```python
-   self._current_phase = "project-team:testing"  # In-memory — authoritative
-   self._persist_fn()  # → session.workflow_state = engine.to_session_state(); manager.save(session)
-   ```
-
-7. **MCP tool returns `{"success": true, "phase": "testing"}`** — coordinator notifies other agents via `tell_agent`. Next hook evaluation calls `engine.get_current_phase()` (in-memory) and evaluates phase-scoped rules against `project-team:testing`.
-
-8. **If user had selected "No":**
-   - `CheckResult(passed=False, evidence="User declined")`
-   - Short-circuit: phase transition blocked
-   - If `on_failure` configured, hint fires via CheckFailed adapter
-   - MCP tool returns `{"success": false, "reason": "Advance checks failed"}`
-   - Coordinator remains in `implementation` phase
-
-### Example 4: Phase-Scoped Rule Evaluation
-
-Rule from manifest (in `project_team.yaml`):
-```yaml
-- id: pytest_output
-  trigger: PreToolUse/Bash
-  enforcement: deny
-  phases: [testing]
-  detect: { pattern: '(?:^|&&|\|\||;|\brun\s+)\s*pytest\b', field: command }
-  message: "Redirect pytest output to .test_runs/"
-```
-
-After loading, the bare `testing` is qualified to `project-team:testing`.
-
-**Current phase: `project-team:implementation`** — agent runs `pytest`:
-
-1. Trigger match: `PreToolUse/Bash` ✅
-2. Role skip: no `roles`/`exclude_roles` → no skip
-3. Phase skip: `phases: ["project-team:testing"]` (qualified at load time) — current phase is `project-team:implementation`, NOT in `phases` → **skip** ✅
-4. Rule does NOT fire. `pytest` runs normally.
-
-**Current phase: `project-team:testing`** — agent runs `pytest`:
-
-1. Trigger match: `PreToolUse/Bash` ✅
-2. Role skip: no restrictions → no skip
-3. Phase skip: `phases: ["project-team:testing"]` — current phase IS in `phases` → **does not skip**
-4. Detect match: `pytest` matches pattern ✅
-5. Hit logged: `HitRecord(rule_id="project-team:pytest_output", outcome="blocked", ...)`
-6. Enforcement: `deny` → `{"decision": "block", "reason": "Redirect pytest output to .test_runs/\nTo request user override: request_override(rule_id=\"project-team:pytest_output\", tool_name=\"Bash\", tool_input={...})"}`
-
-Rule for `close_agent` with `phases` and `roles` (in `project_team.yaml`):
-```yaml
-- id: close_agent
-  trigger: PreToolUse/mcp__chic__close_agent
-  enforcement: deny
-  phases: [specification]
-  roles: [implementer]
-```
-
-After loading, `specification` is qualified to `project-team:specification`.
-
-**Agent: implementer, phase: specification** — calls `close_agent`:
-1. Trigger: `PreToolUse/mcp__chic__close_agent` ✅
-2. Role: `roles: [implementer]` — agent IS implementer → does not skip
-3. Phase: `phases: ["project-team:specification"]` (qualified at load time) — current phase IS in `phases` → does not skip
-4. No detect pattern → fires
-5. Enforcement: `deny` → block with message: "Close agent during specification — user approval required.\n\nTo request user override: request_override(rule_id=\"project-team:close_agent\", tool_name=\"mcp__chic__close_agent\", tool_input={...})"
-6. Agent calls `request_override(rule_id="project-team:close_agent", tool_name="mcp__chic__close_agent", tool_input={...})` → user sees exact command in SelectionPrompt → if approved, one-time token stored → agent retries exact same command → token consumed → allowed through
-
-**Agent: coordinator, phase: specification** — calls `close_agent`:
-1. Trigger: ✅
-2. Role: `roles: [implementer]` — agent is coordinator, NOT in roles → **skip** ✅
-3. Rule does NOT fire.
-
-### Example 5: Hook Closure Code
-
-```python
-# At agent spawn time (e.g., spawning an "implementer" agent):
-
-# 1. app._make_options() calls _merged_hooks(agent_type="implementer")
-# 2. _merged_hooks calls create_guardrail_hooks() (evaluates all rules, all enforcement levels):
-
-hooks = create_guardrail_hooks(
-    loader=app._manifest_loader,       # Shared instance (parsers registered once at app init)
-    hit_logger=app._hit_logger,        # Shared instance (audit trail)
-    agent_role="implementer",          # Captured in closure
-    get_phase=app._workflow_engine.get_current_phase,  # In-memory lookup, no I/O
-    consume_override=app._workflow_engine.consume_override_token,  # Per-command tokens
-)
-
-# 3. The returned hooks dict contains a PreToolUse hook.
-# 4. On every tool call by this agent, the hook closure:
-#    a. Calls loader.load() — reads manifests fresh (no mtime cache — NFS safe)
-#    b. Evaluates each rule with agent_role="implementer"
-#    c. Rules with exclude_roles=["implementer"] are skipped
-#    d. Rules with roles=["implementer"] always fire for this agent
-#    e. Phase from get_phase() — in-memory engine attribute, no file I/O
-
-# The closure captures loader + hit_logger + agent_role + get_phase + consume_override.
-# Different agents get different closures with different roles,
-# but share the same loader, hit_logger, and engine callbacks.
-```
-
-### Example 6: Manifest Discovery
-
-Given this file tree:
-```
-global/
-  rules.yaml
-  checks.yaml
-  hints.yaml
-  .notes.yaml                  # Hidden — ignored
-workflows/
-  project_team/
-    project_team.yaml
-    coordinator/
-      identity.md
-      ...
-  another_workflow/
-    another_workflow.yaml
-  .hidden/
-    hidden.yaml
-  project_team/
-    notes.txt                 # Not a manifest (wrong name)
-```
-
-`discover_manifests(Path("global/"), Path("workflows/"))` returns:
-```python
-[
-    Path("global/checks.yaml"),                              # 1. Global first, alphabetical
-    Path("global/hints.yaml"),                               # 2. Global, alphabetical
-    Path("global/rules.yaml"),                               # 3. Global, alphabetical
-    Path("workflows/another_workflow/another_workflow.yaml"), # 4. Workflows, alphabetical
-    Path("workflows/project_team/project_team.yaml"),        # 5. Workflows, alphabetical
-]
-```
-
-**Ignored:**
-- `global/.notes.yaml` — starts with `.`
-- `workflows/.hidden/` — starts with `.`
-- `notes.txt` — not a manifest (filename doesn't match parent directory)
-
-**Namespaces assigned:**
-- All `global/*.yaml` files → `global`
-- `another_workflow.yaml` → value of `workflow_id` field, fallback to `another_workflow`
-- `project_team.yaml` → value of `workflow_id` field (e.g. `project-team`), fallback to `project_team`
-
-### Example 7: Phase Reference Validation
-
-```yaml
-# workflows/project_team/project_team.yaml
-workflow_id: project-team
-
-rules:
-  - id: bad_ref
-    trigger: PreToolUse/Bash
-    enforcement: deny
-    phases: [nonexistent]                    # ← references unknown phase (bare name)
-    message: "This rule has a bad phase reference"
-
-  - id: good_ref
-    trigger: PreToolUse/Bash
-    enforcement: deny
-    phases: [testing]                        # ← valid phase reference (bare name)
-    message: "This rule is correctly scoped"
-
-phases:
-  - id: implementation
-    file: coordinator/implementation.md
-  - id: testing
-    file: coordinator/testing.md
-```
-
-**After loading:**
-- Known phases: `project-team:implementation`, `project-team:testing`
-- Rule `project-team:bad_ref` has `phases: ["project-team:nonexistent"]`
-- Validation produces:
-  ```
-  LoadError(source="validation", section="rules", item_id="project-team:bad_ref",
-            message="unknown phase ref 'project-team:nonexistent' in phases")
-  ```
-- The rule still loads (fail-open) but `phases` filter is vacuously false for `project-team:nonexistent` — the rule never activates on phase grounds
-- Rule `project-team:good_ref` validates cleanly
+See [APPENDIX.md](APPENDIX.md) for risk register (R1–R12) and worked examples (7 examples covering manifests, phase transitions, rule evaluation, hook closures, discovery, and validation).
 
 ---
 
@@ -2726,6 +2519,7 @@ phases:
 ### In Scope (Build)
 - Unified manifest loader with typed section parsers (ManifestSection[T])
 - Workflow engine (phase transitions, advance_checks gates, state persistence)
+- Explicit workflow activation via auto-discovered slash commands (`/{workflow-id}`, `/workflow list`, `/workflow reload`)
 - Check protocol with 4 built-in types and CheckFailed → hints adapter
 - Agent folder structure and prompt assembly
 - `global/` directory with setup checks, global rules, and global hints
@@ -2737,11 +2531,11 @@ phases:
 ### Explicitly Out of Scope
 - **CompoundCheck** — OR semantics for checks
 - **Content focus guards** — phase-aware read guards
-- **Multi-workflow** — multiple workflows active simultaneously
+- **Multi-workflow** — multiple workflows active simultaneously (enforced by the one-active-at-a-time slash command model)
 
 - **`regex_miss` detect type** — negated pattern matching (rule fires when pattern does NOT match). Can be added later via a `negate: true` field on `detect`. Current spec supports `regex_match` (detect pattern present) and `always` (detect pattern absent).
 - **`spawn_type_defined` detect type** — validates that the spawned agent type exists in agent folders. Can be added as a custom detect type once the detect system is extensible.
 
 ---
 
-See [APPENDIX_FUTURE_MCP.md](APPENDIX_FUTURE_MCP.md) for future scope: MCP tools (`get_workflow_info`, `set_phase`, `list_phases`, `list_checks`, `run_check`) and hint lifecycles (`show-until-phase-complete`).
+See [APPENDIX.md](APPENDIX.md) for future scope: MCP tools (`get_workflow_info`, `set_phase`, `list_phases`, `list_checks`, `run_check`), hint lifecycles (`show-until-phase-complete`), and NFS performance strategy.

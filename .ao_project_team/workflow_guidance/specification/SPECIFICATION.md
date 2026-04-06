@@ -72,8 +72,8 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | **Enforcement Level** | How the system responds when a rule fires. Three levels: `warn` (block, agent ack via `acknowledge_warning` MCP, per-command, 2 actions), `deny` (block, user override via `request_override` MCP, per-command, 2 actions), `log` (silent record). Both `warn` and `deny` use the same one-time token mechanism. See table in §8. |
 | **Detect Pattern** | A regex in a rule's `detect` block, matched against a specified `field` of the tool input (default: `command`). If absent, the rule fires on every matching trigger. |
 | **Exclude Pattern** | A regex (`exclude_if_matches`) that, when matched, prevents the rule from firing — checked before the detect pattern. |
-| **Role Scoping** | `roles_only` — rule fires *only* for these roles (scope-to). `roles_except` — rule *never* fires for these roles (exclude). |
-| **Phase Scoping** | `phase_only` — rule fires only during these phases (scope-to, qualified IDs). `phase_except` — rule *never* fires during these phases (exclude, qualified IDs). |
+| **Role Scoping** | `roles` — rule fires *only* for these roles (include filter). `exclude_roles` — rule *never* fires for these roles (exclude filter). |
+| **Phase Scoping** | `phases` — rule fires only during these phases (include filter). `exclude_phases` — rule *never* fires during these phases (exclude filter). Within the same manifest, bare phase names are used; the loader qualifies them at parse time. Cross-workflow references use fully qualified IDs. |
 
 ### Phases
 
@@ -82,7 +82,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | **Phase** | A named period in a workflow's lifecycle (e.g. `vision`, `setup`, `specification`). Ordered. Each has an `id`, a `file` reference, optional `advance_checks`, and optional `hints`. |
 | **Phase Transition** | Moving from current phase to next. Gated by `advance_checks` — all must pass (AND semantics, short-circuit on first failure). |
 | **Phase State** | Runtime tracking of current phase. Held in-memory by the engine, persisted via `Chicsession.workflow_state` on each phase transition. On session resume, the engine restores state from the chicsession. |
-| **Qualified Phase ID** | `<workflow_id>:<phase_id>` (e.g. `project-team:testing`). Used in `phase_only` and `phase_except` fields. Bare phase IDs are never used in scoping fields. |
+| **Qualified Phase ID** | `<workflow_id>:<phase_id>` (e.g. `project-team:testing`). The runtime form used in `phases` and `exclude_phases` fields. In YAML, bare names are used within the same manifest (loader qualifies them); fully qualified names are required for cross-workflow references in `global.yaml`. |
 
 ### Checks
 
@@ -98,7 +98,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 
 | Term | Definition |
 |------|-----------|
-| **Hint** | Advisory content delivered to the agent or user. Declared in manifests under phase entries or globally. Engine converts declarations to `HintSpec` objects via `run_pipeline()`. |
+| **Hint** | Advisory content delivered to the user via TUI toast. Not visible to the agent. Declared in manifests under phase entries or globally. Engine converts declarations to `HintSpec` objects via `run_pipeline()`. |
 | **HintSpec** | Internal object representing a hint after manifest parsing. Consumed by the existing hints pipeline. |
 | **Hint Lifecycle** | Controls display behavior: `show-once` (displayed once, suppressed), `show-until-resolved` (repeated until condition passes). Out of scope: `ShowUntilPhaseComplete`. |
 | **CheckFailed Adapter** | Bridges failing checks into the hints pipeline. When a check fails and has `on_failure` config, produces a `HintSpec` surfaced through `run_pipeline()`. |
@@ -108,7 +108,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | Term | Definition |
 |------|-----------|
 | **Agent Folder** | A directory inside a workflow directory (e.g. `workflows/project_team/coordinator/`). The folder name IS the role type. |
-| **Role Type** | Identity of an agent, derived from folder name (e.g. `coordinator`, `implementer`, `skeptic`). Used in `roles_only`/`roles_except` and captured in SDK hook closures at spawn time. |
+| **Role Type** | Identity of an agent, derived from folder name (e.g. `coordinator`, `implementer`, `skeptic`). Used in `roles`/`exclude_roles` and captured in SDK hook closures at spawn time. |
 | **Identity File** | `identity.md` inside an agent folder. Cross-phase — always loaded. |
 | **Phase File** | Markdown file named after a phase (e.g. `specification.md`). Loaded only during that phase. Pure advisory content. |
 | **Agent Prompt** | The assembled prompt: `identity.md` + current phase file. Pull-based — the agent calls the `get_phase` MCP tool to discover the current phase, then reads its own markdown files. |
@@ -163,7 +163,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 7. **Engine** manages state and transitions. **Loader** reads and parses manifests. Separate components.
 8. **Workflow** = full package (directory + manifest + agent folders + state). **Workflow manifest** = the YAML file specifically.
 9. **Identity** = cross-phase `identity.md`. **Agent prompt** = identity + phase file.
-10. **`roles_only`/`roles_except`** restrict by role. **`phase_only`/`phase_except`** restrict by phase. `_only` = scope-to (fires only for listed values). `_except` = exclude (never fires for listed values).
+10. **`roles`/`exclude_roles`** restrict by role. **`phases`/`exclude_phases`** restrict by phase. Bare noun (`roles`, `phases`) = scope-to (include filter). `exclude_` prefix (`exclude_roles`, `exclude_phases`) = exempt (exclude filter).
 
 ---
 
@@ -194,13 +194,13 @@ Filtering dimensions that compose with AND semantics:
 | Filter | Values | Applies to |
 |--------|--------|------------|
 | **Namespace** | `_global` \| `{workflow_id}` | All guidance types |
-| **Phase** | `phase_only` / `phase_except` lists | Rules, hints |
-| **Role** | `roles_only` / `roles_except` lists | Rules |
+| **Phase** | `phases` / `exclude_phases` lists | Rules, hints |
+| **Role** | `roles` / `exclude_roles` lists | Rules |
 | **Conditional** | `when: { copier: key }` | Checks |
 
 Each filter is `(context) -> bool`. Evaluation: `all(f(ctx) for f in applicable_filters)`. No filter inspects another filter's state.
 
-**Phase references cross workflow boundaries:** `phase_only: ["project-team:testing"]` in `global.yaml` creates a coupling to a specific workflow. This is intentional (qualified IDs prevent ambiguity). The loader's startup validation makes this coupling explicit and fails fast.
+**Phase references cross workflow boundaries:** `phases: ["project-team:testing"]` in `global.yaml` creates a coupling to a specific workflow. Cross-workflow references must use fully qualified IDs (bare names are only auto-qualified within the same manifest). The loader's startup validation makes this coupling explicit and fails fast.
 
 **Note on axes 4–6:** These axes are not freely composable across all section types — they describe dimensions of variation within their applicable domains (e.g., lifecycle applies to hints, enforcement applies to rules).
 
@@ -238,13 +238,13 @@ The foundational axis. Content = `workflows/` directory (YAML + markdown). Infra
 
 | # | Section Type | Check Type | Scope | Enforcement | Lifecycle | Works? |
 |---|-------------|-----------|-------|-------------|-----------|--------|
-| 1 | rule | N/A | global + phase_only | deny | N/A | ✅ existing guardrails |
+| 1 | rule | N/A | global + phases | deny | N/A | ✅ existing guardrails |
 | 2 | check | CommandOutput | global | toast (via adapter) | show-until-resolved | ✅ setup checks |
 | 3 | check | ManualConfirm | workflow phase | toast (via adapter) | show-once | ✅ advance_checks |
 | 4 | hint | N/A | workflow phase | toast | show-once | ✅ phase hints |
 | 5 | rule | N/A | global + role filter | deny | N/A | ✅ role-scoped rules |
 | 6 | check | FileExists | global | toast (via adapter) | show-until-resolved | ✅ setup check |
-| 7 | rule | N/A | workflow + phase_except | deny | N/A | ✅ phase-scoped rule |
+| 7 | rule | N/A | workflow + exclude_phases | deny | N/A | ✅ phase-scoped rule |
 | 8 | check | FileContent | workflow phase advance | N/A | N/A | ✅ advance gate |
 | 9 | hint | N/A | global | toast | cooldown | ✅ global hint |
 | 10 | check | ManualConfirm | global setup | toast (via adapter) | show-until-resolved | ⚠️ edge case — works mechanically but unusual |
@@ -396,7 +396,7 @@ class ManifestSection(Protocol[T_co]):
 
 **Parser does NOT validate (loader's responsibility):**
 - Duplicate IDs across manifests (needs cross-manifest view)
-- Phase reference validity (`phase_only`/`phase_except` targets exist)
+- Phase reference validity (`phases`/`exclude_phases` targets exist)
 - Cross-section references
 
 **Namespace prefixing happens IN the parser.** The parser receives `namespace` and prefixes every `id` field. The parser knows item structure; the loader is generic.
@@ -579,7 +579,7 @@ YAML:           id: testing        (phase in project_team.yaml)
 After parse:    id: project-team:testing
 ```
 
-Phase references are already qualified in YAML: `phase_only: ["project-team:testing"]`. The parser does NOT prefix these. The loader validates them against known phase IDs after all manifests are loaded.
+**Phase reference qualification:** Phase references within the same manifest use bare names (e.g. `phases: [testing]`). The loader qualifies them with the workflow namespace at parse time, producing `project-team:testing`. Cross-workflow references in `global.yaml` must use fully qualified names (e.g. `phases: ["project-team:testing"]`). The loader validates all qualified phase references against known phase IDs after all manifests are loaded.
 
 ### Cross-Manifest Validation
 
@@ -605,17 +605,17 @@ def _validate(self, collected: dict[str, list]) -> list[LoadError]:
     # 2. Phase reference validation
     known_phases = {p.id for p in collected.get("phases", [])}
     for rule in collected.get("rules", []):
-        for ref in getattr(rule, "phase_only", []):
+        for ref in getattr(rule, "phases", []):
             if ref not in known_phases:
                 errors.append(LoadError(
                     source="validation", section="rules", item_id=rule.id,
-                    message=f"unknown phase ref '{ref}' in phase_only",
+                    message=f"unknown phase ref '{ref}' in phases",
                 ))
-        for ref in getattr(rule, "phase_except", []):
+        for ref in getattr(rule, "exclude_phases", []):
             if ref not in known_phases:
                 errors.append(LoadError(
                     source="validation", section="rules", item_id=rule.id,
-                    message=f"unknown phase ref '{ref}' in phase_except",
+                    message=f"unknown phase ref '{ref}' in exclude_phases",
                 ))
 
     return errors
@@ -1487,10 +1487,10 @@ class Injection:
     detect_pattern: re.Pattern[str] | None = None
     detect_field: str = "command"
     inject_value: str = ""     # What to inject (semantics depend on specific injection)
-    roles_only: list[str] = field(default_factory=list)
-    roles_except: list[str] = field(default_factory=list)
-    phase_only: list[str] = field(default_factory=list)
-    phase_except: list[str] = field(default_factory=list)
+    roles: list[str] = field(default_factory=list)
+    exclude_roles: list[str] = field(default_factory=list)
+    phases: list[str] = field(default_factory=list)
+    exclude_phases: list[str] = field(default_factory=list)
 ```
 
 **Hook evaluation — Step 1:**
@@ -1522,8 +1522,8 @@ Two-step evaluation when a tool call arrives:
 **Step 2 — Enforcement:** For each non-inject rule:
 
 1. **Match trigger** — `matches_trigger(rule, tool_name)`: splits `PreToolUse/Bash` on `/`, compares tool name. Bare `PreToolUse` matches all.
-2. **Check role skip** — `should_skip_for_role(rule, agent_role)`: `roles_only` = only fires for listed roles; `roles_except` = never fires for listed roles.
-3. **Check phase skip** — `should_skip_for_phase(rule, current_phase)`: evaluates `phase_only`/`phase_except` against current qualified phase ID.
+2. **Check role skip** — `should_skip_for_role(rule, agent_role)`: `roles` = only fires for listed roles; `exclude_roles` = never fires for listed roles.
+3. **Check phase skip** — `should_skip_for_phase(rule, current_phase)`: evaluates `phases`/`exclude_phases` against current qualified phase ID.
 4. **Check exclude pattern** — if `exclude_pattern` matches, skip this rule.
 5. **Match detect pattern** — if `detect_pattern` is set and doesn't match, skip this rule.
 6. **Log hit** — every rule match is recorded as a `HitRecord` regardless of enforcement level (see §8.1).
@@ -1995,7 +1995,7 @@ class HintSpec:
 
 | Existing Code | Action | New Location | Changes |
 |---|---|---|---|
-| `Rule` dataclass | **Modify in place** | guardrails/rules.py | Add required `namespace: str` field (no default). YAML uses `roles_only`/`roles_except` only — no `block`/`allow` compat. |
+| `Rule` dataclass | **Modify in place** | guardrails/rules.py | Add required `namespace: str` field (no default). YAML uses `roles`/`exclude_roles` and `phases`/`exclude_phases`. |
 | `load_rules(rules_path)` | **Replace** | workflows/loader.py | Old `load_rules()` deleted. All rule loading through ManifestLoader. RulesParser implements ManifestSection[Rule]. |
 | `matches_trigger()` | **No change** | guardrails/rules.py | Unchanged. |
 | `match_rule()` | **No change** | guardrails/rules.py | Unchanged. |
@@ -2027,10 +2027,10 @@ class Rule:
     detect_field: str = "command"
     exclude_pattern: re.Pattern[str] | None = None
     message: str = ""
-    roles_only: list[str] = field(default_factory=list)
-    roles_except: list[str] = field(default_factory=list)
-    phase_only: list[str] = field(default_factory=list)
-    phase_except: list[str] = field(default_factory=list)
+    roles: list[str] = field(default_factory=list)
+    exclude_roles: list[str] = field(default_factory=list)
+    phases: list[str] = field(default_factory=list)
+    exclude_phases: list[str] = field(default_factory=list)
 ```
 
 ### should_skip_for_phase() — Simplified
@@ -2058,10 +2058,10 @@ YAML keys map directly to code field names. No translation layer needed.
 | `detect.field` | `detect_field` | `str` | Default: `"command"` |
 | `exclude_if_matches` | `exclude_pattern` | `re.Pattern` | Compiled regex |
 | `message` | `message` | `str` | Human-readable block message |
-| `roles_only` | `roles_only` | `list[str]` | Rule fires only for these roles |
-| `roles_except` | `roles_except` | `list[str]` | Rule never fires for these roles |
-| `phase_only` | `phase_only` | `list[str]` | Rule fires only during these phases (qualified IDs) |
-| `phase_except` | `phase_except` | `list[str]` | Rule never fires during these phases (qualified IDs) |
+| `roles` | `roles` | `list[str]` | Rule fires only for these roles |
+| `exclude_roles` | `exclude_roles` | `list[str]` | Rule never fires for these roles |
+| `phases` | `phases` | `list[str]` | Rule fires only during these phases. Bare names in same manifest (auto-qualified); qualified IDs for cross-workflow refs. |
+| `exclude_phases` | `exclude_phases` | `list[str]` | Rule never fires during these phases. Same qualification rules as `phases`. |
 | `inject_value` | `inject_value` | `str` | Injection: what to inject (in `injections:` section) |
 | `advance_checks[].type` | `CheckSpec.type` | `str` | Check type name |
 | `advance_checks[].params` | `CheckSpec.params` | `dict` | Check-specific parameters |
@@ -2173,10 +2173,10 @@ class RulesParser:
             detect_field=detect_field,
             exclude_pattern=exclude_pattern,
             message=entry.get("message", ""),
-            roles_only=_as_list(entry.get("roles_only", [])),
-            roles_except=_as_list(entry.get("roles_except", [])),
-            phase_only=_as_list(entry.get("phase_only", [])),
-            phase_except=_as_list(entry.get("phase_except", [])),
+            roles=_as_list(entry.get("roles", [])),
+            exclude_roles=_as_list(entry.get("exclude_roles", [])),
+            phases=_as_list(entry.get("phases", [])),
+            exclude_phases=_as_list(entry.get("exclude_phases", [])),
         )
 ```
 
@@ -2401,15 +2401,15 @@ rules:
   - id: pytest_output
     trigger: PreToolUse/Bash
     enforcement: deny
-    phase_only: ["project-team:testing"]
+    phases: [testing]
     detect: { pattern: '(?:^|&&|\|\||;|\brun\s+)\s*pytest\b', field: command }
     message: "Redirect pytest output to .test_runs/"
 
   - id: close_agent
     trigger: PreToolUse/mcp__chic__close_agent
     enforcement: deny
-    phase_only: ["project-team:specification"]
-    roles_only: [implementer]
+    phases: [specification]
+    roles: [implementer]
     message: "Close agent during specification — user approval required."
 
   - id: force_push_warn
@@ -2536,52 +2536,56 @@ Coordinator decides implementation is done, calls the `advance_phase` MCP tool:
 
 ### Example 4: Phase-Scoped Rule Evaluation
 
-Rule from manifest:
+Rule from manifest (in `project_team.yaml`):
 ```yaml
 - id: pytest_output
   trigger: PreToolUse/Bash
   enforcement: deny
-  phase_only: ["project-team:testing"]
+  phases: [testing]
   detect: { pattern: '(?:^|&&|\|\||;|\brun\s+)\s*pytest\b', field: command }
   message: "Redirect pytest output to .test_runs/"
 ```
 
+After loading, the bare `testing` is qualified to `project-team:testing`.
+
 **Current phase: `project-team:implementation`** — agent runs `pytest`:
 
 1. Trigger match: `PreToolUse/Bash` ✅
-2. Role skip: no `roles_only`/`roles_except` → no skip
-3. Phase skip: `phase_only: ["project-team:testing"]` — current phase is `project-team:implementation`, NOT in `phase_only` → **skip** ✅
+2. Role skip: no `roles`/`exclude_roles` → no skip
+3. Phase skip: `phases: ["project-team:testing"]` (qualified at load time) — current phase is `project-team:implementation`, NOT in `phases` → **skip** ✅
 4. Rule does NOT fire. `pytest` runs normally.
 
 **Current phase: `project-team:testing`** — agent runs `pytest`:
 
 1. Trigger match: `PreToolUse/Bash` ✅
 2. Role skip: no restrictions → no skip
-3. Phase skip: `phase_only: ["project-team:testing"]` — current phase IS in `phase_only` → **does not skip**
+3. Phase skip: `phases: ["project-team:testing"]` — current phase IS in `phases` → **does not skip**
 4. Detect match: `pytest` matches pattern ✅
 5. Hit logged: `HitRecord(rule_id="project-team:pytest_output", outcome="blocked", ...)`
 6. Enforcement: `deny` → `{"decision": "block", "reason": "Redirect pytest output to .test_runs/\nTo request user override: request_override(rule_id=\"project-team:pytest_output\", tool_name=\"Bash\", tool_input={...})"}`
 
-Rule for `close_agent` with `phase_only` and `roles_only`:
+Rule for `close_agent` with `phases` and `roles` (in `project_team.yaml`):
 ```yaml
 - id: close_agent
   trigger: PreToolUse/mcp__chic__close_agent
   enforcement: deny
-  phase_only: ["project-team:specification"]
-  roles_only: [implementer]
+  phases: [specification]
+  roles: [implementer]
 ```
+
+After loading, `specification` is qualified to `project-team:specification`.
 
 **Agent: implementer, phase: specification** — calls `close_agent`:
 1. Trigger: `PreToolUse/mcp__chic__close_agent` ✅
-2. Role: `roles_only: [implementer]` — agent IS implementer → does not skip
-3. Phase: `phase_only: ["project-team:specification"]` — current phase IS in `phase_only` ��� does not skip
+2. Role: `roles: [implementer]` — agent IS implementer → does not skip
+3. Phase: `phases: ["project-team:specification"]` (qualified at load time) — current phase IS in `phases` → does not skip
 4. No detect pattern → fires
 5. Enforcement: `deny` → block with message: "Close agent during specification — user approval required.\n\nTo request user override: request_override(rule_id=\"project-team:close_agent\", tool_name=\"mcp__chic__close_agent\", tool_input={...})"
 6. Agent calls `request_override(rule_id="project-team:close_agent", tool_name="mcp__chic__close_agent", tool_input={...})` → user sees exact command in SelectionPrompt → if approved, one-time token stored → agent retries exact same command → token consumed → allowed through
 
 **Agent: coordinator, phase: specification** — calls `close_agent`:
 1. Trigger: ✅
-2. Role: `roles_only: [implementer]` — agent is coordinator, NOT in roles_only → **skip** ✅
+2. Role: `roles: [implementer]` — agent is coordinator, NOT in roles → **skip** ✅
 3. Rule does NOT fire.
 
 ### Example 5: Hook Closure Code
@@ -2604,8 +2608,8 @@ hooks = create_guardrail_hooks(
 # 4. On every tool call by this agent, the hook closure:
 #    a. Calls loader.load() — reads manifests fresh (no mtime cache — NFS safe)
 #    b. Evaluates each rule with agent_role="implementer"
-#    c. Rules with roles_except=["implementer"] are skipped
-#    d. Rules with roles_only=["implementer"] always fire for this agent
+#    c. Rules with exclude_roles=["implementer"] are skipped
+#    d. Rules with roles=["implementer"] always fire for this agent
 #    e. Phase from get_phase() — in-memory engine attribute, no file I/O
 
 # The closure captures loader + hit_logger + agent_role + get_phase + consume_override.
@@ -2660,13 +2664,13 @@ rules:
   - id: bad_ref
     trigger: PreToolUse/Bash
     enforcement: deny
-    phase_only: ["project-team:nonexistent"]    # ← references unknown phase
+    phases: [nonexistent]                    # ← references unknown phase (bare name)
     message: "This rule has a bad phase reference"
 
   - id: good_ref
     trigger: PreToolUse/Bash
     enforcement: deny
-    phase_only: ["project-team:testing"]         # ← valid phase reference
+    phases: [testing]                        # ← valid phase reference (bare name)
     message: "This rule is correctly scoped"
 
 phases:
@@ -2678,13 +2682,13 @@ phases:
 
 **After loading:**
 - Known phases: `project-team:implementation`, `project-team:testing`
-- Rule `project-team:bad_ref` has `phase_only: ["project-team:nonexistent"]`
+- Rule `project-team:bad_ref` has `phases: ["project-team:nonexistent"]`
 - Validation produces:
   ```
   LoadError(source="validation", section="rules", item_id="project-team:bad_ref",
-            message="unknown phase ref 'project-team:nonexistent' in phase_only")
+            message="unknown phase ref 'project-team:nonexistent' in phases")
   ```
-- The rule still loads (fail-open) but `phase_only` filter is vacuously false for `project-team:nonexistent` — the rule never activates on phase grounds
+- The rule still loads (fail-open) but `phases` filter is vacuously false for `project-team:nonexistent` — the rule never activates on phase grounds
 - Rule `project-team:good_ref` validates cleanly
 
 ---

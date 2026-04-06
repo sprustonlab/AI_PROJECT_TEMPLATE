@@ -1,0 +1,84 @@
+workflow_id: tutorial
+
+phases:
+  - id: basics
+    file: basics
+    hints:
+      - message: "Phase 1/4: Basics. You'll see how workflow activation, phases, and hints work."
+        lifecycle: show-once
+      - message: "Try: ask the agent to run 'echo hello' — it should succeed (no rule blocks it)."
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: "tutorial_basics_done.txt"
+        on_failure:
+          message: "Create tutorial_basics_done.txt to advance to next phase"
+          severity: warning
+
+  - id: rules
+    file: rules
+    hints:
+      - message: "Phase 2/4: Rules. You'll see deny, warn, and log enforcement in action."
+        lifecycle: show-once
+      - message: "Try: ask the agent to run 'rm -rf /tmp/test' — deny rule should block it."
+        lifecycle: show-once
+      - message: "Try: ask the agent to run 'sudo echo hi' — warn rule should fire, agent can acknowledge."
+        lifecycle: show-once
+      - message: "Try: ask the agent to run 'git status' — log rule fires silently, check .claude/hits.jsonl."
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: "tutorial_rules_done.txt"
+        on_failure:
+          message: "Create tutorial_rules_done.txt to advance"
+          severity: warning
+
+  - id: checks
+    file: checks
+    hints:
+      - message: "Phase 3/4: Checks & Phase Transitions. advance_checks gate phase transitions."
+        lifecycle: show-once
+      - message: "This phase requires tutorial_checks_done.txt AND manual confirmation to advance."
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: "tutorial_checks_done.txt"
+        on_failure:
+          message: "Create tutorial_checks_done.txt first"
+          severity: warning
+      - type: manual-confirm
+        prompt: "Ready to graduate from the tutorial?"
+
+  - id: graduation
+    file: graduation
+    hints:
+      - message: "Phase 4/4: Graduation! You've seen all features. Run /tutorial stop to deactivate."
+        lifecycle: show-once
+
+rules:
+  - id: no_write_in_basics
+    trigger: PreToolUse/Write
+    enforcement: warn
+    message: "In the basics phase, focus on reading — writing comes later."
+    phases: [basics]
+
+  - id: require_tee_in_rules
+    trigger: PreToolUse/Bash
+    enforcement: log
+    detect:
+      pattern: "pytest"
+    message: "Pytest detected in rules phase — logged for demonstration."
+    phases: [rules]
+
+injections:
+  - id: echo_injection
+    trigger: PreToolUse/Bash
+    detect:
+      pattern: "^echo "
+    inject_value: " # (injected by tutorial workflow)"
+    phases: [basics]
+
+hints:
+  - id: phase_scoping_tip
+    message: "Notice: rules change based on which phase you're in. Some rules only fire during specific phases."
+    lifecycle: show-every-session

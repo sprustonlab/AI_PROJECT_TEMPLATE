@@ -1,0 +1,7 @@
+- id: welcome
+  message: "Welcome! Run /tutorial to start the Workflow Guidance System tutorial."
+  lifecycle: show-once
+
+- id: workflow_list_tip
+  message: "Tip: Use /workflow list to see available workflows."
+  lifecycle: show-once

@@ -202,6 +202,8 @@ Each filter is `(context) -> bool`. Evaluation: `all(f(ctx) for f in applicable_
 
 **Phase references cross workflow boundaries:** `phase_only: ["project-team:testing"]` in `global.yaml` creates a coupling to a specific workflow. This is intentional (qualified IDs prevent ambiguity). The loader's startup validation makes this coupling explicit and fails fast.
 
+**Note on axes 4–6:** These axes are not freely composable across all section types — they describe dimensions of variation within their applicable domains (e.g., lifecycle applies to hints, enforcement applies to rules).
+
 ### Axis 4: Enforcement / Delivery Mechanism
 
 How guidance reaches the agent or user:
@@ -546,6 +548,7 @@ class ManifestLoader:
                 collected[key].extend(parsed)
 
         # Step 2b: Extract phase-nested hints (after all manifests parsed)
+        # Known loader↔PhasesParser coupling: phase-nested hints are post-processed here.
         for phase in collected.get("phases", []):
             if hasattr(phase, "hints") and phase.hints:
                 collected.setdefault("hints", []).extend(phase.hints)
@@ -986,11 +989,11 @@ class WorkflowEngine:
 
             if not result.passed:
                 # Fire hint if on_failure configured
-                if "on_failure" in spec:
+                if spec.on_failure:
                     on_failure = OnFailureConfig(
-                        message=spec["on_failure"]["message"],
-                        severity=spec["on_failure"].get("severity", "warning"),
-                        lifecycle=spec["on_failure"].get("lifecycle", "show-once"),
+                        message=spec.on_failure["message"],
+                        severity=spec.on_failure.get("severity", "warning"),
+                        lifecycle=spec.on_failure.get("lifecycle", "show-once"),
                     )
                     hint_data = check_failed_to_hint(result, on_failure, check_id)
                     if hint_data:

@@ -3,12 +3,12 @@
 **EVERY TURN: Re-read AI_agents/project_team/COORDINATOR.md**
 
 ## Current Phase
-Phase 3: Specification (SpecWriter synthesizing all findings into SPECIFICATION.md)
+Phase 4: Implementation
 
 ## Vision (from Phase 0)
 **Goal:** Write the architecture specification for a Workflow Guidance System — infrastructure in claudechic that lets workflows define phases, guardrail rules, checks, and hints via YAML manifests and markdown files.
 
-**Value:** Unifies currently scattered guidance (rules, checks, hints) into one system — YAML manifests + markdown content in `workflows/`. Users get a single pattern and a clear 2x2 mental model (advisory/enforced x positive/negative).
+**Value:** Unifies currently scattered guidance (rules, checks, hints) into one system — YAML manifests + markdown content in `global/` and `workflows/`. Users get a single pattern and a clear 2x2 mental model (advisory/enforced x positive/negative).
 
 **Domain terms:** Manifests, phases, checks, hints, guardrails, SDK hooks, agent folders, ManifestSection protocol, 2x2 guidance framing, enforcement levels (deny/user_confirm/warn/log)
 
@@ -16,21 +16,18 @@ Phase 3: Specification (SpecWriter synthesizing all findings into SPECIFICATION.
 
 **Failure looks like:** A spec that's too vague to implement, misses the interaction between subsystems (e.g., how checks bridge to hints, how phase transitions gate on checks), or fails to identify which existing claudechic code needs to change and how (refactors, new modules, modified interfaces).
 
-## Active Axes (from Composability)
-| Axis | Status | Agent | Notes |
-|------|--------|-------|-------|
-| Section Type (ManifestSection[T]) | pending deep-dive | — | Parser protocol design |
-| Check Type | pending deep-dive | — | Async check protocol + ManualConfirm TUI seam |
-| Scope | covered | — | Composable filters: namespace, phase, role, conditional |
-| Enforcement / Delivery | covered | — | SDK hooks, hints, prompt injection |
-| Lifecycle | covered | — | Reuses existing HintLifecycle |
-| Content vs Infrastructure | critical seam | — | Guard: no workflow-specific code in claudechic |
+## Implementation Plan
 
-## Leadership Findings Summary
-- **UserAlignment:** Vision aligned. 2 ambiguities (hint scoping, CheckFailed adapter scope). 7 examples required.
-- **TerminologyGuardian:** 40+ canonical terms. Key: rule≠check, guidance≠guardrail, advisory≠hint, engine≠loader.
-- **Skeptic:** 6 risk areas (NFS perf, interface migration, ManualConfirm TUI coupling, fail-closed on NFS, completeness gaps, warn enforcement). 10 recommendations.
-- **Composability:** 6 axes. Crystal clean. 3 seam concerns (rules↔TUI, content↔infra, loader two-mode). 3 deep-dives recommended.
+6 Implementer agents, grouped by package (dependency order: leaf packages first, orchestration second, integration last):
+
+| Agent | Package | Files | Dependencies |
+|-------|---------|-------|-------------|
+| Impl-Guardrails | `guardrails/` | tokens.py, hits.py, hooks.py, rules.py mods, __init__.py | Leaf — stdlib only |
+| Impl-Checks | `checks/` | __init__.py, protocol.py, builtins.py, adapter.py | Leaf — protocol.py stdlib, adapter imports hints/types |
+| Impl-Hints | `hints/` | __init__.py, types.py, engine.py, state.py | Leaf — stdlib only |
+| Impl-WorkflowLoader | `workflows/` loader side | __init__.py, loader.py, phases.py | Imports from checks/, hints/, guardrails/ |
+| Impl-WorkflowEngine | `workflows/` runtime | engine.py, agent_folders.py | Imports from checks/, hints/, workflows/phases |
+| Impl-Integration | app.py + mcp.py | app.py mods, mcp.py new tools | Imports from all packages |
 
 ## Leadership Spawn Evidence
 - Composability: spawned ✓
@@ -39,17 +36,10 @@ Phase 3: Specification (SpecWriter synthesizing all findings into SPECIFICATION.
 - UserAlignment: spawned ✓
 
 ## Agents Active
-- Composability (busy)
-- TerminologyGuardian (busy)
-- Skeptic (busy)
-- UserAlignment (busy)
-
-## Optional Agents
-| Agent | Status | Notes |
-|-------|--------|-------|
-| Researcher | spawned ✓ | Mapping existing claudechic codebase for refactoring boundaries |
-| LabNotebook | not spawned | Spawn if project involves experiments, ablations, or iterative hypothesis testing |
+- (Spawning for Phase 4)
 
 ## Completed
 - Phase 0: Vision confirmed ✓
 - Phase 1: Setup complete ✓
+- Phase 2: Leadership spawned ✓
+- Phase 3: Specification approved ✓ (SPECIFICATION.md + APPENDIX.md finalized)

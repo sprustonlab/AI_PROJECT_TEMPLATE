@@ -1,4 +1,5 @@
 workflow_id: tutorial
+main_role: learner
 
 phases:
   - id: basics
@@ -75,7 +76,7 @@ injections:
     trigger: PreToolUse/Bash
     detect:
       pattern: "^echo "
-    inject_value: " # (injected by tutorial workflow)"
+    inject_value: " '(injected by tutorial workflow)'"
     phases: [basics]
 
 hints:

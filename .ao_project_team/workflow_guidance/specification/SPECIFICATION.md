@@ -28,7 +28,7 @@ Specifically:
 | `.claude/guardrails/hooks/` (generated shell scripts) | `create_guardrail_hooks()` return value | SDK hook protocol replaces Claude Code hooks protocol |
 | `role_guard.py ack` mechanism (ack tokens, file-based TTL) | `acknowledge_warning` MCP tool + one-time token (see §8) | Agent calls MCP tool → token stored → retry consumes token |
 | `.claude/guardrails/rules.yaml` | `global/rules.yaml` + workflow manifests | Rules now in manifests with namespace prefixing |
-| `.claude/guardrails/hits.jsonl` | `workflows/.hits.jsonl` via `guardrails/hits.py` | Richer data (outcome, agent role, enforcement level) |
+| `.claude/guardrails/hits.jsonl` | `.claude/hits.jsonl` via `guardrails/hits.py` | Richer data (outcome, agent role, enforcement level) |
 | Session markers (`.claude/guardrails/sessions/`) | `Chicsession.workflow_state` + `CLAUDE_AGENT_ROLE` env var | Role set at spawn time, state in chicsession |
 
 ---
@@ -135,7 +135,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | Term | Definition |
 |------|-----------|
 | **WorkflowManifest** | Parsed representation of a workflow's YAML manifest. Contains the `workflow_id`, phases list, and metadata. Passed to `WorkflowEngine` at construction. |
-| **HitRecord / Hit** | A single rule match event recorded in the audit trail. Contains `rule_id`, `agent_role`, `tool_name`, `enforcement`, `timestamp`, and `outcome`. Written as JSONL to `workflows/.hits.jsonl`. |
+| **HitRecord / Hit** | A single rule match event recorded in the audit trail. Contains `rule_id`, `agent_role`, `tool_name`, `enforcement`, `timestamp`, and `outcome`. Written as JSONL to `.claude/hits.jsonl`. |
 | **Toast** | A TUI notification displayed briefly to the user. Used by the hints pipeline (`run_pipeline()`) to surface advisory hints and check failure messages. |
 | **`run_pipeline()`** | The 6-stage hints evaluation pipeline: activation → trigger → lifecycle → sort → budget → present. Converts `HintSpec` objects into displayed toasts. |
 | **AlwaysTrue** | A `TriggerCondition` implementation that always returns `True`. Used by the `CheckFailed` adapter — when a check has already failed, the resulting hint fires immediately without further evaluation. |
@@ -1228,7 +1228,7 @@ self._manifest_loader.register(HintsParser())
 self._manifest_loader.register(PhasesParser())
 
 from claudechic.guardrails.hits import HitLogger
-self._hit_logger = HitLogger(self._workflows_dir / ".hits.jsonl")
+self._hit_logger = HitLogger(self._claude_dir / "hits.jsonl")
 
 # 2. Initial load
 result = self._manifest_loader.load()
@@ -1787,7 +1787,7 @@ class HitLogger:
             self._file = None
 ```
 
-**Storage location:** `workflows/.hits.jsonl` (in the project's `workflows/` directory, dotfile to avoid cluttering the manifest listing). The hit log is project-specific — different projects have different hit histories.
+**Storage location:** `.claude/hits.jsonl` (in the project's `.claude/` metadata directory). The hit log is project-specific — different projects have different hit histories. Stored in `.claude/` so the audit trail persists even if `global/` or `workflows/` directories are reorganized.
 
 **Hit logger lifecycle:**
 - Created once at app init alongside the `ManifestLoader`
@@ -1816,7 +1816,7 @@ def create_guardrail_hooks(
 | `deny` | `blocked` | No override token available |
 | `deny` | `overridden` | One-time override token consumed (per-command, not session-wide) |
 
-**Replaces:** The file-based system's `hits.jsonl` at `.claude/guardrails/hits.jsonl`. Same JSONL format, new location, richer data (includes outcome, agent role, enforcement level).
+**Replaces:** The file-based system's `hits.jsonl` at `.claude/guardrails/hits.jsonl`. Same JSONL format, moved up to `.claude/hits.jsonl`, richer data (includes outcome, agent role, enforcement level).
 
 ### Integration in app.py
 
@@ -2226,7 +2226,7 @@ class RulesParser:
 2. `.claude/guardrails/hooks/` — Generated shell hook scripts
 3. `.claude/guardrails/role_guard.py` — Ack token mechanism, replaced by `acknowledge_warning` MCP tool + one-time tokens
 4. `.claude/guardrails/rules.yaml` — Replaced by `global/rules.yaml` + workflow manifests
-5. `.claude/guardrails/hits.jsonl` — Replaced by `workflows/.hits.jsonl`
+5. `.claude/guardrails/hits.jsonl` — Replaced by `.claude/hits.jsonl`
 6. `.claude/guardrails/sessions/` — Session markers, replaced by chicsession + env var
 
 **UNCHANGED:**

@@ -26,7 +26,7 @@ Specifically:
 |---|---|---|
 | `generate_hooks.py` | Closure-based hooks in `guardrails/hooks.py` | Python closures replace generated shell scripts |
 | `.claude/guardrails/hooks/` (generated shell scripts) | `create_guardrail_hooks()` return value | SDK hook protocol replaces Claude Code hooks protocol |
-| `role_guard.py ack` mechanism (ack tokens, file-based TTL) | `_has_ack()` function in closure (see §8) | Bash-only: `# ack:RULE_ID` in command string, checked in Python |
+| `role_guard.py ack` mechanism (ack tokens, file-based TTL) | `acknowledge_warning` MCP tool + one-time token (see §8) | Agent calls MCP tool → token stored → retry consumes token |
 | `.claude/guardrails/rules.yaml` | `workflows/global.yaml` + workflow manifests | Rules now in manifests with namespace prefixing |
 | `.claude/guardrails/hits.jsonl` | `workflows/.hits.jsonl` via `guardrails/hits.py` | Richer data (outcome, agent role, enforcement level) |
 | Session markers (`.claude/guardrails/sessions/`) | `Chicsession.workflow_state` + `CLAUDE_AGENT_ROLE` env var | Role set at spawn time, state in chicsession |
@@ -58,7 +58,7 @@ All guidance maps onto two axes: **valence** (positive/negative) × **bypassabil
 
 The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — the agent has authority to proceed. `deny` is enforced (Quadrant D) — requires user authority via the `request_override` MCP tool. Both `warn` and `deny` are **per-command scoped** — each invocation must be individually acknowledged/approved. All four quadrants evolve across phases.
 
-- **Advisory** — guidance the agent may choose to bypass. Includes markdown instructions (Quadrant A), markdown don'ts, and rules with `warn` or `log` enforcement (Quadrant B). `warn` blocks the tool call but the agent can self-acknowledge by embedding `# ack:RULE_ID` in the retried command (1 action — ack + execute atomic).
+- **Advisory** — guidance the agent may choose to bypass. Includes markdown instructions (Quadrant A), markdown don'ts, and rules with `warn` or `log` enforcement (Quadrant B). `warn` blocks the tool call but the agent can self-acknowledge by calling `acknowledge_warning` MCP tool (stores token, no TUI) then retrying (2 actions — agent authority).
 - **Enforced** — guidance the agent cannot bypass without user approval. Includes advance checks / checkpoints (Quadrant C) and rules with `deny` enforcement (Quadrant D). The agent calls `request_override` MCP tool → user approves the specific command → agent retries (2 actions — escalation required).
 - **Guidance** — umbrella term for all four quadrants.
 - **Guardrail** — specifically enforced negative guidance (Quadrant D: `deny` only).
@@ -69,11 +69,11 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 |------|-----------|
 | **Rule** | A YAML-declared directive that fires when a tool call matches its trigger and detect pattern. Each rule has an `id`, `trigger`, `enforcement` level, optional `detect` pattern, and optional role/phase scoping. Enforcement level determines quadrant placement — `deny` is enforced (Quadrant D), `warn`/`log` are advisory (Quadrant B). |
 | **Trigger** | The SDK hook event that activates a rule. Format: `PreToolUse/<ToolName>` (e.g. `PreToolUse/Bash`). Bare `PreToolUse` matches all tools. |
-| **Enforcement Level** | How the system responds when a rule fires. Three levels: `warn` (block, agent ack via inline comment, per-command, 1 action), `deny` (block, user override via one-time token, per-command, 2 actions), `log` (silent record). See table in §8. |
+| **Enforcement Level** | How the system responds when a rule fires. Three levels: `warn` (block, agent ack via `acknowledge_warning` MCP, per-command, 2 actions), `deny` (block, user override via `request_override` MCP, per-command, 2 actions), `log` (silent record). Both `warn` and `deny` use the same one-time token mechanism. See table in §8. |
 | **Detect Pattern** | A regex in a rule's `detect` block, matched against a specified `field` of the tool input (default: `command`). If absent, the rule fires on every matching trigger. |
 | **Exclude Pattern** | A regex (`exclude_if_matches`) that, when matched, prevents the rule from firing — checked before the detect pattern. |
-| **Role Scoping** | `block_roles` — rule fires *only* for these roles. `allow_roles` — rule *never* fires for these roles. |
-| **Phase Scoping** | `phase_block` — rule fires only during these phases (qualified IDs). `phase_allow` — rule fires only when the current phase is in this list. |
+| **Role Scoping** | `roles_only` — rule fires *only* for these roles (scope-to). `roles_except` — rule *never* fires for these roles (exclude). |
+| **Phase Scoping** | `phase_only` — rule fires only during these phases (scope-to, qualified IDs). `phase_except` — rule *never* fires during these phases (exclude, qualified IDs). |
 
 ### Phases
 
@@ -82,7 +82,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | **Phase** | A named period in a workflow's lifecycle (e.g. `vision`, `setup`, `specification`). Ordered. Each has an `id`, a `file` reference, optional `advance_checks`, and optional `hints`. |
 | **Phase Transition** | Moving from current phase to next. Gated by `advance_checks` — all must pass (AND semantics, short-circuit on first failure). |
 | **Phase State** | Runtime tracking of current phase. Held in-memory by the engine, persisted via `Chicsession.workflow_state` on each phase transition. On session resume, the engine restores state from the chicsession. |
-| **Qualified Phase ID** | `<workflow_id>:<phase_id>` (e.g. `project-team:testing`). Used in `phase_block` and `phase_allow` fields. Bare phase IDs are never used in scoping fields. |
+| **Qualified Phase ID** | `<workflow_id>:<phase_id>` (e.g. `project-team:testing`). Used in `phase_only` and `phase_except` fields. Bare phase IDs are never used in scoping fields. |
 
 ### Checks
 
@@ -108,7 +108,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | Term | Definition |
 |------|-----------|
 | **Agent Folder** | A directory inside a workflow directory (e.g. `workflows/project_team/coordinator/`). The folder name IS the role type. |
-| **Role Type** | Identity of an agent, derived from folder name (e.g. `coordinator`, `implementer`, `skeptic`). Used in `block_roles`/`allow_roles` and captured in SDK hook closures at spawn time. |
+| **Role Type** | Identity of an agent, derived from folder name (e.g. `coordinator`, `implementer`, `skeptic`). Used in `roles_only`/`roles_except` and captured in SDK hook closures at spawn time. |
 | **Identity File** | `identity.md` inside an agent folder. Cross-phase — always loaded. |
 | **Phase File** | Markdown file named after a phase (e.g. `specification.md`). Loaded only during that phase. Pure advisory content. |
 | **Agent Prompt** | The assembled prompt: `identity.md` + current phase file. Pull-based — the agent calls the `get_phase` MCP tool to discover the current phase, then reads its own markdown files. |
@@ -119,7 +119,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 |------|-----------|
 | **SDK Hook** | A callback registered with the Claude Agent SDK that intercepts tool calls. claudechic is the required runtime. |
 | **Hook Closure** | A function created per-agent that captures the role type at creation time. Rules are loaded fresh on every tool call (no mtime caching). |
-| **Hook Evaluation Pipeline** | Two-phase: Phase 1 applies `inject` rules (modify tool input). Phase 2 evaluates enforcement rules: match trigger → check role skip → check phase skip → check exclude → match detect → log hit → apply enforcement (`log`/`warn`/`deny`). |
+| **Hook Evaluation Pipeline** | Two-step: Step 1 applies `inject` rules (modify tool input). Step 2 evaluates enforcement rules: match trigger → check role skip → check phase skip → check exclude → match detect → log hit → apply enforcement (`log`/`warn`/`deny`). |
 | **PostCompact Hook** | SDK hook that fires after `/compact`. Re-injects phase context (identity + current phase file). |
 | **SelectionPrompt** | Existing TUI widget for user confirmations. Used by `deny` rule override approval (via `request_override` MCP tool — user sees the exact command) and `ManualConfirm` checks. Engine receives a confirmation callback — not a direct app reference. |
 
@@ -129,6 +129,16 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 |------|-----------|
 | **Namespace** | Prefix applied to bare IDs at load time: `_global:<id>` for global manifest items, `<workflow_id>:<id>` for workflow items. All IDs are namespaced at runtime. IDs in YAML are written bare — the loader prefixes automatically. |
 | **Qualified ID** | The runtime form: `namespace:name`. Examples: `_global:pip_block`, `project-team:close_agent`. |
+
+### Additional Terms
+
+| Term | Definition |
+|------|-----------|
+| **WorkflowManifest** | Parsed representation of a workflow's YAML manifest. Contains the `workflow_id`, phases list, and metadata. Passed to `WorkflowEngine` at construction. |
+| **HitRecord / Hit** | A single rule match event recorded in the audit trail. Contains `rule_id`, `agent_role`, `tool_name`, `enforcement`, `timestamp`, and `outcome`. Written as JSONL to `workflows/.hits.jsonl`. |
+| **Toast** | A TUI notification displayed briefly to the user. Used by the hints pipeline (`run_pipeline()`) to surface advisory hints and check failure messages. |
+| **`run_pipeline()`** | The 6-stage hints evaluation pipeline: activation → trigger → lifecycle → sort → budget → present. Converts `HintSpec` objects into displayed toasts. |
+| **AlwaysTrue** | A `TriggerCondition` implementation that always returns `True`. Used by the `CheckFailed` adapter — when a check has already failed, the resulting hint fires immediately without further evaluation. |
 
 ### Content Delivery
 
@@ -148,12 +158,12 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 2. **Phase** exclusively — never "stage" or "step."
 3. **Manifest** for YAML files in `workflows/`. "Config" refers to `~/.claude/.claudechic.yaml`.
 4. **Agent folder** — not "role directory."
-5. **Rule** = precise mechanism term covering all three enforcement levels (`deny`, `warn`, `log`). **Guardrail** = colloquial shorthand for Quadrant D only (enforced negative: `deny`). **Guidance** = umbrella for all four quadrants. In prose, use "rule" when referring to the mechanism generally; reserve "guardrail" for specifically enforced negative rules. **Inject** is a separate tool-input modification mechanism, not an enforcement level.
+5. **Rule** = precise mechanism term covering all three enforcement levels (`deny`, `warn`, `log`). **Guardrail** = colloquial shorthand for Quadrant D only (enforced negative: `deny`). **Guidance** = umbrella for all four quadrants. In prose, use "rule" when referring to the mechanism generally; reserve "guardrail" for specifically enforced negative rules. **Injection** is a separate tool-input modification mechanism declared in the `injections:` manifest section, not an enforcement level and not in the `rules:` section.
 6. **Advisory** is a classification. **Hint** is a specific mechanism (`HintSpec`/`run_pipeline()`). Advisory markdown (Quadrant A) is not delivered as hints.
 7. **Engine** manages state and transitions. **Loader** reads and parses manifests. Separate components.
 8. **Workflow** = full package (directory + manifest + agent folders + state). **Workflow manifest** = the YAML file specifically.
 9. **Identity** = cross-phase `identity.md`. **Agent prompt** = identity + phase file.
-10. **`block_roles`** restricts by role. **`phase_block`** restricts by phase. Different scopes, both use "block."
+10. **`roles_only`/`roles_except`** restrict by role. **`phase_only`/`phase_except`** restrict by phase. `_only` = scope-to (fires only for listed values). `_except` = exclude (never fires for listed values).
 
 ---
 
@@ -184,13 +194,13 @@ Filtering dimensions that compose with AND semantics:
 | Filter | Values | Applies to |
 |--------|--------|------------|
 | **Namespace** | `_global` \| `{workflow_id}` | All guidance types |
-| **Phase** | `phase_block` / `phase_allow` lists | Rules, hints |
-| **Role** | `block_roles` / `allow_roles` lists | Rules |
+| **Phase** | `phase_only` / `phase_except` lists | Rules, hints |
+| **Role** | `roles_only` / `roles_except` lists | Rules |
 | **Conditional** | `when: { copier: key }` | Checks |
 
 Each filter is `(context) -> bool`. Evaluation: `all(f(ctx) for f in applicable_filters)`. No filter inspects another filter's state.
 
-**Phase references cross workflow boundaries:** `phase_block: ["project-team:testing"]` in `global.yaml` creates a coupling to a specific workflow. This is intentional (qualified IDs prevent ambiguity). The loader's startup validation makes this coupling explicit and fails fast.
+**Phase references cross workflow boundaries:** `phase_only: ["project-team:testing"]` in `global.yaml` creates a coupling to a specific workflow. This is intentional (qualified IDs prevent ambiguity). The loader's startup validation makes this coupling explicit and fails fast.
 
 ### Axis 4: Enforcement / Delivery Mechanism
 
@@ -199,11 +209,11 @@ How guidance reaches the agent or user:
 | Mechanism | Used by | Channel |
 |-----------|---------|---------|
 | SDK hook (deny) | Rules | PreToolUse → block; agent calls `request_override` MCP → user approves specific command → one-time token → retry consumes token |
-| SDK hook (warn) | Rules | PreToolUse → block; agent retries with `# ack:RULE_ID` in command → allowed through |
+| SDK hook (warn) | Rules | PreToolUse → block; agent calls `acknowledge_warning` MCP → token stored (no TUI) → retry → token consumed → allowed |
 | SDK hook (log) | Rules | PreToolUse → silent record, no block |
-| SDK hook (inject) | Input modification | PreToolUse → modifies tool input. Separate mechanism, not an enforcement level. |
+| SDK hook (inject) | Injections (`injections:` section) | PreToolUse → modifies tool input. Separate section and parser, not an enforcement level. |
 | Toast hint | Hints, check failures | TUI toast notification via `run_pipeline()` |
-| Prompt injection | Agent folders, phases | Agent reads identity.md + phase.md |
+| Phase prompt assembly | Agent folders, phases | Agent reads identity.md + phase.md |
 | PostCompact hook | Phase context | Re-inject after `/compact` |
 
 A rule's enforcement level is a field on the rule, not a property of its content or scope. The same pattern-matching rule could be `deny` or `warn` — just change the YAML field. `inject` is orthogonal to enforcement — it modifies tool input rather than blocking.
@@ -226,13 +236,13 @@ The foundational axis. Content = `workflows/` directory (YAML + markdown). Infra
 
 | # | Section Type | Check Type | Scope | Enforcement | Lifecycle | Works? |
 |---|-------------|-----------|-------|-------------|-----------|--------|
-| 1 | rule | N/A | global + phase_block | deny | N/A | ✅ existing guardrails |
+| 1 | rule | N/A | global + phase_only | deny | N/A | ✅ existing guardrails |
 | 2 | check | CommandOutput | global | toast (via adapter) | show-until-resolved | ✅ setup checks |
 | 3 | check | ManualConfirm | workflow phase | toast (via adapter) | show-once | ✅ advance_checks |
 | 4 | hint | N/A | workflow phase | toast | show-once | ✅ phase hints |
 | 5 | rule | N/A | global + role filter | deny | N/A | ✅ role-scoped rules |
 | 6 | check | FileExists | global | toast (via adapter) | show-until-resolved | ✅ setup check |
-| 7 | rule | N/A | workflow + phase_allow | deny | N/A | ✅ phase-scoped rule |
+| 7 | rule | N/A | workflow + phase_except | deny | N/A | ✅ phase-scoped rule |
 | 8 | check | FileContent | workflow phase advance | N/A | N/A | ✅ advance gate |
 | 9 | hint | N/A | global | toast | cooldown | ✅ global hint |
 | 10 | check | ManualConfirm | global setup | toast (via adapter) | show-until-resolved | ⚠️ edge case — works mechanically but unusual |
@@ -368,6 +378,7 @@ class ManifestSection(Protocol[T_co]):
 | Section Key | T (parsed type) | Description |
 |-------------|-----------------|-------------|
 | `rules` | `Rule` | Rule (dataclass in `guardrails/rules.py`, extended with required `namespace` field) |
+| `injections` | `Injection` | Tool-input modification declaration — trigger, detect, inject_value, scope metadata |
 | `checks` | `CheckSpec` | Check specification — type + params, not the executable check itself |
 | `hints` | `HintDecl` | Hint declaration — message + lifecycle + scope metadata |
 | `phases` | `Phase` | Phase definition — id, file reference, advance_checks, nested hints |
@@ -376,14 +387,14 @@ class ManifestSection(Protocol[T_co]):
 
 **Parser validates (section-specific):**
 - Required fields present (rules need `id`, `trigger`, `enforcement`)
-- Field value types (`enforcement` is one of `deny|warn|log|inject`)
+- Field value types (`enforcement` is one of `deny|warn|log`)
 - Regex compilation (detect patterns, check patterns)
 - Raw IDs don't contain `:` (reserved for namespace)
 - Section-specific semantics
 
 **Parser does NOT validate (loader's responsibility):**
 - Duplicate IDs across manifests (needs cross-manifest view)
-- Phase reference validity (`phase_block`/`phase_allow` targets exist)
+- Phase reference validity (`phase_only`/`phase_except` targets exist)
 - Cross-section references
 
 **Namespace prefixing happens IN the parser.** The parser receives `namespace` and prefixes every `id` field. The parser knows item structure; the loader is generic.
@@ -399,6 +410,7 @@ from pathlib import Path
 class LoadResult:
     """Complete result of loading all manifests."""
     rules: list[Rule] = field(default_factory=list)
+    injections: list[Injection] = field(default_factory=list)
     checks: list[CheckSpec] = field(default_factory=list)
     hints: list[HintDecl] = field(default_factory=list)
     phases: list[Phase] = field(default_factory=list)
@@ -491,7 +503,7 @@ class ManifestLoader:
         """
         errors: list[LoadError] = []
 
-        # Phase 1: Discover
+        # Step 1: Discover
         try:
             paths = self._discover()
         except OSError as e:
@@ -499,7 +511,7 @@ class ManifestLoader:
                 LoadError(source="discovery", message=f"Cannot read workflows/: {e}")
             ])
 
-        # Phase 2: Parse each manifest through all registered parsers
+        # Step 2: Parse each manifest through all registered parsers
         collected: dict[str, list] = {k: [] for k in self._parsers}
         for path in paths:
             namespace = self._namespace_for(path)
@@ -533,16 +545,17 @@ class ManifestLoader:
                 parsed = parser.parse(section, namespace=namespace, source_path=str(path))
                 collected[key].extend(parsed)
 
-        # Phase 2b: Extract phase-nested hints (after all manifests parsed)
+        # Step 2b: Extract phase-nested hints (after all manifests parsed)
         for phase in collected.get("phases", []):
             if hasattr(phase, "hints") and phase.hints:
                 collected.setdefault("hints", []).extend(phase.hints)
 
-        # Phase 3: Cross-manifest validation
+        # Step 3: Cross-manifest validation
         errors.extend(self._validate(collected))
 
         return LoadResult(
             rules=collected.get("rules", []),
+            injections=collected.get("injections", []),
             checks=collected.get("checks", []),
             hints=collected.get("hints", []),
             phases=collected.get("phases", []),
@@ -563,7 +576,7 @@ YAML:           id: testing        (phase in project_team.yaml)
 After parse:    id: project-team:testing
 ```
 
-Phase references are already qualified in YAML: `phase_block: ["project-team:testing"]`. The parser does NOT prefix these. The loader validates them against known phase IDs after all manifests are loaded.
+Phase references are already qualified in YAML: `phase_only: ["project-team:testing"]`. The parser does NOT prefix these. The loader validates them against known phase IDs after all manifests are loaded.
 
 ### Cross-Manifest Validation
 
@@ -589,17 +602,17 @@ def _validate(self, collected: dict[str, list]) -> list[LoadError]:
     # 2. Phase reference validation
     known_phases = {p.id for p in collected.get("phases", [])}
     for rule in collected.get("rules", []):
-        for ref in getattr(rule, "phase_block", []):
+        for ref in getattr(rule, "phase_only", []):
             if ref not in known_phases:
                 errors.append(LoadError(
                     source="validation", section="rules", item_id=rule.id,
-                    message=f"unknown phase ref '{ref}' in phase_block",
+                    message=f"unknown phase ref '{ref}' in phase_only",
                 ))
-        for ref in getattr(rule, "phase_allow", []):
+        for ref in getattr(rule, "phase_except", []):
             if ref not in known_phases:
                 errors.append(LoadError(
                     source="validation", section="rules", item_id=rule.id,
-                    message=f"unknown phase ref '{ref}' in phase_allow",
+                    message=f"unknown phase ref '{ref}' in phase_except",
                 ))
 
     return errors
@@ -827,29 +840,30 @@ ManifestYAML → Engine (creates callback) → ManualConfirm(question, callback)
 ManualConfirm.check() → await self.confirm_fn(question) → callback → TUI prompt
 ```
 
-**Callback creation in the engine:**
+**Callback creation in app.py** (the engine receives the callback — it never knows about the TUI):
 ```python
-# claudechic/workflows/engine.py
+# In app.py — confirm callback factory (passed to WorkflowEngine at construction)
 
-class WorkflowEngine:
-    def __init__(self, app: "ChatApp") -> None:
-        self._app = app
+def _make_confirm_callback(self) -> AsyncConfirmCallback:
+    """THE seam between checks and TUI. Created in app.py, injected into engine."""
+    app = self
 
-    def _make_confirm_callback(self) -> AsyncConfirmCallback:
-        """THE seam between checks and TUI."""
-        app = self._app
+    async def confirm(question: str) -> bool:
+        from claudechic.widgets.prompts import SelectionPrompt
 
-        async def confirm(question: str) -> bool:
-            from claudechic.widgets.prompts import SelectionPrompt
+        options = [("yes", "Yes — confirm"), ("no", "No — decline")]
+        prompt = SelectionPrompt(f"✅ Check: {question}", options)
+        async with app._show_prompt(prompt):
+            result = await prompt.wait()
+        return result == "yes"
 
-            options = [("yes", "Yes — confirm"), ("no", "No — decline")]
-            prompt = SelectionPrompt(f"✅ Check: {question}", options)
-            async with app._show_prompt(prompt):
-                result = await prompt.wait()
-            return result == "yes"
+    return confirm
 
-        return confirm
+# Passed to engine at construction (see §7):
+# WorkflowEngine(manifest, persist_fn=..., confirm_callback=self._make_confirm_callback())
 ```
+
+The engine stores the callback as `self._confirm_callback` and passes it to `ManualConfirm` checks. The engine's only constructor is the callback-based one defined in §7.
 
 **Seam cleanliness — the swap test:**
 - CLI mode: `async def confirm(q): return input(q) == "y"` → works
@@ -868,20 +882,34 @@ ManualConfirm is truly UI-agnostic.
 ### Check Construction in Engine
 
 ```python
-def _build_check(self, check_spec: dict) -> Check:
-    """Map YAML check declarations to Check objects."""
-    check_type = check_spec["type"]
+# Registry pattern — extensible without modifying _build_check()
+_CHECK_REGISTRY: dict[str, Callable[[dict], Check]] = {}
 
-    if check_type == "command-output-check":
-        return CommandOutputCheck(command=check_spec["command"], pattern=check_spec["pattern"])
-    elif check_type == "file-exists-check":
-        return FileExistsCheck(path=check_spec["path"])
-    elif check_type == "file-content-check":
-        return FileContentCheck(path=check_spec["path"], pattern=check_spec["pattern"])
-    elif check_type == "manual-confirm":
-        return ManualConfirm(question=check_spec["question"], confirm_fn=self._make_confirm_callback())
-    else:
-        raise ValueError(f"Unknown check type: {check_type}")
+def register_check_type(name: str, factory: Callable[[dict], Check]) -> None:
+    _CHECK_REGISTRY[name] = factory
+
+def _build_check(self, check_spec: CheckSpec) -> Check:
+    """Map CheckSpec to Check objects via registry."""
+    factory = _CHECK_REGISTRY.get(check_spec.type)
+    if factory is None:
+        raise ValueError(f"Unknown check type: {check_spec.type}")
+    return factory(check_spec.params)
+
+# Register 4 built-in types at module level:
+register_check_type("command-output-check",
+    lambda p: CommandOutputCheck(command=p["command"], pattern=p["pattern"]))
+register_check_type("file-exists-check",
+    lambda p: FileExistsCheck(path=p["path"]))
+register_check_type("file-content-check",
+    lambda p: FileContentCheck(path=p["path"], pattern=p["pattern"]))
+register_check_type("manual-confirm",
+    lambda p: ManualConfirm(question=p["question"], confirm_fn=p["confirm_fn"]))
+```
+
+**Note:** For `manual-confirm`, the engine injects `confirm_fn` into the params dict before calling `_build_check()`:
+```python
+if spec.type == "manual-confirm":
+    spec = dataclasses.replace(spec, params={**spec.params, "confirm_fn": self._confirm_callback})
 ```
 
 ### CheckFailed → Hints Adapter
@@ -948,7 +976,7 @@ class WorkflowEngine:
         workflow_id: str,
         current_phase: str,
         next_phase: str,
-        advance_checks: list[dict],
+        advance_checks: list[CheckSpec],
     ) -> bool:
         """AND semantics, sequential, short-circuit on first failure."""
         for i, spec in enumerate(advance_checks):
@@ -1003,6 +1031,16 @@ Phase state is persisted as an opaque `dict` on the `Chicsession` dataclass. The
 class Chicsession:
     # ... existing fields ...
     workflow_state: dict | None = None  # Opaque to session system, owned by engine
+
+    def to_dict(self) -> dict:
+        d = {"name": self.name, "active_agent": self.active_agent, "agents": [...]}
+        if self.workflow_state is not None:
+            d["workflow_state"] = self.workflow_state
+        return d
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Chicsession":
+        return cls(..., workflow_state=data.get("workflow_state"))
 ```
 
 **Engine interface:**
@@ -1062,7 +1100,7 @@ def _make_persist_fn(self) -> Callable[[], None]:
 ### Setup Check Execution
 
 ```python
-async def run_setup_checks(self, check_specs: list[dict]) -> list[CheckResult]:
+async def run_setup_checks(self, check_specs: list[CheckSpec]) -> list[CheckResult]:
     """Run setup checks from global.yaml at startup.
 
     Unlike advance_checks, setup checks do NOT short-circuit.
@@ -1098,7 +1136,7 @@ def get_post_compact_hook(self) -> dict[str, list[HookMatcher]]:
             return {}
 
         role = hook_input.get("agent_role")
-        prompt_content = get_system_prompt_injection(
+        prompt_content = assemble_phase_prompt(
             workflows_dir=engine.workflows_dir,
             workflow_id=engine.manifest.workflow_id,
             role_name=role or "coordinator",
@@ -1106,7 +1144,7 @@ def get_post_compact_hook(self) -> dict[str, list[HookMatcher]]:
         )
 
         if prompt_content:
-            return {"inject_context": prompt_content}
+            return {"phase_context": prompt_content}
         return {}
 
     return {
@@ -1163,6 +1201,7 @@ When the app starts, it creates the manifest loader, loads manifests, resolves t
 # 1. Create shared loader and hit logger (created once at app init)
 self._manifest_loader = ManifestLoader(self._workflows_dir)
 self._manifest_loader.register(RulesParser())
+self._manifest_loader.register(InjectionsParser())
 self._manifest_loader.register(ChecksParser())
 self._manifest_loader.register(HintsParser())
 self._manifest_loader.register(PhasesParser())
@@ -1285,45 +1324,41 @@ async def get_phase(workflow_id: str | None = None) -> str:
 
 ### `request_override` MCP Tool
 
-Agents call this to request user approval for a specific `deny`-blocked action. The user sees the exact command in a TUI SelectionPrompt. If approved, a **one-time override token** is stored — the agent must retry the exact same command to execute it. The token is consumed on use; the next invocation of the same command is blocked again.
+Agents call this to request user approval for a specific `deny`-blocked action. The agent passes `rule_id`, `tool_name`, and `tool_input` (all from the block message). The user sees the exact command in a TUI SelectionPrompt. If approved, a **one-time override token** is stored — the agent must retry the exact same command to execute it. The token is consumed on use; the next invocation of the same command is blocked again.
 
 **Per-command scoping:** Override tokens are keyed by `(rule_id, tool_name, hash(tool_input))`. This means the user approves a *specific action*, not a blanket rule suppression.
 
-**Two-action flow:** The agent is blocked → calls `request_override` with the tool name and input → user approves → agent retries the exact command → token consumed → allowed through. This is correct because `deny` requires user authority — the agent must escalate.
+**Two-action flow:** The agent is blocked → calls `request_override(rule_id, tool_name, tool_input)` → user approves → agent retries the exact command → token consumed → allowed through. This is correct because `deny` requires user authority — the agent must escalate.
 
 ```python
 # In mcp.py — new MCP tool registration
 
 @server.tool()
-async def request_override(tool_name: str, **tool_input) -> str:
-    """Request user approval to override a blocked deny rule for a specific command.
+async def request_override(rule_id: str, tool_name: str, tool_input: dict) -> str:
+    """Request user approval to override a deny-level rule.
+    User sees the exact command. If approved, stores a one-time token.
 
-    The agent calls this after being blocked by a deny rule, passing
-    the tool name and input that was blocked. The user sees the exact
-    command and approves or denies. If approved, a one-time token is
-    stored — the agent must retry the exact same command to execute it.
+    Args:
+        rule_id: The qualified ID of the blocking rule (from block message).
+        tool_name: The tool that was blocked.
+        tool_input: The exact tool input dict that was blocked.
     """
-    engine = _app._workflow_engine
+    engine = app.workflow_engine
     if engine is None:
         return "No active workflow."
 
-    result = _app._manifest_loader.load()
-    blocking_rule = _find_blocking_rule(result.rules, tool_name, tool_input)
-    if not blocking_rule:
-        return "No blocking rule found for this command."
-
-    approved = await _app._show_override_prompt(
-        blocking_rule.id,
+    approved = await app._show_override_prompt(
+        rule_id,
         f"Agent wants to run blocked action:\n"
         f"  Tool: {tool_name}\n"
         f"  Input: {_format_tool_input(tool_input)}\n"
-        f"  Blocked by: {blocking_rule.id} — {blocking_rule.message}\n"
+        f"  Blocked by: {rule_id}\n"
         f"Approve this specific action?"
     )
 
     if approved:
-        engine.store_override_token(blocking_rule.id, tool_name, tool_input)
-        return f"Override approved. Retry the exact same command to execute."
+        engine.store_override_token(rule_id, tool_name, tool_input)
+        return f"Override approved for rule {rule_id}. Retry the exact same command."
     else:
         return f"Override denied."
 ```
@@ -1387,41 +1422,43 @@ Three enforcement levels plus one separate mechanism:
 
 | Level | Block? | Override | Who | Scoping | Actions | Mechanism |
 |-------|--------|----------|-----|---------|---------|-----------|
-| `warn` | Yes | Agent inline ack | Agent | Per-command | 1 (ack + execute atomic) | `# ack:RULE_ID` in command |
-| `deny` | Yes | One-time override token | User via TUI | Per-command | 2 (request + retry) | `request_override` MCP tool |
+| `warn` | Yes | One-time token | Agent (no TUI) | Per-command | 2 (acknowledge + retry) | `acknowledge_warning` MCP tool |
+| `deny` | Yes | One-time token | User via TUI | Per-command | 2 (request + retry) | `request_override` MCP tool |
 | `log` | No | — | — | — | — | Silent record |
 
 **Separate mechanism (not an enforcement level):**
 
 | Mechanism | Behavior |
 |---|---|
-| `inject` | Modifies tool input before execution. For backward compatibility. Parsed in the same rules YAML but behavior is orthogonal to enforcement. Processed BEFORE enforcement rules in the hook pipeline. Same trigger/detect/role/phase filtering. |
+| `inject` | Modifies tool input before execution. Declared in `injections:` manifest section (separate from `rules:`). Parsed by `InjectionsParser`. Processed BEFORE enforcement rules in the hook pipeline. Same trigger/detect/role/phase filtering. |
 
 **Key design decisions:**
 - **Per-command scoping** for both `warn` and `deny` — each invocation must be individually acknowledged/approved. No session-wide suppression.
-- **`warn` = 1 action** — ack is embedded in the retried command itself (atomic: ack + execute in one tool call). Agent authority.
-- **`deny` = 2 actions** — agent must first call `request_override` MCP tool (escalate to user), then retry the command. Correct because user authority requires explicit escalation.
-- **`warn` has NO MCP tool** — uses inline `# ack:RULE_ID` in the command string. Simple, contained, no round-trip.
+- **Unified token mechanism** — both `warn` and `deny` use the same `OverrideToken(rule_id, tool_name, tool_input_hash)` and `consume_override_token()`. One in-memory list `_override_tokens: list[OverrideToken]` on the engine.
+- **`warn` = 2 actions** — agent calls `acknowledge_warning` MCP tool (stores token, no TUI prompt), then retries. Agent authority — no user involvement.
+- **`deny` = 2 actions** — agent calls `request_override` MCP tool (TUI SelectionPrompt, user sees exact command), then retries. User authority — explicit escalation required.
 
-### `warn` — Agent-Authority Ack
+### `warn` — Agent-Authority Acknowledgment (One-Time Token)
 
-The file-based hook system used shell exit codes and `role_guard.py` ack tokens. The closure-based system replaces this with a single contained function:
+`warn` uses the same one-time token mechanism as `deny`, but without TUI prompts. The agent self-acknowledges by calling the `acknowledge_warning` MCP tool — no user interaction required.
 
 ```python
-def _has_ack(rule_id: str, tool_name: str, tool_input: dict) -> bool:
-    """Check if tool input contains an ack for this rule.
+# In mcp.py — new MCP tool registration
 
-    Tool-specific conventions contained HERE — nowhere else.
-    """
-    if "Bash" in tool_name:
-        command = tool_input.get("command", "")
-        return f"# ack:{rule_id}" in command
-    return False
+@server.tool()
+async def acknowledge_warning(rule_id: str, tool_name: str, tool_input: dict) -> str:
+    """Acknowledge a warn-level rule to proceed past it.
+    Stores a one-time token. Retry the exact same command to execute."""
+    engine = app.workflow_engine
+    if engine is None:
+        return "No active workflow."
+    engine.store_override_token(rule_id, tool_name, tool_input)
+    return f"Warning acknowledged for rule {rule_id}. Retry the exact same command."
 ```
 
-- For **Bash tools**: agent includes `# ack:RULE_ID` as a comment in the command (e.g. `# ack:_global:pip_block\npip install requests`)
-- For **non-Bash tools**: `_has_ack()` returns `False` — the block stands. This is intentional: `warn` + `detect` is almost always Bash. Non-Bash warn rules without detect patterns serve as friction (agent sees the warning, adjusts behavior).
-- **Agent flow**: blocked → message includes ack instructions → agent retries with `# ack:RULE_ID` prefix → hook sees ack → allows
+- **Agent flow**: blocked → message includes `acknowledge_warning` instructions → agent calls `acknowledge_warning(rule_id, tool_name, tool_input)` (token stored, NO TUI prompt) → agent retries exact same command → token consumed → allowed
+- Works for ALL tool types (Bash, Write, etc.) — no tool-specific conventions needed
+- **Per-command scoping**: each invocation must be individually acknowledged. Token is consumed on use.
 
 ### `deny` — User-Authority Override Token
 
@@ -1430,53 +1467,105 @@ See §7 for the `request_override` MCP tool and `OverrideToken` implementation. 
 - Token is keyed by `(rule_id, tool_name, hash(tool_input))` — approves a *specific action*, not a blanket rule suppression
 - Token is **consumed on use** — next invocation of the same command is blocked again
 - Tokens are **NOT persisted** — reset on session restart
-- **Agent flow**: blocked → calls `request_override(tool_name, **tool_input)` → user sees exact command in TUI → approves → agent retries exact same command → token consumed → allowed
+- Uses the SAME `OverrideToken` and `consume_override_token()` as `warn` — unified mechanism
+- **Agent flow**: blocked → calls `request_override(rule_id, tool_name, tool_input)` → user sees exact command in TUI → approves → agent retries exact same command → token consumed → allowed
 
-### `inject` — Tool-Input Modification (Separate Mechanism)
+### `inject` — Tool-Input Modification (Separate Section)
 
-`inject` is NOT an enforcement level — it modifies tool input rather than blocking. Processed BEFORE enforcement rules in the hook pipeline:
+`inject` is NOT an enforcement level — it's a separate mechanism declared in the `injections:` manifest section. Processed BEFORE enforcement rules in the hook pipeline. Parsed by its own `InjectionsParser` (implements `ManifestSection[Injection]`).
 
+**Injection dataclass:**
 ```python
-# Phase 1 of hook evaluation: apply inject rules
-for rule in result.rules:
-    if rule.enforcement != "inject":
-        continue
-    if not matches_trigger(rule, tool_name):
-        continue
-    if should_skip_for_role(rule, agent_role):
-        continue
-    if should_skip_for_phase(rule, current_phase):
-        continue
-    tool_input = apply_injection(rule, tool_input)
-
-# Phase 2: evaluate enforcement rules against the (possibly modified) input
+@dataclass(frozen=True)
+class Injection:
+    id: str                    # Qualified: "project-team:force_tee"
+    namespace: str
+    trigger: list[str]         # Same trigger format as rules
+    detect_pattern: re.Pattern[str] | None = None
+    detect_field: str = "command"
+    inject_value: str = ""     # What to inject (semantics depend on specific injection)
+    roles_only: list[str] = field(default_factory=list)
+    roles_except: list[str] = field(default_factory=list)
+    phase_only: list[str] = field(default_factory=list)
+    phase_except: list[str] = field(default_factory=list)
 ```
 
-The `RulesParser` accepts `inject` as a valid value alongside enforcement levels:
-
+**Hook evaluation — Step 1:**
 ```python
-# RulesParser validation:
-valid_values = {"deny", "warn", "log", "inject"}  # inject accepted but routed separately
+# Step 1 of hook evaluation: apply injections (from `injections:` section)
+for injection in result.injections:
+    if not matches_trigger(injection, tool_name):
+        continue
+    if should_skip_for_role(injection, agent_role):
+        continue
+    if should_skip_for_phase(injection, current_phase):
+        continue
+    tool_input = apply_injection(injection, tool_input)
+
+# Step 2: evaluate enforcement rules against the (possibly modified) input
+```
+
+**InjectionsParser** is registered alongside other parsers:
+```python
+self._manifest_loader.register(InjectionsParser())  # section_key = "injections"
 ```
 
 ### Hook Evaluation Pipeline
 
-Two-phase evaluation when a tool call arrives:
+Two-step evaluation when a tool call arrives:
 
-**Phase 1 — Inject:** Process all `inject` rules (trigger → role → phase → detect filtering, then `apply_injection()`). Modifies tool input in place. No blocking.
+**Step 1 — Inject:** Process all `inject` rules (trigger → role → phase → detect filtering, then `apply_injection()`). Modifies tool input in place. No blocking.
 
-**Phase 2 — Enforcement:** For each non-inject rule:
+**Step 2 — Enforcement:** For each non-inject rule:
 
 1. **Match trigger** — `matches_trigger(rule, tool_name)`: splits `PreToolUse/Bash` on `/`, compares tool name. Bare `PreToolUse` matches all.
-2. **Check role skip** — `should_skip_for_role(rule, agent_role)`: `block_roles` = only fires for listed roles; `allow_roles` = never fires for listed roles.
-3. **Check phase skip** — `should_skip_for_phase(rule, current_phase)`: evaluates `phase_block`/`phase_allow` against current qualified phase ID.
+2. **Check role skip** — `should_skip_for_role(rule, agent_role)`: `roles_only` = only fires for listed roles; `roles_except` = never fires for listed roles.
+3. **Check phase skip** — `should_skip_for_phase(rule, current_phase)`: evaluates `phase_only`/`phase_except` against current qualified phase ID.
 4. **Check exclude pattern** — if `exclude_pattern` matches, skip this rule.
 5. **Match detect pattern** — if `detect_pattern` is set and doesn't match, skip this rule.
 6. **Log hit** — every rule match is recorded as a `HitRecord` regardless of enforcement level (see §8.1).
 7. **Apply enforcement:**
    - `log` → allow (hit logged, no block, continue to next rule)
-   - `warn` → check `_has_ack(rule.id, tool_name, tool_input)`; if ack present → allow (outcome: `ack`, continue); otherwise → block with ack instructions
-   - `deny` → check `engine.consume_override_token(rule.id, tool_name, tool_input)`; if token consumed → allow (outcome: `overridden`, continue); otherwise → block with `request_override` instructions
+   - `warn` → check `consume_override_token(rule.id, tool_name, tool_input)`; if token consumed → allow (outcome: `ack`, continue); otherwise → block with `acknowledge_warning` instructions
+   - `deny` → check `consume_override_token(rule.id, tool_name, tool_input)`; if token consumed → allow (outcome: `overridden`, continue); otherwise → block with `request_override` instructions
+
+### Helper Functions
+
+```python
+def _get_field(tool_input: dict, field: str) -> str:
+    """Extract a field from tool_input for pattern matching.
+    Simple dict lookup, returns empty string for missing keys."""
+    return str(tool_input.get(field, ""))
+
+
+def apply_injection(injection: Injection, tool_input: dict) -> dict:
+    """Apply an injection rule to tool_input, returning a modified copy.
+
+    The injection's detect pattern identifies what to modify, and
+    inject_value specifies what to inject. Exact injection semantics
+    depend on the specific injection's configuration.
+
+    Args:
+        injection: An Injection with detect pattern and inject_value.
+        tool_input: The current tool input dict.
+
+    Returns:
+        A modified copy of tool_input with the injection applied.
+    """
+    field = injection.detect_field
+    current_value = _get_field(tool_input, field)
+    if not current_value:
+        return tool_input
+
+    # Check detect pattern if present
+    if injection.detect_pattern and not injection.detect_pattern.search(current_value):
+        return tool_input
+
+    # Apply injection — modify the target field
+    modified = dict(tool_input)
+    modified[field] = f"{current_value}\n{injection.inject_value}" if injection.inject_value else current_value
+    return modified
+```
 
 ### Rule-Evaluation Hook Closure
 
@@ -1532,22 +1621,18 @@ def create_guardrail_hooks(
 
         current_phase = get_phase() if get_phase else None
 
-        # Phase 1: Apply inject rules (separate mechanism)
-        for rule in result.rules:
-            if rule.enforcement != "inject":
+        # Step 1: Apply injections (from `injections:` section)
+        for injection in result.injections:
+            if not matches_trigger(injection, tool_name):
                 continue
-            if not matches_trigger(rule, tool_name):
+            if should_skip_for_role(injection, agent_role):
                 continue
-            if should_skip_for_role(rule, agent_role):
+            if should_skip_for_phase(injection, current_phase):
                 continue
-            if should_skip_for_phase(rule, current_phase):
-                continue
-            tool_input = apply_injection(rule, tool_input)
+            tool_input = apply_injection(injection, tool_input)
 
-        # Phase 2: Evaluate enforcement rules
+        # Step 2: Evaluate enforcement rules
         for rule in result.rules:
-            if rule.enforcement == "inject":
-                continue  # Already handled
             if not matches_trigger(rule, tool_name):
                 continue
             if should_skip_for_role(rule, agent_role):
@@ -1579,14 +1664,18 @@ def create_guardrail_hooks(
                 continue  # Log doesn't block — check next rule
 
             elif rule.enforcement == "warn":
-                if _has_ack(rule.id, tool_name, tool_input):
+                if consume_override and consume_override(rule.id, tool_name, tool_input):
                     hit_logger.record(dataclasses.replace(hit, outcome="ack"))
-                    continue  # Ack present — allow, check next rule
+                    continue  # Token consumed — allow, check next rule
                 else:
                     hit_logger.record(dataclasses.replace(hit, outcome="blocked"))
                     return {
                         "decision": "block",
-                        "reason": f"{rule.message}\nTo proceed: re-run with # ack:{rule.id}",
+                        "reason": (
+                            f"{rule.message}\n"
+                            f"To acknowledge: acknowledge_warning(rule_id=\"{rule.id}\", "
+                            f"tool_name=\"{tool_name}\", tool_input={{...}})"
+                        ),
                     }
 
             elif rule.enforcement == "deny":
@@ -1599,7 +1688,8 @@ def create_guardrail_hooks(
                         "decision": "block",
                         "reason": (
                             f"{rule.message}\n"
-                            f"To request user override: request_override(tool_name=\"{tool_name}\", ...)"
+                            f"To request user override: request_override(rule_id=\"{rule.id}\", "
+                            f"tool_name=\"{tool_name}\", tool_input={{...}})"
                         ),
                     }
 
@@ -1632,7 +1722,7 @@ class HitRecord:
     rule_id: str           # Qualified: "project-team:pip_block"
     agent_role: str | None # Role of the agent that triggered the hit
     tool_name: str         # e.g. "Bash", "Write"
-    enforcement: str       # "deny", "warn", "log", "inject"
+    enforcement: str       # "deny", "warn", "log"
     timestamp: float       # time.time()
     outcome: str = ""      # "blocked", "allowed", "ack", "overridden"
 
@@ -1700,11 +1790,10 @@ def create_guardrail_hooks(
 | Enforcement | Possible Outcomes | When |
 |---|---|---|
 | `log` | `allowed` | Always — log never blocks |
-| `warn` | `blocked` | Agent did not include `# ack:RULE_ID` in command |
-| `warn` | `ack` | Agent included `# ack:RULE_ID` — ack + execute atomic |
+| `warn` | `blocked` | No acknowledgment token available |
+| `warn` | `ack` | One-time acknowledgment token consumed (via `acknowledge_warning` MCP) |
 | `deny` | `blocked` | No override token available |
 | `deny` | `overridden` | One-time override token consumed (per-command, not session-wide) |
-| `inject` | `injected` | Tool input was modified |
 
 **Replaces:** The file-based system's `hits.jsonl` at `.claude/guardrails/hits.jsonl`. Same JSONL format, new location, richer data (includes outcome, agent role, enforcement level).
 
@@ -1780,7 +1869,36 @@ def assemble_agent_prompt(
     return identity
 
 
-def get_system_prompt_injection(
+def _find_workflow_dir(workflows_dir: Path, workflow_id: str) -> Path | None:
+    """Find the workflow directory for a given workflow_id.
+
+    Scans subdirectories of workflows_dir and matches on the
+    workflow_id field in their YAML manifest. This handles the
+    case where workflow_id is kebab-case but the directory is
+    snake_case (e.g. workflow_id='project-team', dir='project_team').
+
+    Returns the directory Path, or None if not found.
+    """
+    if not workflows_dir.is_dir():
+        return None
+    for child in sorted(workflows_dir.iterdir()):
+        if not child.is_dir() or child.name.startswith("."):
+            continue
+        manifest = child / f"{child.name}.yaml"
+        if not manifest.is_file():
+            continue
+        try:
+            import yaml
+            with manifest.open() as f:
+                data = yaml.safe_load(f)
+            if isinstance(data, dict) and data.get("workflow_id") == workflow_id:
+                return child
+        except (OSError, Exception):
+            continue
+    return None
+
+
+def assemble_phase_prompt(
     workflows_dir: Path,
     workflow_id: str,
     role_name: str,
@@ -1803,9 +1921,9 @@ def get_system_prompt_injection(
 
 ```python
 # In mcp.py spawn_agent, after agent creation:
-from claudechic.workflows.agent_folders import get_system_prompt_injection
+from claudechic.workflows.agent_folders import assemble_phase_prompt
 
-folder_prompt = get_system_prompt_injection(
+folder_prompt = assemble_phase_prompt(
     workflows_dir=workflows_dir,
     workflow_id=active_workflow_id,
     role_name=agent_type or name,
@@ -1874,7 +1992,7 @@ class HintSpec:
 
 | Existing Code | Action | New Location | Changes |
 |---|---|---|---|
-| `Rule` dataclass | **Modify in place** | guardrails/rules.py | Add required `namespace: str` field (no default). YAML uses `block_roles`/`allow_roles` only — no `block`/`allow` compat. |
+| `Rule` dataclass | **Modify in place** | guardrails/rules.py | Add required `namespace: str` field (no default). YAML uses `roles_only`/`roles_except` only — no `block`/`allow` compat. |
 | `load_rules(rules_path)` | **Replace** | workflows/loader.py | Old `load_rules()` deleted. All rule loading through ManifestLoader. RulesParser implements ManifestSection[Rule]. |
 | `matches_trigger()` | **No change** | guardrails/rules.py | Unchanged. |
 | `match_rule()` | **No change** | guardrails/rules.py | Unchanged. |
@@ -1886,7 +2004,7 @@ class HintSpec:
 
 | Existing Code | Action | New Location | Changes |
 |---|---|---|---|
-| `_guardrail_hooks()` | **Extract** | guardrails/hooks.py | Free function `create_guardrail_hooks(loader, hit_logger, agent_role, get_phase, consume_override)`. Two-phase pipeline: inject rules first, then enforcement (log/warn/deny). Receives shared `ManifestLoader` + `HitLogger` + `GetPhaseCallback` + `OverrideTokenConsumer`. |
+| `_guardrail_hooks()` | **Extract** | guardrails/hooks.py | Free function `create_guardrail_hooks(loader, hit_logger, agent_role, get_phase, consume_override)`. Two-step pipeline: injections first, then enforcement (log/warn/deny). Receives shared `ManifestLoader` + `HitLogger` + `GetPhaseCallback` + `OverrideTokenConsumer`. |
 | `_show_guardrail_confirm()` | **Rename/repurpose** | app.py | Used by `request_override` MCP tool for user approval of specific `deny`-blocked commands. Shows exact tool name + input in SelectionPrompt. |
 | `_plan_mode_hooks()` | **Stays** | app.py | App-level concern. No change. |
 | `_merged_hooks()` | **Modify** | app.py | Add workflow hooks and PostCompact hook to merge. |
@@ -1906,10 +2024,10 @@ class Rule:
     detect_field: str = "command"
     exclude_pattern: re.Pattern[str] | None = None
     message: str = ""
-    block_roles: list[str] = field(default_factory=list)
-    allow_roles: list[str] = field(default_factory=list)
-    phase_block: list[str] = field(default_factory=list)
-    phase_allow: list[str] = field(default_factory=list)
+    roles_only: list[str] = field(default_factory=list)
+    roles_except: list[str] = field(default_factory=list)
+    phase_only: list[str] = field(default_factory=list)
+    phase_except: list[str] = field(default_factory=list)
 ```
 
 ### should_skip_for_phase() — Simplified
@@ -1924,8 +2042,27 @@ def should_skip_for_phase(rule: Rule, current_phase: str | None) -> bool:
 
 ### YAML Key Alignment
 
-Old: `block`/`allow` in YAML → `block_roles`/`allow_roles` fields.
-New: `block_roles`/`allow_roles` in YAML directly. No mapping needed.
+YAML keys map directly to code field names. No translation layer needed.
+
+### YAML ↔ Code Field Mapping
+
+| YAML Key | Code Field | Type | Notes |
+|----------|-----------|------|-------|
+| `id` | `id` | `str` | Bare in YAML, qualified at runtime (`namespace:id`) |
+| `trigger` | `trigger` | `list[str]` | e.g. `PreToolUse/Bash` |
+| `enforcement` | `enforcement` | `str` | `deny`, `warn`, `log` |
+| `detect.pattern` | `detect_pattern` | `re.Pattern` | Compiled regex |
+| `detect.field` | `detect_field` | `str` | Default: `"command"` |
+| `exclude_if_matches` | `exclude_pattern` | `re.Pattern` | Compiled regex |
+| `message` | `message` | `str` | Human-readable block message |
+| `roles_only` | `roles_only` | `list[str]` | Rule fires only for these roles |
+| `roles_except` | `roles_except` | `list[str]` | Rule never fires for these roles |
+| `phase_only` | `phase_only` | `list[str]` | Rule fires only during these phases (qualified IDs) |
+| `phase_except` | `phase_except` | `list[str]` | Rule never fires during these phases (qualified IDs) |
+| `inject_value` | `inject_value` | `str` | Injection: what to inject (in `injections:` section) |
+| `advance_checks[].type` | `CheckSpec.type` | `str` | Check type name |
+| `advance_checks[].params` | `CheckSpec.params` | `dict` | Check-specific parameters |
+| `hints[].lifecycle` | `HintDecl.lifecycle` | `str` | `show-once`, `show-until-resolved`, etc. |
 
 ### Manifest Types
 
@@ -1953,9 +2090,11 @@ class HintDecl:
 class Phase:
     id: str                         # namespace-qualified
     file: str
-    advance_checks: list[dict[str, Any]] = field(default_factory=list)
+    advance_checks: list[CheckSpec] = field(default_factory=list)
     hints: list[HintDecl] = field(default_factory=list)
 ```
+
+**Phase-nested hint ID auto-generation:** Hints declared inside a phase's `hints:` list without an explicit `id` get auto-generated IDs: `{namespace}:{phase_id}:hint:{index}` where `index` is the 0-based position in the phase's hints list. For example, the first hint in `project_team.yaml`'s `implementation` phase gets ID `project-team:implementation:hint:0`. The `PhasesParser` generates these IDs during parsing, before the hints are flattened into the main hints list.
 
 ### RulesParser Implementation
 
@@ -2001,7 +2140,7 @@ class RulesParser:
             return f"rule '{raw_id}' has no trigger"
 
         enforcement = entry.get("enforcement", "deny")
-        if enforcement not in ("deny", "warn", "log", "inject"):
+        if enforcement not in ("deny", "warn", "log"):
             return f"unknown enforcement '{enforcement}'"
 
         detect = entry.get("detect", {})
@@ -2031,10 +2170,10 @@ class RulesParser:
             detect_field=detect_field,
             exclude_pattern=exclude_pattern,
             message=entry.get("message", ""),
-            block_roles=_as_list(entry.get("block_roles", [])),
-            allow_roles=_as_list(entry.get("allow_roles", [])),
-            phase_block=_as_list(entry.get("phase_block", [])),
-            phase_allow=_as_list(entry.get("phase_allow", [])),
+            roles_only=_as_list(entry.get("roles_only", [])),
+            roles_except=_as_list(entry.get("roles_except", [])),
+            phase_only=_as_list(entry.get("phase_only", [])),
+            phase_except=_as_list(entry.get("phase_except", [])),
         )
 ```
 
@@ -2058,13 +2197,13 @@ class RulesParser:
 1. `claudechic/guardrails/rules.py` — Add `namespace` field; simplify `should_skip_for_phase()` signature; delete `load_rules()` and `read_phase_state()`
 2. `claudechic/guardrails/__init__.py` — Add hooks.py exports
 3. `claudechic/app.py` — Extract `_guardrail_hooks` body to `guardrails/hooks.py`; update `_merged_hooks`; add engine init with `persist_fn` wiring; pass `consume_override_token` to hooks; init `HitLogger`; add `_show_override_prompt` for `request_override` MCP; add PostCompact
-4. `claudechic/mcp.py` — Add agent folder prompt assembly to `spawn_agent`; add `advance_phase`, `get_phase`, and `request_override` MCP tools
+4. `claudechic/mcp.py` — Add agent folder prompt assembly to `spawn_agent`; add `advance_phase`, `get_phase`, `request_override`, and `acknowledge_warning` MCP tools
 5. `claudechic/chicsessions.py` — Add `workflow_state: dict | None = None` field to `Chicsession` dataclass
 
 **DELETE (file-based system removal — after new system validated):**
 1. `.claude/guardrails/generate_hooks.py` — Shell hook generator, replaced by closure-based hooks
 2. `.claude/guardrails/hooks/` — Generated shell hook scripts
-3. `.claude/guardrails/role_guard.py` — Ack token mechanism, replaced by inline ack detection in closures
+3. `.claude/guardrails/role_guard.py` — Ack token mechanism, replaced by `acknowledge_warning` MCP tool + one-time tokens
 4. `.claude/guardrails/rules.yaml` — Replaced by `workflows/global.yaml` + workflow manifests
 5. `.claude/guardrails/hits.jsonl` — Replaced by `workflows/.hits.jsonl`
 6. `.claude/guardrails/sessions/` — Session markers, replaced by chicsession + env var
@@ -2084,7 +2223,7 @@ app.py
   ├── guardrails/hits.py            (HitLogger — created at app init)
   ├── guardrails/rules.py           (Rule — type hints only)
   ├── workflows/engine.py           (WorkflowEngine — phase state, override tokens, checks)
-  ├── workflows/agent_folders.py    (get_system_prompt_injection)
+  ├── workflows/agent_folders.py    (assemble_phase_prompt)
   ├── chicsessions.py               (Chicsession — workflow_state field)
   └── hints/__init__.py             (run_pipeline — toast scheduling)
 
@@ -2195,7 +2334,7 @@ hints/__init__.py
 
 ### ~~R5: `warn` Enforcement Infinite Loop~~ — RESOLVED
 
-Eliminated by `_has_ack()` function in closures. `warn` rules block the tool call; the agent retries with `# ack:RULE_ID` in the Bash command. The closure's `_has_ack()` detects this and allows the call through. Per-command scoping means no session state, no loop risk — each invocation is independently evaluated.
+Eliminated by the unified one-time token mechanism. `warn` rules block the tool call; the agent calls `acknowledge_warning` MCP tool (stores token), then retries. The hook's `consume_override_token()` detects and consumes the token. Per-command scoping means no session state, no loop risk — each invocation is independently evaluated.
 
 ### R6: Silent Rule Loss on Parse Error
 
@@ -2219,7 +2358,7 @@ Eliminated by moving persistence to chicsession. The session system handles its 
 
 ### R9: PostCompact Hook SDK Protocol
 
-**Risk:** The PostCompact hook return value format (`inject_context` key) is speculative. SDK may not support context injection this way.
+**Risk:** The PostCompact hook return value format (`phase_context` key) is speculative. SDK may not support context injection this way.
 
 **Severity:** Medium.
 
@@ -2256,24 +2395,18 @@ Eliminated by moving persistence to chicsession. Session system manages its own 
 workflow_id: project-team
 
 rules:
-  - id: pip_block
-    trigger: PreToolUse/Bash
-    enforcement: deny
-    detect: { pattern: '\bpip\s+install\b', field: command }
-    message: "Use pixi, not pip."
-
   - id: pytest_output
     trigger: PreToolUse/Bash
     enforcement: deny
-    phase_block: ["project-team:testing"]
+    phase_only: ["project-team:testing"]
     detect: { pattern: '(?:^|&&|\|\||;|\brun\s+)\s*pytest\b', field: command }
     message: "Redirect pytest output to .test_runs/"
 
   - id: close_agent
     trigger: PreToolUse/mcp__chic__close_agent
     enforcement: deny
-    phase_allow: ["project-team:specification"]
-    block_roles: [implementer]
+    phase_only: ["project-team:specification"]
+    roles_only: [implementer]
     message: "Close agent during specification — user approval required."
 
   - id: force_push_warn
@@ -2314,11 +2447,12 @@ phases:
 ```
 
 **After loading, rule IDs become:**
-- `project-team:pip_block` (deny)
 - `project-team:pytest_output` (deny)
 - `project-team:close_agent` (deny)
 - `project-team:force_push_warn` (warn)
 - `project-team:tool_usage_tracking` (log)
+
+**Note:** `pip_block` is in `global.yaml` only (as `_global:pip_block`), not duplicated here.
 
 **Phase IDs become:**
 - `project-team:vision`, `project-team:setup`, ..., `project-team:signoff`
@@ -2404,7 +2538,7 @@ Rule from manifest:
 - id: pytest_output
   trigger: PreToolUse/Bash
   enforcement: deny
-  phase_block: ["project-team:testing"]
+  phase_only: ["project-team:testing"]
   detect: { pattern: '(?:^|&&|\|\||;|\brun\s+)\s*pytest\b', field: command }
   message: "Redirect pytest output to .test_runs/"
 ```
@@ -2412,39 +2546,39 @@ Rule from manifest:
 **Current phase: `project-team:implementation`** — agent runs `pytest`:
 
 1. Trigger match: `PreToolUse/Bash` ✅
-2. Role skip: no `block_roles`/`allow_roles` → no skip
-3. Phase skip: `phase_block: ["project-team:testing"]` — current phase is `project-team:implementation`, NOT in `phase_block` → **skip** ✅
+2. Role skip: no `roles_only`/`roles_except` → no skip
+3. Phase skip: `phase_only: ["project-team:testing"]` — current phase is `project-team:implementation`, NOT in `phase_only` → **skip** ✅
 4. Rule does NOT fire. `pytest` runs normally.
 
 **Current phase: `project-team:testing`** — agent runs `pytest`:
 
 1. Trigger match: `PreToolUse/Bash` ✅
 2. Role skip: no restrictions → no skip
-3. Phase skip: `phase_block: ["project-team:testing"]` — current phase IS in `phase_block` → **does not skip**
+3. Phase skip: `phase_only: ["project-team:testing"]` — current phase IS in `phase_only` → **does not skip**
 4. Detect match: `pytest` matches pattern ✅
 5. Hit logged: `HitRecord(rule_id="project-team:pytest_output", outcome="blocked", ...)`
-6. Enforcement: `deny` → `{"decision": "block", "reason": "Redirect pytest output to .test_runs/\nTo request user override: request_override(tool_name=\"Bash\", ...)"}`
+6. Enforcement: `deny` → `{"decision": "block", "reason": "Redirect pytest output to .test_runs/\nTo request user override: request_override(rule_id=\"project-team:pytest_output\", tool_name=\"Bash\", tool_input={...})"}`
 
-Rule for `close_agent` with `phase_allow` and `block_roles`:
+Rule for `close_agent` with `phase_only` and `roles_only`:
 ```yaml
 - id: close_agent
   trigger: PreToolUse/mcp__chic__close_agent
   enforcement: deny
-  phase_allow: ["project-team:specification"]
-  block_roles: [implementer]
+  phase_only: ["project-team:specification"]
+  roles_only: [implementer]
 ```
 
 **Agent: implementer, phase: specification** — calls `close_agent`:
 1. Trigger: `PreToolUse/mcp__chic__close_agent` ✅
-2. Role: `block_roles: [implementer]` — agent IS implementer → does not skip
-3. Phase: `phase_allow: ["project-team:specification"]` — current phase IS in list → does not skip
+2. Role: `roles_only: [implementer]` — agent IS implementer → does not skip
+3. Phase: `phase_only: ["project-team:specification"]` — current phase IS in `phase_only` ��� does not skip
 4. No detect pattern → fires
-5. Enforcement: `deny` → block with message: "Close agent during specification — user approval required.\n\nTo request user override: request_override(tool_name=\"mcp__chic__close_agent\", ...)"
-6. Agent calls `request_override(tool_name="mcp__chic__close_agent", **original_input)` → user sees exact command in SelectionPrompt → if approved, one-time token stored → agent retries exact same command → token consumed → allowed through
+5. Enforcement: `deny` → block with message: "Close agent during specification — user approval required.\n\nTo request user override: request_override(rule_id=\"project-team:close_agent\", tool_name=\"mcp__chic__close_agent\", tool_input={...})"
+6. Agent calls `request_override(rule_id="project-team:close_agent", tool_name="mcp__chic__close_agent", tool_input={...})` → user sees exact command in SelectionPrompt → if approved, one-time token stored → agent retries exact same command → token consumed → allowed through
 
 **Agent: coordinator, phase: specification** — calls `close_agent`:
 1. Trigger: ✅
-2. Role: `block_roles: [implementer]` — agent is coordinator, NOT in block_roles → **skip** ✅
+2. Role: `roles_only: [implementer]` — agent is coordinator, NOT in roles_only → **skip** ✅
 3. Rule does NOT fire.
 
 ### Example 5: Hook Closure Code
@@ -2467,8 +2601,8 @@ hooks = create_guardrail_hooks(
 # 4. On every tool call by this agent, the hook closure:
 #    a. Calls loader.load() — reads manifests fresh (no mtime cache — NFS safe)
 #    b. Evaluates each rule with agent_role="implementer"
-#    c. Rules with allow_roles=["implementer"] are skipped
-#    d. Rules with block_roles=["implementer"] always fire for this agent
+#    c. Rules with roles_except=["implementer"] are skipped
+#    d. Rules with roles_only=["implementer"] always fire for this agent
 #    e. Phase from get_phase() — in-memory engine attribute, no file I/O
 
 # The closure captures loader + hit_logger + agent_role + get_phase + consume_override.
@@ -2523,13 +2657,13 @@ rules:
   - id: bad_ref
     trigger: PreToolUse/Bash
     enforcement: deny
-    phase_block: ["project-team:nonexistent"]    # ← references unknown phase
+    phase_only: ["project-team:nonexistent"]    # ← references unknown phase
     message: "This rule has a bad phase reference"
 
   - id: good_ref
     trigger: PreToolUse/Bash
     enforcement: deny
-    phase_block: ["project-team:testing"]         # ← valid phase reference
+    phase_only: ["project-team:testing"]         # ← valid phase reference
     message: "This rule is correctly scoped"
 
 phases:
@@ -2541,13 +2675,13 @@ phases:
 
 **After loading:**
 - Known phases: `project-team:implementation`, `project-team:testing`
-- Rule `project-team:bad_ref` has `phase_block: ["project-team:nonexistent"]`
+- Rule `project-team:bad_ref` has `phase_only: ["project-team:nonexistent"]`
 - Validation produces:
   ```
   LoadError(source="validation", section="rules", item_id="project-team:bad_ref",
-            message="unknown phase ref 'project-team:nonexistent' in phase_block")
+            message="unknown phase ref 'project-team:nonexistent' in phase_only")
   ```
-- The rule still loads (fail-open) but `phase_block` filter is vacuously false for `project-team:nonexistent` — the rule never activates on phase grounds
+- The rule still loads (fail-open) but `phase_only` filter is vacuously false for `project-team:nonexistent` — the rule never activates on phase grounds
 - Rule `project-team:good_ref` validates cleanly
 
 ---

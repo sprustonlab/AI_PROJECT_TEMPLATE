@@ -11,7 +11,7 @@ Extend claudechic to offer a unified guidance system — advisory and enforced, 
 
 **Why:**
 - Guidance is currently scattered across multiple systems, formats, and locations. Rules, checks, and hints each have their own mechanism.
-- Users shouldn't need to learn three separate systems. A single pattern — YAML manifests + markdown content in `workflows/` — makes guidance easy to author, understand, and maintain.
+- Users shouldn't need to learn three separate systems. A single pattern — YAML manifests + markdown content in `global/` and `workflows/` — makes guidance easy to author, understand, and maintain.
 - The 2×2 framing (advisory/enforced × positive/negative) gives users a clear mental model for where any piece of guidance fits and how it behaves.
 
 **Foundational principle:** Decouple guidance authoring from guidance infrastructure. A workflow author writes YAML + markdown. claudechic provides the loader, engine, checks, hooks, and delivery. No code changes needed to create a new workflow. If claudechic ever needs `if workflow == "project-team":` branches, the system has failed.
@@ -27,7 +27,7 @@ Specifically:
 | `generate_hooks.py` | Closure-based hooks in `guardrails/hooks.py` | Python closures replace generated shell scripts |
 | `.claude/guardrails/hooks/` (generated shell scripts) | `create_guardrail_hooks()` return value | SDK hook protocol replaces Claude Code hooks protocol |
 | `role_guard.py ack` mechanism (ack tokens, file-based TTL) | `acknowledge_warning` MCP tool + one-time token (see §8) | Agent calls MCP tool → token stored → retry consumes token |
-| `.claude/guardrails/rules.yaml` | `workflows/global.yaml` + workflow manifests | Rules now in manifests with namespace prefixing |
+| `.claude/guardrails/rules.yaml` | `global/rules.yaml` + workflow manifests | Rules now in manifests with namespace prefixing |
 | `.claude/guardrails/hits.jsonl` | `workflows/.hits.jsonl` via `guardrails/hits.py` | Richer data (outcome, agent role, enforcement level) |
 | Session markers (`.claude/guardrails/sessions/`) | `Chicsession.workflow_state` + `CLAUDE_AGENT_ROLE` env var | Role set at spawn time, state in chicsession |
 
@@ -42,7 +42,7 @@ Specifically:
 | Term | Definition |
 |------|-----------|
 | **Workflow** | A named configuration — YAML manifest + markdown content in a directory under `workflows/` — that defines phases, rules, checks, and hints. Each workflow has a `workflow_id` (kebab-case, e.g. `project-team`) used in namespacing. |
-| **Manifest** | A YAML file declaring rules, phases, checks, and hints. Two kinds: **global manifest** (`workflows/global.yaml`, always active, no phases) and **workflow manifest** (`workflows/<name>/<name>.yaml`, scoped to one workflow). Filename matches directory name (folder name = identity). |
+| **Manifest** | A YAML file declaring rules, phases, checks, and hints. Two kinds: **global manifests** (`global/*.yaml`, always active, no phases — separate files for rules, checks, hints) and **workflow manifest** (`workflows/<name>/<name>.yaml`, scoped to one workflow). All files in `global/` share the `global` namespace. Workflow manifest filename matches directory name (folder name = identity). |
 | **Manifest Loader** | The unified system that reads all manifest files, discovers them by directory convention, and distributes each YAML section to a typed parser. Single code path — callers filter results. |
 | **ManifestSection Protocol** | A typed parser interface (`ManifestSection[T]`) that each section kind implements. Three built-in parsers: rules, checks, hints. Adding a new section type means adding a parser — the loader itself does not change. |
 | **Workflow Engine** | Manages workflow state, phase transitions, check execution, and hint delivery. Separate from the loader. |
@@ -73,7 +73,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | **Detect Pattern** | A regex in a rule's `detect` block, matched against a specified `field` of the tool input (default: `command`). If absent, the rule fires on every matching trigger. |
 | **Exclude Pattern** | A regex (`exclude_if_matches`) that, when matched, prevents the rule from firing — checked before the detect pattern. |
 | **Role Scoping** | `roles` — rule fires *only* for these roles (include filter). `exclude_roles` — rule *never* fires for these roles (exclude filter). |
-| **Phase Scoping** | `phases` — rule fires only during these phases (include filter). `exclude_phases` — rule *never* fires during these phases (exclude filter). Within the same manifest, bare phase names are used; the loader qualifies them at parse time. Cross-workflow references use fully qualified IDs. |
+| **Phase Scoping** | `phases` — rule fires only during these phases (include filter). `exclude_phases` — rule *never* fires during these phases (exclude filter). Within the same manifest, bare phase names are used; the loader qualifies them at parse time. Cross-workflow references (e.g. in `global/*.yaml`) use fully qualified IDs. |
 
 ### Phases
 
@@ -82,7 +82,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 | **Phase** | A named period in a workflow's lifecycle (e.g. `vision`, `setup`, `specification`). Ordered. Each has an `id`, a `file` reference, optional `advance_checks`, and optional `hints`. |
 | **Phase Transition** | Moving from current phase to next. Gated by `advance_checks` — all must pass (AND semantics, short-circuit on first failure). |
 | **Phase State** | Runtime tracking of current phase. Held in-memory by the engine, persisted via `Chicsession.workflow_state` on each phase transition. On session resume, the engine restores state from the chicsession. |
-| **Qualified Phase ID** | `<workflow_id>:<phase_id>` (e.g. `project-team:testing`). The runtime form used in `phases` and `exclude_phases` fields. In YAML, bare names are used within the same manifest (loader qualifies them); fully qualified names are required for cross-workflow references in `global.yaml`. |
+| **Qualified Phase ID** | `<workflow_id>:<phase_id>` (e.g. `project-team:testing`). The runtime form used in `phases` and `exclude_phases` fields. In YAML, bare names are used within the same manifest (loader qualifies them); fully qualified names are required for cross-workflow references in `global/*.yaml`. |
 
 ### Checks
 
@@ -90,7 +90,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 |------|-----------|
 | **Check** | A verification that tests system state and returns pass/fail with evidence. The engine runs checks — not the agent. Protocol is async. |
 | **Advance Checks** | Checks under a phase's `advance_checks` key. Gate phase transitions. AND semantics, short-circuit on first failure. |
-| **Setup Checks** | Checks in `global.yaml` that verify environment prerequisites. Include `on_failure` with message, severity, lifecycle. Bridged to hints pipeline via CheckFailed adapter. |
+| **Setup Checks** | Checks in `global/checks.yaml` that verify environment prerequisites. Include `on_failure` with message, severity, lifecycle. Bridged to hints pipeline via CheckFailed adapter. |
 | **`when` Clause** | Condition on checks that gates whether the check runs, based on copier-answer values (e.g. `when: { copier: use_cluster }`). Evaluation semantics: truthy (value is present and not false/empty). |
 | **`on_failure`** | Block on checks specifying what happens on failure: `message` (human-readable), `severity` (`warning`), `lifecycle` (e.g. `show-until-resolved`). |
 
@@ -100,7 +100,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 |------|-----------|
 | **Hint** | Advisory content delivered to the user via TUI toast. Not visible to the agent. Declared in manifests under phase entries or globally. Engine converts declarations to `HintSpec` objects via `run_pipeline()`. |
 | **HintSpec** | Internal object representing a hint after manifest parsing. Consumed by the existing hints pipeline. |
-| **Hint Lifecycle** | Controls display behavior: `show-once` (displayed once, suppressed), `show-until-resolved` (repeated until condition passes). Out of scope: `ShowUntilPhaseComplete`. |
+| **Hint Lifecycle** | Controls display behavior: `show-once` (displayed once, suppressed), `show-until-resolved` (repeated until condition passes). |
 | **CheckFailed Adapter** | Bridges failing checks into the hints pipeline. When a check fails and has `on_failure` config, produces a `HintSpec` surfaced through `run_pipeline()`. |
 
 ### Agent Folders
@@ -127,8 +127,8 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 
 | Term | Definition |
 |------|-----------|
-| **Namespace** | Prefix applied to bare IDs at load time: `_global:<id>` for global manifest items, `<workflow_id>:<id>` for workflow items. All IDs are namespaced at runtime. IDs in YAML are written bare — the loader prefixes automatically. |
-| **Qualified ID** | The runtime form: `namespace:name`. Examples: `_global:pip_block`, `project-team:close_agent`. |
+| **Namespace** | Prefix applied to bare IDs at load time: `global:<id>` for items in `global/*.yaml`, `<workflow_id>:<id>` for workflow items. All IDs are namespaced at runtime. IDs in YAML are written bare — the loader prefixes automatically. |
+| **Qualified ID** | The runtime form: `namespace:name`. Examples: `global:pip_block`, `project-team:close_agent`. |
 
 ### Additional Terms
 
@@ -148,7 +148,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 
 | Mode | When | Behavior |
 |------|------|----------|
-| **Fail Closed** | `workflows/` unreadable | Block everything. |
+| **Fail Closed** | `global/` or `workflows/` unreadable | Block everything. |
 | **Fail Open** | Individual manifest malformed or bad regex | Skip that manifest/item, load the rest. |
 | **Startup Validation** | Manifest load time | Duplicate ID detection, invalid regex detection, unknown phase reference validation. Raw IDs containing `:` rejected. |
 
@@ -156,7 +156,7 @@ The boundary is **authority**: `warn` and `log` are advisory (Quadrant B) — th
 
 1. **Rule vs Check** — Rules are reactive (fire on tool calls). Checks are proactive (engine evaluates state). Distinct mechanisms.
 2. **Phase** exclusively — never "stage" or "step."
-3. **Manifest** for YAML files in `workflows/`. "Config" refers to `~/.claude/.claudechic.yaml`.
+3. **Manifest** for YAML files in `global/` and `workflows/`. "Config" refers to `~/.claude/.claudechic.yaml`.
 4. **Agent folder** — not "role directory."
 5. **Rule** = precise mechanism term covering all three enforcement levels (`deny`, `warn`, `log`). **Guardrail** = colloquial shorthand for Quadrant D only (enforced negative: `deny`). **Guidance** = umbrella for all four quadrants. In prose, use "rule" when referring to the mechanism generally; reserve "guardrail" for specifically enforced negative rules. **Injection** is a separate tool-input modification mechanism declared in the `injections:` manifest section, not an enforcement level and not in the `rules:` section.
 6. **Advisory** is a classification. **Hint** is a specific mechanism (`HintSpec`/`run_pipeline()`). Advisory markdown (Quadrant A) is not delivered as hints.
@@ -193,14 +193,14 @@ Filtering dimensions that compose with AND semantics:
 
 | Filter | Values | Applies to |
 |--------|--------|------------|
-| **Namespace** | `_global` \| `{workflow_id}` | All guidance types |
+| **Namespace** | `global` \| `{workflow_id}` | All guidance types |
 | **Phase** | `phases` / `exclude_phases` lists | Rules, hints |
 | **Role** | `roles` / `exclude_roles` lists | Rules |
 | **Conditional** | `when: { copier: key }` | Checks |
 
 Each filter is `(context) -> bool`. Evaluation: `all(f(ctx) for f in applicable_filters)`. No filter inspects another filter's state.
 
-**Phase references cross workflow boundaries:** `phases: ["project-team:testing"]` in `global.yaml` creates a coupling to a specific workflow. Cross-workflow references must use fully qualified IDs (bare names are only auto-qualified within the same manifest). The loader's startup validation makes this coupling explicit and fails fast.
+**Phase references cross workflow boundaries:** `phases: ["project-team:testing"]` in `global/rules.yaml` creates a coupling to a specific workflow. Cross-workflow references must use fully qualified IDs (bare names are only auto-qualified within the same manifest). The loader's startup validation makes this coupling explicit and fails fast.
 
 **Note on axes 4–6:** These axes are not freely composable across all section types — they describe dimensions of variation within their applicable domains (e.g., lifecycle applies to hints, enforcement applies to rules).
 
@@ -228,11 +228,11 @@ How guidance persists over time: `show-once`, `show-until-resolved`, `show-every
 
 ### Axis 6: Content vs. Infrastructure
 
-The foundational axis. Content = `workflows/` directory (YAML + markdown). Infrastructure = claudechic code (loader, engine, checks, hooks, delivery).
+The foundational axis. Content = `global/` + `workflows/` directories (YAML + markdown). Infrastructure = claudechic code (loader, engine, checks, hooks, delivery).
 
 **Compositional law:** Manifests follow a schema. Markdown files follow a naming convention (folder name = role, file name = phase). Infrastructure processes any content that follows these conventions.
 
-**Seam:** The `workflows/` directory boundary. claudechic reads from it but never writes workflow-specific logic.
+**Seam:** The `global/` and `workflows/` directory boundaries. claudechic reads from them but never writes workflow-specific logic.
 
 ### 10-Point Crystal Spot Check
 
@@ -255,7 +255,7 @@ No crystal holes found.
 
 1. **ManifestSection[T] law** — All section parsers consume raw YAML dicts and produce typed objects.
 2. **Check protocol law** — All checks implement `async check() -> CheckResult`.
-3. **`workflows/` convention law** — All workflows are YAML + markdown following naming conventions. claudechic doesn't know workflow domain semantics.
+3. **Content convention law** — All guidance is YAML + markdown following naming conventions (`global/` for global, `workflows/` for workflows). claudechic doesn't know workflow domain semantics.
 
 These three laws guarantee: a new workflow with new check types and new section types can be added without modifying claudechic infrastructure code.
 
@@ -263,11 +263,15 @@ These three laws guarantee: a new workflow with new check types and new section 
 
 ## 4. Directory Structure
 
-### Project-Side Content (`workflows/`)
+### Project-Side Content
 
 ```
-workflows/
-  global.yaml                        # Global manifest: rules, checks, hints (always active, no phases)
+global/                              # Global guidance (always active, no phases)
+  rules.yaml                        # Global rules (pip_block, etc.)
+  checks.yaml                       # Setup checks (github_auth, cluster_ssh, etc.)
+  hints.yaml                        # Global hints
+
+workflows/                           # Workflow definitions
   project_team/
     project_team.yaml                # Manifest: rules, phases, checks, hints
     coordinator/                     # Agent folder — folder name = role type
@@ -289,6 +293,8 @@ workflows/
       implementation.md
       testing.md
 ```
+
+Global guidance is NOT a workflow — it lives in `global/` alongside `workflows/`, not inside it. All YAML files in `global/` share the `global` namespace and are always active. Multiple files let authors organize (rules separate from checks separate from hints) but they merge into one namespace.
 
 Folder name = identity everywhere: manifest filename, rule ID namespace, agent folder name.
 
@@ -362,7 +368,7 @@ class ManifestSection(Protocol[T_co]):
 
         Args:
             raw: List of dicts from yaml.safe_load for this section key.
-            namespace: '_global' for global.yaml, workflow_id for workflow manifests.
+            namespace: 'global' for global/*.yaml, workflow_id for workflow manifests.
             source_path: Path to manifest file (error messages only).
 
         Returns:
@@ -431,25 +437,29 @@ class LoadError:
 ### Manifest Discovery Algorithm
 
 ```python
-def discover_manifests(workflows_dir: Path) -> list[Path]:
-    """Discover all manifest files under workflows/.
+def discover_manifests(global_dir: Path, workflows_dir: Path) -> list[Path]:
+    """Discover all manifest files in global/ and workflows/.
 
     Returns paths in load order:
-    1. workflows/global.yaml (if exists)
+    1. global/*.yaml (all YAML files, sorted alphabetically)
     2. workflows/*/workflow_name.yaml (sorted alphabetically)
 
-    Manifest filename must match parent directory name.
+    Global: all .yaml files in global/ directory.
+    Workflow: manifest filename must match parent directory name.
     Example: workflows/project_team/project_team.yaml ✓
              workflows/project_team/other.yaml ✗ (ignored)
-    Hidden directories (.name) skipped.
+    Hidden directories (.name) and hidden files skipped.
     No recursive scanning — exactly one level deep.
     """
     manifests: list[Path] = []
 
-    global_path = workflows_dir / "global.yaml"
-    if global_path.is_file():
-        manifests.append(global_path)
+    # 1. Global manifests — all .yaml files in global/
+    if global_dir.is_dir():
+        for child in sorted(global_dir.iterdir()):
+            if child.is_file() and child.suffix == ".yaml" and not child.name.startswith("."):
+                manifests.append(child)
 
+    # 2. Workflow manifests — workflows/*/name.yaml
     if workflows_dir.is_dir():
         for child in sorted(workflows_dir.iterdir()):
             if child.is_dir() and not child.name.startswith("."):
@@ -463,6 +473,8 @@ def discover_manifests(workflows_dir: Path) -> list[Path]:
 **Key decisions:**
 - Alphabetical sort for deterministic load order across NFS nodes
 - Global loads first so startup validation can report conflicts
+- All `.yaml` files in `global/` are discovered (authors organize freely: `rules.yaml`, `checks.yaml`, `hints.yaml`, etc.)
+- All global files share the `global` namespace
 
 ### Loader — Single Code Path
 
@@ -487,7 +499,8 @@ all_phases = result.phases
 class ManifestLoader:
     """Unified manifest loader — single code path, callers filter."""
 
-    def __init__(self, workflows_dir: Path) -> None:
+    def __init__(self, global_dir: Path, workflows_dir: Path) -> None:
+        self._global_dir = global_dir
         self._workflows_dir = workflows_dir
         self._parsers: dict[str, ManifestSection] = {}
 
@@ -498,7 +511,7 @@ class ManifestLoader:
         """Load all manifests and return unified result.
 
         Error handling:
-        - workflows/ unreadable → fail closed (empty rules + fatal error;
+        - global/ or workflows/ unreadable → fail closed (empty rules + fatal error;
           callers treat this as "block everything")
         - Individual manifest malformed → fail open (skip, log error)
         - Individual item malformed → fail open (skip, log error)
@@ -510,7 +523,7 @@ class ManifestLoader:
             paths = self._discover()
         except OSError as e:
             return LoadResult(errors=[
-                LoadError(source="discovery", message=f"Cannot read workflows/: {e}")
+                LoadError(source="discovery", message=f"Cannot read global/ or workflows/: {e}")
             ])
 
         # Step 2: Parse each manifest through all registered parsers
@@ -528,8 +541,10 @@ class ManifestLoader:
                 errors.append(LoadError(source=str(path), message="not a YAML mapping"))
                 continue
 
-            # Override namespace from workflow_id if present
-            if path.name != "global.yaml":
+            # Determine namespace: global/ files get "global", workflow files get workflow_id
+            if self._is_global_path(path):
+                namespace = "global"
+            else:
                 wf_id = data.get("workflow_id")
                 if wf_id:
                     namespace = str(wf_id)
@@ -569,8 +584,11 @@ class ManifestLoader:
 ### Namespace Prefixing
 
 ```
-YAML:           id: pip_block      (in global.yaml)
-After parse:    id: _global:pip_block
+YAML:           id: pip_block      (in global/rules.yaml)
+After parse:    id: global:pip_block
+
+YAML:           id: github_auth    (in global/checks.yaml)
+After parse:    id: global:github_auth
 
 YAML:           id: close_agent    (in project_team.yaml, workflow_id: project-team)
 After parse:    id: project-team:close_agent
@@ -579,7 +597,7 @@ YAML:           id: testing        (phase in project_team.yaml)
 After parse:    id: project-team:testing
 ```
 
-**Phase reference qualification:** Phase references within the same manifest use bare names (e.g. `phases: [testing]`). The loader qualifies them with the workflow namespace at parse time, producing `project-team:testing`. Cross-workflow references in `global.yaml` must use fully qualified names (e.g. `phases: ["project-team:testing"]`). The loader validates all qualified phase references against known phase IDs after all manifests are loaded.
+**Phase reference qualification:** Phase references within the same manifest use bare names (e.g. `phases: [testing]`). The loader qualifies them with the workflow namespace at parse time, producing `project-team:testing`. Cross-workflow references in `global/rules.yaml` must use fully qualified names (e.g. `phases: ["project-team:testing"]`). The loader validates all qualified phase references against known phase IDs after all manifests are loaded.
 
 ### Cross-Manifest Validation
 
@@ -646,7 +664,7 @@ def cached_compile(pattern: str) -> re.Pattern[str]:
 
 | Failure | Behavior | Rationale |
 |---------|----------|-----------|
-| `workflows/` unreadable | **Fail closed** — empty rules + fatal error. Callers block everything. | Can't evaluate rules we can't read. |
+| `global/` or `workflows/` unreadable | **Fail closed** — empty rules + fatal error. Callers block everything. | Can't evaluate rules we can't read. |
 | Individual manifest YAML parse error | **Fail open** — skip manifest, load rest. Log prominent warning. | One bad manifest shouldn't disable all rules. |
 | Individual item bad regex | **Fail open** — skip item, parse rest. Log warning. | One bad rule shouldn't disable siblings. |
 | Duplicate ID (after prefixing) | **Warn** — log, keep first occurrence. | First-wins is predictable. |
@@ -662,7 +680,7 @@ result = loader.load()
 if result.errors and not result.rules:
     fatal = any(e.source == "discovery" for e in result.errors)
     if fatal:
-        return {"decision": "block", "message": "Rules unavailable — workflows/ unreadable"}
+        return {"decision": "block", "message": "Rules unavailable — global/ or workflows/ unreadable"}
 ```
 
 ### Hint Scoping Model
@@ -670,7 +688,7 @@ if result.errors and not result.rules:
 ```
 Scope Level          Source Location                    Active When
 ─────────────        ───────────────                    ───────────
-Global               global.yaml → hints:               Always
+Global               global/hints.yaml → hints:          Always
 Workflow-wide        workflow.yaml → hints:              Whenever workflow is active
 Phase-scoped         workflow.yaml → phases[].hints:     Only during that phase
 ```
@@ -960,7 +978,7 @@ The adapter uses an `AlwaysTrue` trigger condition — the check already failed,
 
 | Aspect | Setup Checks | Advance Checks |
 |--------|-------------|----------------|
-| Location | `global.yaml` `checks:` section | Phase `advance_checks:` list |
+| Location | `global/checks.yaml` | Phase `advance_checks:` list |
 | Short-circuit | No — run all, surface all issues | Yes — stop on first failure |
 | Gating | Informational only (hints) | Blocks phase transition |
 | Default lifecycle | `show-until-resolved` | `show-once` |
@@ -1104,7 +1122,7 @@ def _make_persist_fn(self) -> Callable[[], None]:
 
 ```python
 async def run_setup_checks(self, check_specs: list[CheckSpec]) -> list[CheckResult]:
-    """Run setup checks from global.yaml at startup.
+    """Run setup checks from global/checks.yaml at startup.
 
     Unlike advance_checks, setup checks do NOT short-circuit.
     All checks run, all failures produce hints. Goal: surface
@@ -1112,7 +1130,7 @@ async def run_setup_checks(self, check_specs: list[CheckSpec]) -> list[CheckResu
     """
     checks: list[tuple[str, Check, OnFailureConfig | None]] = []
     for spec in check_specs:
-        check_id = f"_global:{spec['id']}"
+        check_id = f"global:{spec['id']}"
         check_instance = self._build_check(spec)
         on_failure = None
         if "on_failure" in spec:
@@ -1159,7 +1177,7 @@ def get_post_compact_hook(self) -> dict[str, list[HookMatcher]]:
 
 ### Active Workflow Determination
 
-At most one workflow manifest is active besides `global.yaml`. The engine auto-detects from loader results:
+At most one workflow manifest is active besides the `global/` manifests. The engine auto-detects from loader results:
 
 ```python
 def _resolve_active_workflow(
@@ -1168,18 +1186,18 @@ def _resolve_active_workflow(
     """Determine the active workflow from loaded manifests.
 
     Rules:
-    - If no workflow manifests (only global.yaml) → no engine, return None
+    - If no workflow manifests (only global/ files) → no engine, return None
     - If exactly one workflow manifest → that's the active workflow
     - If multiple → use first alphabetical, log warning
 
     Returns the workflow_id of the active workflow, or None.
     """
-    # Collect unique workflow namespaces (exclude _global)
+    # Collect unique workflow namespaces (exclude global)
     workflow_ids: list[str] = []
     seen: set[str] = set()
     for phase in load_result.phases:
         ns = phase.id.split(":")[0]
-        if ns != "_global" and ns not in seen:
+        if ns != "global" and ns not in seen:
             workflow_ids.append(ns)
             seen.add(ns)
 
@@ -1202,7 +1220,7 @@ When the app starts, it creates the manifest loader, loads manifests, resolves t
 # In app.py on_mount() or _connect_initial_client():
 
 # 1. Create shared loader and hit logger (created once at app init)
-self._manifest_loader = ManifestLoader(self._workflows_dir)
+self._manifest_loader = ManifestLoader(self._global_dir, self._workflows_dir)
 self._manifest_loader.register(RulesParser())
 self._manifest_loader.register(InjectionsParser())
 self._manifest_loader.register(ChecksParser())
@@ -1218,7 +1236,7 @@ result = self._manifest_loader.load()
 # 3. Resolve active workflow
 active_wf = _resolve_active_workflow(result)
 if active_wf is None:
-    self._workflow_engine = None  # No workflow — rules still evaluate via global.yaml
+    self._workflow_engine = None  # No workflow — rules still evaluate via global/*.yaml
 else:
     manifest = self._build_manifest(active_wf, result)
     session = self._current_session
@@ -1231,7 +1249,7 @@ else:
         confirm_callback=self._make_confirm_callback(),
     )
 
-# 4. Run setup checks from global.yaml
+# 4. Run setup checks from global/checks.yaml
 if result.checks and self._workflow_engine:
     await self._workflow_engine.run_setup_checks(result.checks)
 ```
@@ -1620,7 +1638,7 @@ def create_guardrail_hooks(
         if result.errors and not result.rules:
             fatal = any(e.source == "discovery" for e in result.errors)
             if fatal:
-                return {"decision": "block", "message": "Rules unavailable — workflows/ unreadable"}
+                return {"decision": "block", "message": "Rules unavailable — global/ or workflows/ unreadable"}
 
         current_phase = get_phase() if get_phase else None
 
@@ -1831,7 +1849,7 @@ def _merged_hooks(self, agent_type: str | None = None) -> dict[HookEvent, list[H
 
 ### Failure Modes
 
-- `workflows/` unreadable → fail closed (block everything)
+- `global/` or `workflows/` unreadable → fail closed (block everything)
 - Individual manifest malformed or bad regex → fail open (skip it, load the rest)
 - Startup validation catches duplicate IDs, invalid regexes, unknown phase references
 
@@ -2020,7 +2038,7 @@ class HintSpec:
 @dataclass(frozen=True)
 class Rule:
     id: str            # Qualified: "project-team:pip_block"
-    namespace: str     # Required, no default: "_global" or workflow_id
+    namespace: str     # Required, no default: "global" or workflow_id
     trigger: list[str]
     enforcement: str
     detect_pattern: re.Pattern[str] | None = None
@@ -2207,7 +2225,7 @@ class RulesParser:
 1. `.claude/guardrails/generate_hooks.py` — Shell hook generator, replaced by closure-based hooks
 2. `.claude/guardrails/hooks/` — Generated shell hook scripts
 3. `.claude/guardrails/role_guard.py` — Ack token mechanism, replaced by `acknowledge_warning` MCP tool + one-time tokens
-4. `.claude/guardrails/rules.yaml` — Replaced by `workflows/global.yaml` + workflow manifests
+4. `.claude/guardrails/rules.yaml` — Replaced by `global/rules.yaml` + workflow manifests
 5. `.claude/guardrails/hits.jsonl` — Replaced by `workflows/.hits.jsonl`
 6. `.claude/guardrails/sessions/` — Session markers, replaced by chicsession + env var
 
@@ -2341,11 +2359,11 @@ Eliminated by the unified one-time token mechanism. `warn` rules block the tool 
 
 ### R6: Silent Rule Loss on Parse Error
 
-**Risk:** YAML syntax error in `global.yaml` silently drops all global rules. No protection, no notification.
+**Risk:** YAML syntax error in a `global/*.yaml` file silently drops those global rules. No protection, no notification.
 
 **Severity:** Medium.
 
-**Mitigation:** Prominent warning/hint when a manifest fails to parse. `LoadResult.errors` is always checked. Fail-closed only for `workflows/` directory unreadable. Individual manifest failures logged loudly.
+**Mitigation:** Prominent warning/hint when a manifest fails to parse. `LoadResult.errors` is always checked. Fail-closed only for `global/` or `workflows/` directory unreadable. Individual manifest failures logged loudly.
 
 ### ~~R7: NFS Atomic Write Visibility~~ — REMOVED
 
@@ -2455,22 +2473,25 @@ phases:
 - `project-team:force_push_warn` (warn)
 - `project-team:tool_usage_tracking` (log)
 
-**Note:** `pip_block` is in `global.yaml` only (as `_global:pip_block`), not duplicated here.
+**Note:** `pip_block` is in `global/rules.yaml` only (as `global:pip_block`), not duplicated here.
 
 **Phase IDs become:**
 - `project-team:vision`, `project-team:setup`, ..., `project-team:signoff`
 
-### Example 2: `global.yaml` with Setup Checks
+### Example 2: `global/` Directory with Rules and Setup Checks
 
 ```yaml
-# workflows/global.yaml
+# global/rules.yaml
 rules:
   - id: pip_block
     trigger: PreToolUse/Bash
     enforcement: deny
     detect: { pattern: '\bpip\s+install\b', field: command }
     message: "Use pixi, not pip."
+```
 
+```yaml
+# global/checks.yaml
 checks:
   - id: github_auth
     type: command-output-check
@@ -2492,7 +2513,7 @@ checks:
       lifecycle: show-until-resolved
 ```
 
-**After loading, IDs become:** `_global:pip_block`, `_global:github_auth`, `_global:cluster_ssh`.
+All files in `global/` share the `global` namespace. **After loading, IDs become:** `global:pip_block`, `global:github_auth`, `global:cluster_ssh`.
 
 **At startup:** Engine runs all setup checks (no short-circuit). `github_auth` runs always. `cluster_ssh` runs only if `use_cluster` is truthy in copier answers. Failures produce hints via CheckFailed adapter with `show-until-resolved` lifecycle.
 
@@ -2621,8 +2642,12 @@ hooks = create_guardrail_hooks(
 
 Given this file tree:
 ```
+global/
+  rules.yaml
+  checks.yaml
+  hints.yaml
+  .notes.yaml                  # Hidden — ignored
 workflows/
-  global.yaml
   project_team/
     project_team.yaml
     coordinator/
@@ -2636,21 +2661,24 @@ workflows/
     notes.txt                 # Not a manifest (wrong name)
 ```
 
-`discover_manifests(Path("workflows/"))` returns:
+`discover_manifests(Path("global/"), Path("workflows/"))` returns:
 ```python
 [
-    Path("workflows/global.yaml"),              # 1. Global first
-    Path("workflows/another_workflow/another_workflow.yaml"),  # 2. Alphabetical
-    Path("workflows/project_team/project_team.yaml"),         # 3. Alphabetical
+    Path("global/checks.yaml"),                              # 1. Global first, alphabetical
+    Path("global/hints.yaml"),                               # 2. Global, alphabetical
+    Path("global/rules.yaml"),                               # 3. Global, alphabetical
+    Path("workflows/another_workflow/another_workflow.yaml"), # 4. Workflows, alphabetical
+    Path("workflows/project_team/project_team.yaml"),        # 5. Workflows, alphabetical
 ]
 ```
 
 **Ignored:**
-- `.hidden/` — starts with `.`
+- `global/.notes.yaml` — starts with `.`
+- `workflows/.hidden/` — starts with `.`
 - `notes.txt` — not a manifest (filename doesn't match parent directory)
 
 **Namespaces assigned:**
-- `global.yaml` → `_global`
+- All `global/*.yaml` files → `global`
 - `another_workflow.yaml` → value of `workflow_id` field, fallback to `another_workflow`
 - `project_team.yaml` → value of `workflow_id` field (e.g. `project-team`), fallback to `project_team`
 
@@ -2700,7 +2728,7 @@ phases:
 - Workflow engine (phase transitions, advance_checks gates, state persistence)
 - Check protocol with 4 built-in types and CheckFailed → hints adapter
 - Agent folder structure and prompt assembly
-- `workflows/global.yaml` with setup checks
+- `global/` directory with setup checks, global rules, and global hints
 - COORDINATOR.md content split into agent folder
 - `/compact` recovery hook (PostCompact)
 - Phase-scoped rule evaluation
@@ -2710,10 +2738,10 @@ phases:
 - **CompoundCheck** — OR semantics for checks
 - **Content focus guards** — phase-aware read guards
 - **Multi-workflow** — multiple workflows active simultaneously
-- **`ShowUntilPhaseComplete`** — hint lifecycle type
+
 - **`regex_miss` detect type** — negated pattern matching (rule fires when pattern does NOT match). Can be added later via a `negate: true` field on `detect`. Current spec supports `regex_match` (detect pattern present) and `always` (detect pattern absent).
 - **`spawn_type_defined` detect type** — validates that the spawned agent type exists in agent folders. Can be added as a custom detect type once the detect system is extensible.
 
 ---
 
-See [APPENDIX_FUTURE_MCP.md](APPENDIX_FUTURE_MCP.md) for potential future MCP tools (`get_workflow_info`, `set_phase`, `list_phases`, `list_checks`, `run_check`).
+See [APPENDIX_FUTURE_MCP.md](APPENDIX_FUTURE_MCP.md) for future scope: MCP tools (`get_workflow_info`, `set_phase`, `list_phases`, `list_checks`, `run_check`) and hint lifecycles (`show-until-phase-complete`).

@@ -18,7 +18,7 @@ cd my-project && pixi install
 ```
 my-project/
 ├── .claude/
-│   ├── commands/           # Claude Code skills (/ao_project_team, /init_project)
+│   ├── commands/           # Claude Code skills (/project-team, /init_project)
 │   └── guardrails/         # Permission system (rules.yaml → generated hooks)
 ├── workflows/
 │   └── project_team/       # Multi-agent roles (coordinator/, implementer/, skeptic/, etc.)
@@ -57,7 +57,7 @@ source activate      # Sets up PATH, PYTHONPATH, shows available tools
 pixi run claudechic  # Launch the TUI
 ```
 
-In claudechic, run `/ao_project_team` to start the multi-agent workflow.
+In claudechic, run `/project-team` to start the multi-agent workflow.
 
 ## Components
 
@@ -85,7 +85,7 @@ See [`mcp_tools/README.md`](template/mcp_tools/README.md) for full documentation
 
 ### Multi-Agent Project Team
 
-Run `/ao_project_team` in claudechic to start the structured workflow:
+Run `/project-team` in claudechic to start the structured workflow:
 
 1. **Vision** — describe what you want, agent clarifies and confirms
 2. **Specification** — leadership agents (Composability, Terminology, UserAlignment, Skeptic) draft a spec

@@ -180,7 +180,6 @@ my-project/
 │   │   ├── setup_ao_mode.sh     #   Activates team mode
 │   │   └── teardown_ao_mode.sh  #   Deactivates team mode
 │   ├── commands/
-│   │   ├── ao_project_team.md   #   /ao_project_team slash command
 │   │   └── init_project.md      #   /init_project slash command
 │   └── skills/hints/
 │       └── SKILL.md             #   Hints skill definition
@@ -200,7 +199,7 @@ my-project/
 > - Guardrail rules: `.claude/guardrails/rules.yaml`
 > - Global rules: `global/rules.yaml`
 > - Generated hooks: `.claude/guardrails/hooks/`
-> - Project state: `.ao_project_team/<project_name>/STATUS.md`
+> - Project state: `.project_team/<project_name>/STATUS.md`
 
 ---
 
@@ -296,7 +295,7 @@ A `warn` at any layer shows a warning. They are additive.
 > **For Humans:**
 >
 > 1. Open Claude Code in your project directory
-> 2. Type `/ao_project_team` and describe what you want to build
+> 2. Type `/project-team` and describe what you want to build
 > 3. The Coordinator agent takes over — it will:
 >    - Ask clarifying questions about your vision
 >    - Spawn Leadership agents (Composability, Skeptic, etc.)
@@ -318,7 +317,7 @@ A `warn` at any layer shows a warning. They are additive.
 >    - **implementation** — spawn Implementers, delegate work (advance check: manual-confirm)
 >    - **testing** — spawn TestEngineer, run tests (advance check: manual-confirm)
 >    - **signoff** — final user sign-off
-> 3. Agent state is stored in `.ao_project_team/<project_name>/STATUS.md`
+> 3. Agent state is stored in `.project_team/<project_name>/STATUS.md`
 > 4. Inter-agent communication uses claudechic MCP tools:
 >    - `mcp__chic__spawn_agent` — create a new agent
 >    - `mcp__chic__ask_agent` — send message, wait for reply (reliable)
@@ -463,7 +462,7 @@ is empty or missing, re-run `copier update` to add missing files. Core roles
 ## Next Steps
 
 - **Run the tutorial:** Type `/tutorial` in Claude Code to learn by doing
-- **Start a project:** Type `/ao_project_team` and describe your goal
+- **Start a project:** Type `/project-team` and describe your goal
 - **Customize guardrails:** Edit `.claude/guardrails/rules.yaml` and regenerate hooks
 - **Add MCP tools:** Drop Python files into `mcp_tools/` for custom tools
 - **Explore workflows:** Read `workflows/project_team/project_team.yaml` to understand phase definitions

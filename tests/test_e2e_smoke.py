@@ -142,7 +142,7 @@ class TestCopierGeneration:
     def test_excluded_dirs_absent(self, generated_project):
         assert not (generated_project / "tests").exists()
         assert not (generated_project / "docs").exists()
-        assert not (generated_project / ".ao_project_team").exists()
+        assert not (generated_project / ".project_team").exists()
 
     def test_guardrail_system_complete(self, generated_project):
         """All guardrail components are present in generated project."""

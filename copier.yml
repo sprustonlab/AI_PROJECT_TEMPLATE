@@ -134,7 +134,7 @@ codebase_link_mode:
 _exclude:
   # Always excluded (repo infrastructure, not project content)
   - docs/
-  - .ao_project_team/
+  - .project_team/
   - submodules/
   - tests/
   - "**/__pycache__/**"

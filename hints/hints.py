@@ -72,9 +72,9 @@ class GuardrailsOnlyDefault:
 
 @dataclass(frozen=True)
 class ProjectTeamNeverUsed:
-    """Hint: /ao_project_team command has never been invoked."""
+    """Hint: /project-team command has never been invoked."""
 
-    ao_dir: str = ".ao_project_team"
+    ao_dir: str = ".project_team"
 
     def check(self, state: ProjectState) -> bool:
         # Project team workflow always ships; hint is always relevant
@@ -155,7 +155,7 @@ class CommandLesson:
 
 COMMAND_LESSONS: list[CommandLesson] = [
     # Ordered by workflow value (canonical list, agreed with UIDesigner).
-    # Commands covered by state hints (e.g., /ao_project_team) are excluded
+    # Commands covered by state hints (e.g., /project-team) are excluded
     # to avoid redundancy -- the state hint is the right vehicle for those.
     CommandLesson("/diff", "Try /diff \u2014 see what changed since your last commit"),
     CommandLesson("/resume", "Try /resume \u2014 pick up a previous conversation where you left off"),
@@ -276,7 +276,7 @@ _STATIC_HINTS: list[HintSpec] = [
     HintSpec(
         id="project-team-discovery",
         trigger=ProjectTeamNeverUsed(),
-        message="Try /ao_project_team for multi-agent workflows",
+        message="Try /project-team for multi-agent workflows",
         severity="info",
         priority=2,
         lifecycle=ShowOnce(),

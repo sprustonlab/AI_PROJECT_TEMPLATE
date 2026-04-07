@@ -1,6 +1,6 @@
 # Multi-Agent Project Team
 
-A structured multi-agent workflow for building software projects with Claude Code. Launch it by running `/ao_project_team` in claudechic.
+A structured multi-agent workflow for building software projects with Claude Code. Launch it by running `/project-team` in claudechic.
 
 **See [coordinator/identity.md](coordinator/identity.md) for the full orchestration logic.**
 
@@ -10,7 +10,7 @@ A structured multi-agent workflow for building software projects with Claude Cod
 
 You describe what you want to build. The agent clarifies your intent — spelling out what success and failure look like — and iterates with you until it's correct and complete. You're also asked where the project lives (new or existing directory).
 
-The agent creates `.ao_project_team/{project_name}/` with:
+The agent creates `.project_team/{project_name}/` with:
 - `userprompt.md` — your verbatim prompt + the approved vision
 - `STATUS.md` — tracks workflow progress
 
@@ -18,7 +18,7 @@ The agent creates `.ao_project_team/{project_name}/` with:
 
 ### 2. Specification (4 leadership agents)
 
-The Coordinator's prime directive is **"Delegate, don't do."** It spawns leadership agents that draft a specification together, saved under `.ao_project_team/{project_name}/specification/`.
+The Coordinator's prime directive is **"Delegate, don't do."** It spawns leadership agents that draft a specification together, saved under `.project_team/{project_name}/specification/`.
 
 **User checkpoint:** approve the specification before implementation begins.
 

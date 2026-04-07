@@ -35,7 +35,6 @@ PAIRED_FILES = [
     ".claude/guardrails/README.md",
 
     # Claude commands
-    ".claude/commands/ao_project_team.md",
     ".claude/commands/init_project.md",
 
     # Hints system

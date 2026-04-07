@@ -3,7 +3,7 @@
 Verifies:
 - Standard vs developer claudechic mode in pixi.toml
 - Cluster scheduler file inclusion/exclusion (LSF, SLURM, none)
-- _exclude rules: docs/, .ao_project_team/, submodules/, tests/ never in output
+- _exclude rules: docs/, .project_team/, submodules/, tests/ never in output
 - quick_start presets: everything, defaults, empty, custom
 
 Requires: copier (pip install copier). Tests are skipped if copier is not installed.
@@ -167,7 +167,7 @@ class TestExclude:
     """Verify _exclude rules prevent certain dirs from appearing in output."""
 
     def test_always_excluded_dirs(self, copier_output):
-        """docs/, .ao_project_team/, submodules/, tests/ never in generated project."""
+        """docs/, .project_team/, submodules/, tests/ never in generated project."""
         dest = copier_output({
             "project_name": "excl_test",
             "claudechic_mode": "standard",
@@ -175,7 +175,7 @@ class TestExclude:
             "use_cluster": False,
         })
         assert not (dest / "docs").exists(), "docs/ should be excluded"
-        assert not (dest / ".ao_project_team").exists(), ".ao_project_team/ should be excluded"
+        assert not (dest / ".project_team").exists(), ".project_team/ should be excluded"
         assert not (dest / "submodules").exists(), "submodules/ should be excluded"
         assert not (dest / "tests").exists(), "tests/ should be excluded"
 
@@ -218,7 +218,6 @@ class TestQuickStartPresets:
 
         # Core infrastructure always present
         assert (dest / ".claude" / "guardrails" / "rules.yaml").exists()
-        assert (dest / ".claude" / "commands" / "ao_project_team.md").exists()
         assert (dest / "pixi.toml").exists()
         assert (dest / "activate").exists()
 

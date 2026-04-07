@@ -490,7 +490,7 @@ class TestProjectTeamNeverUsed:
         assert ProjectTeamNeverUsed().check(state) is True
 
     def test_false_when_ao_dir_exists(self, tmp_path):
-        (tmp_path / ".ao_project_team").mkdir()
+        (tmp_path / ".project_team").mkdir()
         (tmp_path / ".copier-answers.yml").write_text("use_project_team: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert ProjectTeamNeverUsed().check(state) is False

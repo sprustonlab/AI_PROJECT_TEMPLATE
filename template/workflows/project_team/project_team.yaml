@@ -1,4 +1,5 @@
 workflow_id: project-team
+main_role: coordinator
 
 phases:
   - id: vision

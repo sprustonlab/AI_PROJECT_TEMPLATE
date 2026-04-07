@@ -175,19 +175,6 @@ if (Test-Path "$BASEDIR\.claude\commands") {
     }
 }
 
-# --- Show guardrails status ---
-if (Test-Path "$BASEDIR\.claude\guardrails\rules.yaml") {
-    $ruleCount = (Select-String -Path "$BASEDIR\.claude\guardrails\rules.yaml" -Pattern '^- id:').Count
-    Write-Host ""
-    Write-Host "🛡  Guardrails: $ruleCount core rules"
-    if (Test-Path "$BASEDIR\.claude\guardrails\rules.d") {
-        $rulesdCount = (Get-ChildItem "$BASEDIR\.claude\guardrails\rules.d\*.yaml" -ErrorAction SilentlyContinue).Count
-        if ($rulesdCount -gt 0) {
-            Write-Host "    + $rulesdCount contributed rule sets in rules.d/"
-        }
-    }
-}
-
 # --- Show MCP tools ---
 if (Test-Path "$BASEDIR\mcp_tools") {
     $mcpCount = (Get-ChildItem "$BASEDIR\mcp_tools\*.py" -ErrorAction SilentlyContinue |

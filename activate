@@ -16,8 +16,7 @@
 #   - Commands: commands/* → added to PATH
 #   - Skills: .claude/commands/*.md → displayed
 #   - Agent Roles: AI_agents/**/*.md → displayed (if present)
-#   - Guardrail Rules: .claude/guardrails/ → displayed (if present)
-# Adding a sixth seam requires updating this script.
+# Adding a fifth seam requires updating this script.
 # =============================================================================
 
 PROJECT_NAME="my-project"
@@ -35,16 +34,6 @@ fi
 
 _SCRIPT_PATH="${_SCRIPT_PATH/#\~/$HOME}"
 BASEDIR="$(cd "$(dirname "$_SCRIPT_PATH")" && pwd)"
-
-# ─── Guardrail staleness check ───────────────────────────────────────────────
-if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
-    _rules="$BASEDIR/.claude/guardrails/rules.yaml"
-    _settings="$BASEDIR/.claude/settings.json"
-    if [[ ! -f "$_settings" ]] || [[ "$_rules" -nt "$_settings" ]]; then
-        echo "🔄 Guardrail rules changed — regenerating hooks..."
-        python3 "$BASEDIR/.claude/guardrails/generate_hooks.py"
-    fi
-fi
 
 # ─── Section 2: Pixi Bootstrap ───────────────────────────────────────────────
 if ! command -v pixi &> /dev/null; then
@@ -211,20 +200,6 @@ if [[ -d "$BASEDIR/.claude/commands" ]]; then
         for skill in "${claude_skills[@]}"; do
             echo "    $skill"
         done
-    fi
-fi
-
-# --- Show guardrails status ---
-if [[ -f "$BASEDIR/.claude/guardrails/rules.yaml" ]]; then
-    rule_count=$(grep -c '^\s*- id:' "$BASEDIR/.claude/guardrails/rules.yaml" 2>/dev/null || echo "0")
-    rulesd_count=0
-    if [[ -d "$BASEDIR/.claude/guardrails/rules.d" ]]; then
-        rulesd_count=$(find "$BASEDIR/.claude/guardrails/rules.d" -name '*.yaml' 2>/dev/null | wc -l)
-    fi
-    echo ""
-    echo "🛡  Guardrails: $rule_count core rules"
-    if [[ $rulesd_count -gt 0 ]]; then
-        echo "    + $rulesd_count contributed rule sets in rules.d/"
     fi
 fi
 

@@ -42,7 +42,6 @@ from hints.hints import (
     CommandLesson,
     COMMAND_LESSONS,
     GitNotInitialized,
-    GuardrailsOnlyDefault,
     LearnCommand,
     McpToolsEmpty,
     Not,
@@ -438,50 +437,6 @@ class TestGitNotInitialized:
         assert GitNotInitialized().check(state) is False
 
 
-class TestGuardrailsOnlyDefault:
-    def test_true_when_no_custom_rules(self, tmp_path):
-        guardrails = tmp_path / ".claude" / "guardrails"
-        rules_d = guardrails / "rules.d"
-        rules_d.mkdir(parents=True)
-        # Only default R01 in rules.yaml
-        (guardrails / "rules.yaml").write_text(
-            "rules:\n  - id: R01\n    name: default\n", encoding="utf-8"
-        )
-        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
-        state = ProjectState.build(tmp_path)
-        assert GuardrailsOnlyDefault().check(state) is True
-
-    def test_false_when_custom_rules_in_rules_d(self, tmp_path):
-        guardrails = tmp_path / ".claude" / "guardrails"
-        rules_d = guardrails / "rules.d"
-        rules_d.mkdir(parents=True)
-        (rules_d / "R02_custom.yaml").touch()
-        (guardrails / "rules.yaml").write_text(
-            "rules:\n  - id: R01\n    name: default\n", encoding="utf-8"
-        )
-        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
-        state = ProjectState.build(tmp_path)
-        assert GuardrailsOnlyDefault().check(state) is False
-
-    def test_false_when_custom_rules_in_rules_yaml(self, tmp_path):
-        guardrails = tmp_path / ".claude" / "guardrails"
-        rules_d = guardrails / "rules.d"
-        rules_d.mkdir(parents=True)
-        # rules.yaml has R01 + R02 (user added a custom rule)
-        (guardrails / "rules.yaml").write_text(
-            "rules:\n  - id: R01\n    name: default\n  - id: R02\n    name: custom\n",
-            encoding="utf-8",
-        )
-        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
-        state = ProjectState.build(tmp_path)
-        assert GuardrailsOnlyDefault().check(state) is False
-
-    def test_skips_when_guardrails_disabled(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("quick_start: empty\n", encoding="utf-8")
-        state = ProjectState.build(tmp_path)
-        assert GuardrailsOnlyDefault().check(state) is False
-
-
 class TestProjectTeamNeverUsed:
     def test_true_when_no_ao_dir(self, tmp_path):
         state = ProjectState.build(tmp_path)
@@ -641,15 +596,15 @@ class TestCombinators:
 
 
 class TestGetHints:
-    def test_returns_6_without_get_taught_commands(self):
+    def test_returns_5_without_get_taught_commands(self):
         hints = get_hints()
-        assert len(hints) == 6
+        assert len(hints) == 5
         ids = {h.id for h in hints}
         assert "learn-command" not in ids
 
-    def test_returns_7_with_get_taught_commands(self):
+    def test_returns_6_with_get_taught_commands(self):
         hints = get_hints(get_taught_commands=lambda: set())
-        assert len(hints) == 7
+        assert len(hints) == 6
         ids = {h.id for h in hints}
         assert "learn-command" in ids
 

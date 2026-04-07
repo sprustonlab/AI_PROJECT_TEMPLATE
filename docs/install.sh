@@ -96,12 +96,6 @@ echo "[debug] Running pixi install in $PROJECT_DIR"
 cd "$PROJECT_DIR"
 pixi install
 
-# Generate guardrail hooks (needs pixi env for PyYAML)
-if [ -f .claude/guardrails/generate_hooks.py ]; then
-    echo "Generating guardrail hooks..."
-    pixi run -e claudechic python .claude/guardrails/generate_hooks.py
-fi
-
 # 6. Check Claude Code is installed and authenticated
 if ! command -v claude &> /dev/null; then
     echo ""

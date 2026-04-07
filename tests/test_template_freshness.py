@@ -2,7 +2,6 @@
 
 Some files exist in both places:
   - scripts/mine_patterns.py  (repo root copy for dev, template copy for generated projects)
-  - .claude/guardrails/generate_hooks.py  (same reason)
   - etc.
 
 This test fails if any paired file drifts, preventing silent staleness.
@@ -28,11 +27,6 @@ PAIRED_FILES = [
     "scripts/mine_patterns.py",
     "commands/claudechic",
     "commands/mine-patterns",
-
-    # Guardrails system
-    ".claude/guardrails/generate_hooks.py",
-    ".claude/guardrails/role_guard.py",
-    ".claude/guardrails/README.md",
 
     # Claude commands
     ".claude/commands/init_project.md",

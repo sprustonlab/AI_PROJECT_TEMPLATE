@@ -52,27 +52,72 @@ class CopierAnswers:
         except Exception:
             return cls(raw={})  # Corrupt file -> same as missing
 
-    # -- Feature-toggle properties (defaults match copier.yml) --
+    # -- quick_start preset and feature-toggle properties --
 
     @property
-    def use_guardrails(self) -> bool:
-        return bool(self.raw.get("use_guardrails", True))
-
-    @property
-    def use_project_team(self) -> bool:
-        return bool(self.raw.get("use_project_team", True))
-
-    @property
-    def use_pattern_miner(self) -> bool:
-        return bool(self.raw.get("use_pattern_miner", False))
+    def quick_start(self) -> str:
+        """The quick_start preset chosen during copier copy."""
+        return str(self.raw.get("quick_start", "defaults"))
 
     @property
     def use_cluster(self) -> bool:
         return bool(self.raw.get("use_cluster", False))
 
+    # -- Resolved example flags --
+    # "everything" = all true; "defaults" = rules+roles+hints;
+    # "empty" = all false; "custom" = read individual example_* values.
+
     @property
-    def use_hints(self) -> bool:
-        return bool(self.raw.get("use_hints", True))
+    def has_example_rules(self) -> bool:
+        qs = self.quick_start
+        if qs == "everything":
+            return True
+        if qs == "defaults":
+            return True
+        if qs == "empty":
+            return False
+        # custom
+        return bool(self.raw.get("example_rules", True))
+
+    @property
+    def has_example_agent_roles(self) -> bool:
+        qs = self.quick_start
+        if qs == "everything":
+            return True
+        if qs == "defaults":
+            return True
+        if qs == "empty":
+            return False
+        return bool(self.raw.get("example_agent_roles", True))
+
+    @property
+    def has_example_workflows(self) -> bool:
+        qs = self.quick_start
+        if qs == "everything":
+            return True
+        if qs in ("defaults", "empty"):
+            return False
+        return bool(self.raw.get("example_workflows", True))
+
+    @property
+    def has_example_hints(self) -> bool:
+        qs = self.quick_start
+        if qs == "everything":
+            return True
+        if qs == "defaults":
+            return True
+        if qs == "empty":
+            return False
+        return bool(self.raw.get("example_hints", True))
+
+    @property
+    def has_example_patterns(self) -> bool:
+        qs = self.quick_start
+        if qs == "everything":
+            return True
+        if qs in ("defaults", "empty"):
+            return False
+        return bool(self.raw.get("example_patterns", False))
 
     @property
     def cluster_scheduler(self) -> str | None:

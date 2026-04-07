@@ -7,37 +7,66 @@ project_name:
   help: "Your project name (used for directory name and env naming)"
   validator: "{% if not project_name %}Project name is required{% endif %}"
 
-use_guardrails:
+quick_start:
+  type: str
+  help: |
+    How much starter content should your project include?
+
+    Your project always ships with the full infrastructure: guardrails
+    (permission rules), workflows (phase-gated processes), hints
+    (onboarding notifications), and the Project Team (multi-agent
+    collaboration). This choice controls how many EXAMPLES are pre-loaded.
+  choices:
+    "Give me everything — learning mode": everything
+    "Reasonable defaults — first project": defaults
+    "Start empty — experienced user": empty
+    "Ask me about each — granular": custom
+  default: "Reasonable defaults — first project"
+
+example_rules:
   type: bool
   default: true
+  when: "{{ quick_start == 'custom' }}"
   help: |
-    Enable the guardrails permission system?
-    Provides: Role-based access control for Claude Code tool calls.
-    Rules defined in rules.yaml, guardrail hooks auto-generated.
+    Include example guardrail rules?
+    Rules control what Claude Code can do: block dangerous commands,
+    enforce package management (pixi over pip), protect config files.
 
-use_project_team:
+example_agent_roles:
   type: bool
   default: true
+  when: "{{ quick_start == 'custom' }}"
   help: |
-    Enable multi-agent project team workflow?
-    Provides: Coordinator, Implementer, Skeptic, Composability,
-    and other agent roles for structured project execution.
+    Include specialist agent roles beyond the core team?
+    Adds Researcher, LabNotebook, UIDesigner, and other specialist
+    roles. Core roles (Coordinator, Implementer, Skeptic, etc.)
+    are always included.
 
-use_pattern_miner:
+example_workflows:
+  type: bool
+  default: true
+  when: "{{ quick_start == 'custom' }}"
+  help: |
+    Include tutorial workflows?
+    Two guided walkthroughs: "Extending the System" and "Toy Project"
+    (build labmeta with the full agent team). The core project_team
+    workflow is always included.
+
+example_hints:
+  type: bool
+  default: true
+  when: "{{ quick_start == 'custom' }}"
+  help: |
+    Include onboarding hints?
+    Toast notifications that guide new users through features.
+
+example_patterns:
   type: bool
   default: false
+  when: "{{ quick_start == 'custom' }}"
   help: |
-    Enable the pattern miner?
-    Scans Claude session history for user corrections and feeds
-    them into PATTERNS.md. Useful for improving agent behavior.
-
-use_hints:
-  type: bool
-  default: true
-  help: |
-    Enable the hints system?
-    Shows contextual hints via toast notifications to help discover
-    template features like guardrails, project team, and custom tools.
+    Include the pattern miner?
+    Analyzes Claude Code session history for recurring corrections.
 
 target_platform:
   type: str
@@ -103,22 +132,49 @@ codebase_link_mode:
   help: "How to integrate the existing codebase into repos/?"
 
 _exclude:
+  # Always excluded (repo infrastructure, not project content)
   - docs/
   - .ao_project_team/
   - submodules/
   - tests/
-  - "{% if not use_guardrails %}.claude/guardrails/{% endif %}"
-  - "{% if not use_project_team %}AI_agents/{% endif %}"
-  - "{% if not use_project_team %}.claude/commands/ao_project_team.md{% endif %}"
-  - "{% if not use_pattern_miner %}scripts/mine_patterns.py{% endif %}"
-  - "{% if not use_pattern_miner %}commands/mine-patterns{% endif %}"
+  - "**/__pycache__/**"
+  - "**/.pytest_cache/**"
+  - "**/*.pyc"
+
+  # Cluster: hardware capability toggle (not example content)
   - "{% if not use_cluster %}mcp_tools/_cluster.py{% endif %}"
   - "{% if not use_cluster or cluster_scheduler != 'lsf' %}mcp_tools/lsf.py{% endif %}"
   - "{% if not use_cluster or cluster_scheduler != 'lsf' %}mcp_tools/lsf.yaml{% endif %}"
   - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.py{% endif %}"
   - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.yaml{% endif %}"
-  - "{% if not use_hints %}hints/{% endif %}"
-  - "{% if not use_hints %}.claude/skills/hints/{% endif %}"
+
+  # Example content: controlled by quick_start preset or custom sub-questions
+  # Helper: _inc_rules, _inc_roles, _inc_workflows, _inc_hints, _inc_patterns
+  # "everything" = all true; "defaults" = rules+roles+hints; "empty" = all false; "custom" = per-question
+
+  # Example guardrail rules (global/rules.yaml with starter rules)
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_rules) %}global/rules.yaml{% endif %}"
+
+  # Onboarding hints
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_hints) %}global/hints.yaml{% endif %}"
+
+  # Tutorial workflows (project_team workflow always ships)
+  - "{% if quick_start in ['empty', 'defaults'] or (quick_start == 'custom' and not example_workflows) %}workflows/tutorial_extending/{% endif %}"
+  - "{% if quick_start in ['empty', 'defaults'] or (quick_start == 'custom' and not example_workflows) %}workflows/tutorial_toy_project/{% endif %}"
+
+  # Specialist agent roles (core 7 always ship; specialists are examples)
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/researcher/{% endif %}"
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/lab_notebook/{% endif %}"
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/ui_designer/{% endif %}"
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/git_setup/{% endif %}"
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/binary_portability/{% endif %}"
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/memory_layout/{% endif %}"
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/project_integrator/{% endif %}"
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/sync_coordinator/{% endif %}"
+
+  # Pattern miner
+  - "{% if quick_start != 'everything' and (quick_start != 'custom' or not example_patterns) %}scripts/mine_patterns.py{% endif %}"
+  - "{% if quick_start != 'everything' and (quick_start != 'custom' or not example_patterns) %}commands/mine-patterns{% endif %}"
 
 _tasks:
   # Post-generation: clone claudechic for developer mode
@@ -126,6 +182,6 @@ _tasks:
   # Post-generation: integrate existing codebase if path was provided
   - "{% if existing_codebase %}python3 scripts/integrate_codebase.py \"{{ existing_codebase }}\" \"{{ codebase_link_mode }}\"{% endif %}"
   # Post-generation: generate guardrail hooks and settings.json
-  - "{% if use_guardrails %}python3 .claude/guardrails/generate_hooks.py{% endif %}"
+  - "python3 .claude/guardrails/generate_hooks.py"
   # Post-generation: git init (last, so all generated files are included)
   - "{% if init_git %}git init && git add -A && git commit -m \"Initial project from AI_PROJECT_TEMPLATE\"{% endif %}"

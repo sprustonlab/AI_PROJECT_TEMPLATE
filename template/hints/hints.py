@@ -52,8 +52,8 @@ class GuardrailsOnlyDefault:
     rules_dir: str = ".claude/guardrails/rules.d"
 
     def check(self, state: ProjectState) -> bool:
-        if not state.copier.use_guardrails:
-            return False  # Feature disabled -- skip hint
+        if not state.copier.has_example_rules:
+            return False  # Example rules not installed -- skip hint
         # User has customized guardrails if:
         # 1. rules.yaml has more than just the default R01 rule, OR
         # 2. rules.d/ has user-added YAML files.
@@ -77,8 +77,7 @@ class ProjectTeamNeverUsed:
     ao_dir: str = ".ao_project_team"
 
     def check(self, state: ProjectState) -> bool:
-        if not state.copier.use_project_team:
-            return False  # Feature disabled -- skip hint
+        # Project team workflow always ships; hint is always relevant
         return not state.path_exists(self.ao_dir)
 
     @property
@@ -94,8 +93,8 @@ class PatternMinerUnderutilized:
     miner_state_file: str = ".patterns_mining_state.json"
 
     def check(self, state: ProjectState) -> bool:
-        if not state.copier.use_pattern_miner:
-            return False  # Feature disabled -- skip hint
+        if not state.copier.has_example_patterns:
+            return False  # Pattern miner not installed -- skip hint
         if state.session_count is None:
             return False  # Session count unavailable -- can't evaluate
         return (

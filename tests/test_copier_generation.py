@@ -49,6 +49,7 @@ class TestClaudechicMode:
         dest = copier_output({
             "project_name": "std_project",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         pixi_toml = dest / "pixi.toml"
@@ -62,6 +63,7 @@ class TestClaudechicMode:
         dest = copier_output({
             "project_name": "dev_project",
             "claudechic_mode": "developer",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         pixi_toml = dest / "pixi.toml"
@@ -85,6 +87,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "lsf_project",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": True,
             "cluster_scheduler": "lsf",
             "cluster_ssh_target": "login1.example.com",
@@ -101,6 +104,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "slurm_project",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": True,
             "cluster_scheduler": "slurm",
             "cluster_ssh_target": "",
@@ -117,6 +121,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "no_cluster",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         mcp = dest / "mcp_tools"
@@ -133,6 +138,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "lsf_ssh",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": True,
             "cluster_scheduler": "lsf",
             "cluster_ssh_target": "mylogin.janelia.org",
@@ -145,6 +151,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "yaml_dep",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         content = (dest / "pixi.toml").read_text(encoding="utf-8")
@@ -164,6 +171,7 @@ class TestExclude:
         dest = copier_output({
             "project_name": "excl_test",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         assert not (dest / "docs").exists(), "docs/ should be excluded"
@@ -395,6 +403,7 @@ class TestGuardrails:
         dest = copier_output({
             "project_name": "guard_test",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         guardrails = dest / ".claude" / "guardrails"
@@ -410,6 +419,7 @@ class TestGuardrails:
         dest = copier_output({
             "project_name": "guard_run",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         result = subprocess.run(
@@ -436,6 +446,7 @@ class TestGuardrails:
         dest = copier_output({
             "project_name": "guard_settings",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         # Run generate_hooks.py
@@ -484,6 +495,7 @@ class TestGuardrails:
         dest = copier_output({
             "project_name": "guard_jinja",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         for pyfile in (dest / ".claude" / "guardrails").glob("*.py"):
@@ -497,6 +509,7 @@ class TestGuardrails:
         dest = copier_output({
             "project_name": "guard_e2e",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         guardrails = dest / ".claude" / "guardrails"
@@ -544,6 +557,7 @@ class TestGuardrails:
         dest = copier_output({
             "project_name": "guard_allow",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         guardrails = dest / ".claude" / "guardrails"
@@ -590,6 +604,7 @@ class TestHints:
         dest = copier_output({
             "project_name": "hints_on",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         hints = dest / "hints"
@@ -652,6 +667,7 @@ class TestProjectContainment:
             data={
                 "project_name": "my_project",
                 "claudechic_mode": "standard",
+                "quick_start": "defaults",
                 "use_cluster": False,
             },
             defaults=True,

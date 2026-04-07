@@ -64,10 +64,7 @@ Copier will ask you to configure your project. Here is every option:
 | Prompt | Default | What It Does |
 |--------|---------|-------------|
 | **project_name** | *(required)* | Names your project directory and pixi environment |
-| **use_guardrails** | `true` | Enables the rule-based permission system |
-| **use_project_team** | `true` | Enables the multi-agent Project Team workflow |
-| **use_pattern_miner** | `false` | Scans session history for recurring corrections |
-| **use_hints** | `true` | Shows contextual toast notifications |
+| **quick_start** | `defaults` | How much example content to include (see below) |
 | **target_platform** | `auto` | Platform to solve dependencies for (`linux-64`, `osx-arm64`, `win-64`, or `all`) |
 | **claudechic_mode** | `standard` | `standard` installs from git; `developer` clones locally for editing |
 | **use_cluster** | `false` | Enables HPC job management tools |
@@ -75,18 +72,25 @@ Copier will ask you to configure your project. Here is every option:
 | **init_git** | `true` | Creates a git repo with initial commit |
 | **existing_codebase** | *(empty)* | Path to existing code to integrate into `repos/` |
 
-> **For Humans:** If unsure, accept all defaults. You get guardrails + Project
-> Team + hints — the recommended setup. To change feature toggles later,
-> re-run `copier copy` with different answers, or use `copier update` to pull
-> template updates while preserving your local changes.
+The **quick_start** preset controls how much example content ships with your project.
+Infrastructure (guardrails, workflows, hints engine, Project Team) is always included.
+
+| Preset | Example content included |
+|--------|------------------------|
+| **everything** | All example rules, specialist agent roles, tutorial workflows, hints, pattern miner |
+| **defaults** | Example rules, specialist roles, onboarding hints. No tutorials, no pattern miner. |
+| **empty** | Infrastructure only — no examples, no tutorials, no hints |
+| **custom** | You choose each category individually (rules, roles, workflows, hints, patterns) |
+
+> **For Humans:** If unsure, accept `defaults`. You get all infrastructure plus
+> useful examples — the recommended setup. Choose `everything` if you want to
+> explore the full system. Use `copier update` later to pull template updates.
 
 > **For Agents:** To generate non-interactively:
 > ```bash
 > copier copy --trust --defaults \
 >   --data project_name=my-project \
->   --data use_guardrails=true \
->   --data use_project_team=true \
->   --data use_hints=true \
+>   --data quick_start=defaults \
 >   --data target_platform=linux-64 \
 >   --data claudechic_mode=standard \
 >   --data use_cluster=false \
@@ -224,7 +228,7 @@ every tool call, regardless of whether a workflow is active.
 | R04 | subagent-push-block | `deny` | Only Coordinator can `git push` (team mode only) |
 | R05 | subagent-guardrail-config-block | `deny` | Only Coordinator can edit guardrail config (team mode only) |
 
-> R04 and R05 are only present when `use_project_team=true`.
+> R04 and R05 are always included (Project Team infrastructure always ships).
 
 **To add a new guardrail rule:**
 1. Edit `.claude/guardrails/rules.yaml`
@@ -377,23 +381,27 @@ pixi install
 
 ---
 
-## Feature Toggle Reference
+## Quick Start Preset Reference
 
-Features are independently toggleable via `copier.yml` answers. Here is what
-each toggle includes and excludes:
+The `quick_start` preset controls example content. Infrastructure always ships.
+The `use_cluster` toggle is separate (hardware capability, not example content).
 
-| Toggle | When ON | When OFF |
-|--------|---------|----------|
-| `use_guardrails` | `.claude/guardrails/`, `generate_hooks.py`, `rules.yaml`, hooks, `settings.json` | No hooks, no permission checks |
-| `use_project_team` | `workflows/project_team/` (see `workflows/project_team/`), `workflows/`, `global/rules.yaml`, `/ao_project_team` command, R04/R05 rules | No agent roles, no workflows, no global rules |
-| `use_hints` | `hints/` (Python engine), `.claude/skills/hints/` | No toast notifications |
-| `use_project_team` + `use_hints` | `global/hints.yaml` (requires **both** toggles to be ON) | No global workflow hints |
-| `use_pattern_miner` | `scripts/mine_patterns.py`, `commands/mine-patterns` | No pattern mining |
-| `use_cluster` | `mcp_tools/_cluster.py`, scheduler-specific tools (LSF or SLURM) | No cluster tools |
+| Category | `everything` | `defaults` | `empty` | `custom` |
+|----------|:---:|:---:|:---:|:---:|
+| Guardrails infrastructure | ✅ | ✅ | ✅ | ✅ |
+| Core 7 agent roles | ✅ | ✅ | ✅ | ✅ |
+| Project Team workflow YAML | ✅ | ✅ | ✅ | ✅ |
+| Hints engine (`hints/`) | ✅ | ✅ | ✅ | ✅ |
+| Example guardrail rules (`global/rules.yaml`) | ✅ | ✅ | ❌ | per `example_rules` |
+| Specialist agent roles (8 extra) | ✅ | ✅ | ❌ | per `example_agent_roles` |
+| Onboarding hints (`global/hints.yaml`) | ✅ | ✅ | ❌ | per `example_hints` |
+| Tutorial workflows | ✅ | ❌ | ❌ | per `example_workflows` |
+| Pattern miner | ✅ | ❌ | ❌ | per `example_patterns` |
+| Cluster tools (`mcp_tools/`) | per `use_cluster` | per `use_cluster` | per `use_cluster` | per `use_cluster` |
 
-> **For Agents:** The toggle gating logic is in `copier.yml` `_exclude` section.
-> When a feature is off, its files are excluded from the generated project
-> entirely — they do not exist as empty stubs.
+> **For Agents:** The gating logic is in `copier.yml` `_exclude` section.
+> When example content is excluded, its files don't exist in the generated project
+> — they are not present as empty stubs.
 
 ---
 
@@ -417,17 +425,17 @@ python3 .claude/guardrails/generate_hooks.py
 ```
 Check that `.claude/settings.json` exists and references the hook scripts.
 
-### "Subagent" rules appear but I have no Project Team
+### "Subagent" rules appear unexpectedly
 
-If you see R04/R05 in `rules.yaml` but `use_project_team=false`, your template
-may be from before the fix. Regenerate your project or manually remove R04/R05
-from `.claude/guardrails/rules.yaml` and re-run `generate_hooks.py`.
+R04/R05 are always included — they only fire when agents are spawned via the
+Project Team workflow. They have no effect on solo Claude Code sessions.
 
 ### Agent can't find role file
 
 Agent role files live at `workflows/project_team/<role>/identity.md`. If the directory
-is empty or missing, check that `use_project_team=true` was set during
-`copier copy`. You can re-run `copier update` to add missing files.
+is empty or missing, re-run `copier update` to add missing files. Core roles
+(7) always ship; specialist roles (8) require `quick_start` of `everything` or
+`defaults`.
 
 ---
 

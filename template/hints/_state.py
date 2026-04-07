@@ -416,7 +416,7 @@ class HintStateStore:
                 with open(fd, "w", encoding="utf-8") as f:
                     json.dump(payload, f, indent=2)
                     f.write("\n")
-                Path(tmp_name).rename(self._path)
+                Path(tmp_name).replace(self._path)
             except BaseException:
                 # Clean up temp file on failure
                 try:

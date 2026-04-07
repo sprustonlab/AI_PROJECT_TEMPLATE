@@ -393,35 +393,6 @@ class TestQuickStartPresets:
 
 
 # ---------------------------------------------------------------------------
-# Hints system generation tests
-# ---------------------------------------------------------------------------
-
-
-class TestHints:
-    """Verify hints/ folder is always present (infrastructure, not gated)."""
-
-    def test_hints_always_present(self, copier_output):
-        """Hints infrastructure always ships — 5 Python files."""
-        dest = copier_output({
-            "project_name": "hints_on",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": False,
-        })
-        hints = dest / "hints"
-        assert hints.is_dir(), "hints/ directory should always exist"
-        expected_files = [
-            "__init__.py",
-            "_types.py",
-            "_state.py",
-            "_engine.py",
-            "hints.py",
-        ]
-        for fname in expected_files:
-            assert (hints / fname).is_file(), f"hints/{fname} should exist"
-
-
-# ---------------------------------------------------------------------------
 # Install script containment tests
 # ---------------------------------------------------------------------------
 

@@ -4,8 +4,10 @@ In this exercise, the user adds a new advance check to this tutorial's own workf
 
 ## Step 1: Explain Advance Checks
 
-> "Advance checks are gate conditions that must ALL pass before a phase can transition to the next one (AND semantics). There are two types:
+> "Advance checks are gate conditions that must ALL pass before a phase can transition to the next one (AND semantics). There are four types:
 > - **file-exists-check** — verifies a file exists at a given path
+> - **file-content-check** — verifies file content matches a regex pattern
+> - **command-output-check** — verifies a command's stdout matches a regex pattern
 > - **manual-confirm** — prompts the user to approve in the TUI
 >
 > If any check fails, `advance_phase` is blocked and returns an error message."

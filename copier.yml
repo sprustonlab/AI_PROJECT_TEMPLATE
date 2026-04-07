@@ -52,6 +52,14 @@ example_workflows:
     (build labmeta with the full agent team). The core project_team
     workflow is always included.
 
+example_hints:
+  type: bool
+  default: true
+  when: "{{ quick_start == 'custom' }}"
+  help: |
+    Include global hints (toast notifications)?
+    Welcome message and workflow tips shown on startup.
+
 example_patterns:
   type: bool
   default: false
@@ -146,6 +154,9 @@ _exclude:
 
   # Example guardrail rules (global/rules.yaml with starter rules)
   - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_rules) %}global/rules.yaml{% endif %}"
+
+  # Global hints (global/hints.yaml with welcome + tips)
+  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_hints) %}global/hints.yaml{% endif %}"
 
   # Tutorial workflows (project_team workflow always ships)
   - "{% if quick_start in ['empty', 'defaults'] or (quick_start == 'custom' and not example_workflows) %}workflows/tutorial_extending/{% endif %}"

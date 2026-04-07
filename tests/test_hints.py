@@ -64,26 +64,25 @@ class TestCopierAnswers:
     def test_missing_file_returns_defaults(self, tmp_path):
         """Missing .copier-answers.yml returns default values."""
         ca = CopierAnswers.load(tmp_path)
-        assert ca.use_guardrails is True
-        assert ca.use_project_team is True
-        assert ca.use_pattern_miner is False
+        assert ca.has_example_rules is True
+        assert ca.has_example_agent_roles is True
+        assert ca.has_example_patterns is False
         assert ca.use_cluster is False
-        assert ca.use_hints is True
+        assert ca.has_example_hints is True
 
     def test_valid_yaml_loads_correctly(self, tmp_path):
         """Valid YAML file is parsed and properties work."""
         answers = tmp_path / ".copier-answers.yml"
         answers.write_text(
-            "use_guardrails: false\n"
-            "use_pattern_miner: true\n"
+            "quick_start: empty\n"
             "use_cluster: true\n"
             "cluster_scheduler: slurm\n"
             "project_name: my_proj\n",
             encoding="utf-8",
         )
         ca = CopierAnswers.load(tmp_path)
-        assert ca.use_guardrails is False
-        assert ca.use_pattern_miner is True
+        assert ca.has_example_rules is False
+        assert ca.has_example_patterns is False
         assert ca.use_cluster is True
         assert ca.cluster_scheduler == "slurm"
         assert ca.project_name == "my_proj"
@@ -93,7 +92,7 @@ class TestCopierAnswers:
         answers = tmp_path / ".copier-answers.yml"
         answers.write_text(":::invalid yaml [[[", encoding="utf-8")
         ca = CopierAnswers.load(tmp_path)
-        assert ca.use_guardrails is True
+        assert ca.has_example_rules is True
         assert ca.raw == {}
 
     def test_non_dict_yaml_returns_defaults(self, tmp_path):
@@ -448,7 +447,7 @@ class TestGuardrailsOnlyDefault:
         (guardrails / "rules.yaml").write_text(
             "rules:\n  - id: R01\n    name: default\n", encoding="utf-8"
         )
-        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n", encoding="utf-8")
+        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert GuardrailsOnlyDefault().check(state) is True
 
@@ -460,7 +459,7 @@ class TestGuardrailsOnlyDefault:
         (guardrails / "rules.yaml").write_text(
             "rules:\n  - id: R01\n    name: default\n", encoding="utf-8"
         )
-        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n", encoding="utf-8")
+        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert GuardrailsOnlyDefault().check(state) is False
 
@@ -473,52 +472,51 @@ class TestGuardrailsOnlyDefault:
             "rules:\n  - id: R01\n    name: default\n  - id: R02\n    name: custom\n",
             encoding="utf-8",
         )
-        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: true\n", encoding="utf-8")
+        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert GuardrailsOnlyDefault().check(state) is False
 
     def test_skips_when_guardrails_disabled(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_guardrails: false\n", encoding="utf-8")
+        (tmp_path / ".copier-answers.yml").write_text("quick_start: empty\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert GuardrailsOnlyDefault().check(state) is False
 
 
 class TestProjectTeamNeverUsed:
     def test_true_when_no_ao_dir(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_project_team: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert ProjectTeamNeverUsed().check(state) is True
 
     def test_false_when_ao_dir_exists(self, tmp_path):
         (tmp_path / ".project_team").mkdir()
-        (tmp_path / ".copier-answers.yml").write_text("use_project_team: true\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)
         assert ProjectTeamNeverUsed().check(state) is False
 
-    def test_skips_when_feature_disabled(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_project_team: false\n", encoding="utf-8")
+    def test_false_when_ao_dir_exists_no_copier_answers(self, tmp_path):
+        """Trigger returns False when .project_team/ exists, regardless of copier answers."""
+        (tmp_path / ".project_team").mkdir()
         state = ProjectState.build(tmp_path)
         assert ProjectTeamNeverUsed().check(state) is False
 
 
 class TestPatternMinerUnderutilized:
     def test_true_enough_sessions_no_miner(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n", encoding="utf-8")
+        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
         state = ProjectState.build(tmp_path, session_count=15)
         assert PatternMinerUnderutilized().check(state) is True
 
     def test_false_when_session_count_none(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n", encoding="utf-8")
+        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
         state = ProjectState.build(tmp_path)  # session_count=None
         assert PatternMinerUnderutilized().check(state) is False
 
     def test_false_when_too_few_sessions(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n", encoding="utf-8")
+        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
         state = ProjectState.build(tmp_path, session_count=3)
         assert PatternMinerUnderutilized().check(state) is False
 
     def test_false_when_miner_has_run(self, tmp_path):
-        (tmp_path / ".copier-answers.yml").write_text("use_pattern_miner: true\n", encoding="utf-8")
+        (tmp_path / ".copier-answers.yml").write_text("quick_start: everything\n", encoding="utf-8")
         (tmp_path / ".patterns_mining_state.json").touch()
         state = ProjectState.build(tmp_path, session_count=15)
         assert PatternMinerUnderutilized().check(state) is False

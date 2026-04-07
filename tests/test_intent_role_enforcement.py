@@ -128,7 +128,8 @@ class TestRealRoleRuleBlocksSubagent:
         # Step 1: copier copy
         dest = copier_output({
             "project_name": "role_test",
-            "use_guardrails": True,
+            "quick_start": "everything",
+            "use_cluster": False,
         })
         guardrails_dir = dest / ".claude" / "guardrails"
         assert guardrails_dir.exists(), (
@@ -221,7 +222,8 @@ class TestFullChainCopierToEnforcement:
         # Step 1: copier copy
         dest = copier_output({
             "project_name": "e2e_chain_test",
-            "use_guardrails": True,
+            "quick_start": "everything",
+            "use_cluster": False,
         })
         guardrails_dir = dest / ".claude" / "guardrails"
 
@@ -453,7 +455,8 @@ class TestTUIRoleWiringToEnforcement:
         # --- Step 2: copier copy + generate hooks from REAL rules.yaml ---
         dest = copier_output({
             "project_name": "tui_e2e_test",
-            "use_guardrails": True,
+            "quick_start": "everything",
+            "use_cluster": False,
         })
         guardrails_dir = dest / ".claude" / "guardrails"
 

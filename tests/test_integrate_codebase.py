@@ -65,11 +65,8 @@ def copier_with_codebase(copier_output):
     def _run(fake_repo_path, link_mode="symlink"):
         return copier_output({
             "project_name": f"integrate_{link_mode}",
-            "claudechic_mode": "standard",
-            "use_guardrails": False,
-            "use_project_team": False,
+            "quick_start": "everything",
             "use_cluster": False,
-            "init_git": False,
             "existing_codebase": str(fake_repo_path),
             "codebase_link_mode": link_mode,
         })

@@ -40,8 +40,7 @@ pytestmark = [
 # Shared copier data for all tests in this module
 _COPIER_DATA = {
     "project_name": "team_activation_test",
-    "use_guardrails": True,
-    "use_project_team": True,
+    "quick_start": "everything",
     "use_cluster": False,
 }
 

@@ -38,8 +38,7 @@ class TestSettingsJsonWiring:
         """
         dest = copier_output({
             "project_name": "wiring_absent",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
+            "quick_start": "everything",
             "use_cluster": False,
         })
 
@@ -86,8 +85,7 @@ class TestSettingsJsonWiring:
         """
         dest = copier_output({
             "project_name": "wiring_all_hooks",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
+            "quick_start": "everything",
             "use_cluster": False,
         })
 
@@ -154,8 +152,7 @@ class TestSettingsJsonWiring:
         """
         dest = copier_output({
             "project_name": "wiring_merge",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
+            "quick_start": "everything",
             "use_cluster": False,
         })
 
@@ -238,8 +235,7 @@ class TestSettingsJsonWiring:
         """
         dest = copier_output({
             "project_name": "wiring_idempotent",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
+            "quick_start": "everything",
             "use_cluster": False,
         })
 
@@ -306,8 +302,7 @@ class TestSettingsJsonWiring:
         """
         dest = copier_output({
             "project_name": "wiring_auto",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
+            "quick_start": "everything",
             "use_cluster": False,
         })
 
@@ -340,8 +335,7 @@ class TestSettingsJsonWiring:
         """
         dest = copier_output({
             "project_name": "wiring_stale",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
+            "quick_start": "everything",
             "use_cluster": False,
         })
 

@@ -336,7 +336,12 @@ def validate_rules(rules: list[dict], ack_ttl: int) -> None:
         )
 
     _RESERVED_ROLES = frozenset({'Agent', 'TeamAgent', 'Subagent', 'Coordinator'})
-    _agents_dir = Path('AI_agents')
+    _workflows_root = Path('workflows')
+    # Collect all identity.md files across ALL workflows
+    _all_identity_dirs: list[Path] = []
+    if _workflows_root.exists():
+        for _id_file in _workflows_root.rglob('*/identity.md'):
+            _all_identity_dirs.append(_id_file.parent)
 
     for _rule in rules:
         _rid = _rule.get('id', '?')
@@ -444,19 +449,20 @@ def validate_rules(rules: list[dict], ack_ttl: int) -> None:
                 "or add allow:/block: to gate by role."
             )
 
-        # WARNING: named role in allow/block not found in AI_agents/ definition files
+        # WARNING: named role in allow/block not found in any workflows/*/  definition files
         _all_entries = list(_rule.get('allow') or []) + list(_rule.get('block') or [])
         for _entry in _all_entries:
             if _entry in _RESERVED_ROLES:
                 continue
-            # CamelCase → UPPER_SNAKE (two-pass; handles UIDesigner → UI_DESIGNER)
+            # CamelCase → lower_snake (two-pass; handles UIDesigner → ui_designer)
             _s = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', _entry)
             _s = re.sub(r'([a-z\d])([A-Z])', r'\1_\2', _s)
-            _expected = f'{_s.upper()}.md'
-            if _agents_dir.exists() and not list(_agents_dir.rglob(_expected)):
+            _expected_dir = _s.lower()
+            _found_in_any = any(d.name == _expected_dir for d in _all_identity_dirs)
+            if _all_identity_dirs and not _found_in_any:
                 print(
                     f"[GUARDRAIL NOTE] generate_hooks: rule '{_rid}' references role '{_entry}' "
-                    f"but no agent definition file found at AI_agents/**/{_expected}. "
+                    f"but no agent definition found at workflows/**/{_expected_dir}/identity.md. "
                     "This role name will never match any agent. Check for typos.",
                     file=sys.stderr,
                 )
@@ -472,34 +478,54 @@ def validate_rules(rules: list[dict], ack_ttl: int) -> None:
                 )
 
 
-def generate_matrix(rules: list[dict], catalog_version: str) -> str:
+def generate_matrix(rules: list[dict], catalog_version: str,
+                     workflow_name: str | None = None) -> str:
     """Generate a markdown role × action matrix from rules.yaml.
 
-    Rows: every role found in ``AI_agents/project_team/*.md``.
+    Rows: every role found in ``workflows/<name>/*/identity.md``.
     Columns: every role-gated rule (has ``allow:`` or ``block:``).
     Cells: the effective enforcement level for that role.
 
-    Run before committing Phase D rules to verify coverage:
-        python3 .claude/guardrails/generate_hooks.py --matrix > role_matrix.md
+    Run before committing rules to verify coverage:
+        python3 .claude/guardrails/generate_hooks.py --matrix                 # all workflows
+        python3 .claude/guardrails/generate_hooks.py --matrix project_team    # one workflow
 
     Args:
         rules: Full rules list from rules.yaml.
         catalog_version: The catalog_version string from rules.yaml.
+        workflow_name: Optional workflow name to scan. If None, scans all
+            workflows under ``workflows/``.
 
     Returns:
         Markdown table string.
     """
-    # Collect role names from AI_agents/project_team/*.md (UPPER_SNAKE → CamelCase)
-    agents_dir = Path('AI_agents/project_team')
+    # Collect role names from workflows/*/identity.md (lower_snake dir → CamelCase)
+    workflows_root = Path('workflows')
     role_names: list[str] = []
-    if agents_dir.exists():
-        for md in sorted(agents_dir.glob('*.md')):
-            parts = md.stem.split('_')
-            role_name = ''.join(p.capitalize() for p in parts)
-            role_names.append(role_name)
+    scanned_dirs: list[str] = []
 
+    if workflow_name:
+        # Scan a single workflow
+        scan_dirs = [workflows_root / workflow_name]
+    elif workflows_root.exists():
+        # Scan all workflow directories
+        scan_dirs = sorted(d for d in workflows_root.iterdir() if d.is_dir())
+    else:
+        scan_dirs = []
+
+    for scan_dir in scan_dirs:
+        if not scan_dir.exists():
+            continue
+        scanned_dirs.append(scan_dir.name)
+        for identity in sorted(scan_dir.glob('*/identity.md')):
+            parts = identity.parent.name.split('_')
+            role_name = ''.join(p.capitalize() for p in parts)
+            if role_name not in role_names:
+                role_names.append(role_name)
+
+    scope_label = workflow_name or 'all workflows'
     if not role_names:
-        role_names = ['(no roles found in AI_agents/project_team/)']
+        role_names = [f'(no roles found in workflows/{scope_label})']
 
     # Collect role-gated rules
     gated_rules = [r for r in rules if r.get('allow') or r.get('block')]
@@ -538,13 +564,15 @@ def generate_matrix(rules: list[dict], catalog_version: str) -> str:
     col_headers = [f"{r['id']}" for r in gated_rules]
     col_names = [f"{r['name']}" for r in gated_rules]
 
+    _matrix_cmd = f"--matrix {workflow_name}" if workflow_name else "--matrix"
+    _scanned = ', '.join(f'`workflows/{d}/`' for d in scanned_dirs) if scanned_dirs else '(none)'
     lines = [
         f"# Role × Action Matrix",
         f"",
         f"catalog_version: {catalog_version}  ",
-        f"*Generated by `python3 .claude/guardrails/generate_hooks.py --matrix`*",
+        f"*Generated by `python3 .claude/guardrails/generate_hooks.py {_matrix_cmd}`*",
         f"",
-        f"Rows: roles from `AI_agents/project_team/`. "
+        f"Rows: roles from {_scanned}. "
         f"Cells: effective enforcement for that role.",
         f"",
     ]
@@ -1814,7 +1842,7 @@ def generate_mcp_guard(trigger: str, rules: list[dict], catalog_version: str) ->
             lines.append(f"    _matched_rules.append(({pcode}, '{rule_id}', '{enforcement}', \"\"\"{msg_escaped}\"\"\"))")
 
         elif detect_type == "spawn_type_defined":
-            # CamelCase → UPPER_SNAKE check in AI_agents/**/<UPPER_SNAKE>.md
+            # CamelCase → lower_snake check in workflows/**/<lower_snake>/identity.md
             # Only fires when type field is non-empty and no definition file found.
             # Message may contain {type}/{UPPER_SNAKE} runtime placeholders.
             fmsg = (message_text
@@ -1828,9 +1856,10 @@ def generate_mcp_guard(trigger: str, rules: list[dict], catalog_version: str) ->
             lines.append("    _s = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\\1_\\2', _type_val)")
             lines.append("    _s = re.sub(r'([a-z\\d])([A-Z])', r'\\1_\\2', _s)")
             lines.append("    _upper_snake = _s.upper()")
-            lines.append("    _agents_dir = Path(os.environ.get('GUARDRAILS_DIR', '.claude/guardrails')).parent.parent / 'AI_agents'")
-            lines.append("    if _agents_dir.exists():")
-            lines.append("        _found = list(_agents_dir.rglob(f'{_upper_snake}.md'))")
+            lines.append("    _lower_snake = _s.lower()")
+            lines.append("    _workflows_root = Path(os.environ.get('GUARDRAILS_DIR', '.claude/guardrails')).parent.parent / 'workflows'")
+            lines.append("    if _workflows_root.exists():")
+            lines.append("        _found = any((_workflows_root / wf / _lower_snake / 'identity.md').exists() for wf in os.listdir(_workflows_root) if (_workflows_root / wf).is_dir())")
             lines.append("        if not _found:")
             lines.append(f"            _type_msg = f\"\"\"{fmsg_escaped}\"\"\"")
             lines.append(f"            _matched_rules.append(({pcode}, '{rule_id}', '{enforcement}', _type_msg))")
@@ -2124,20 +2153,25 @@ def main() -> int:
     )
     parser.add_argument(
         "--matrix",
-        action="store_true",
+        nargs="?",
+        const="__all__",
+        default=None,
+        metavar="WORKFLOW",
         help=(
             "Print a markdown role × action matrix to stdout. "
-            "Every role in AI_agents/project_team/ appears as a row; "
-            "every role-gated rule as a column."
+            "With no argument: scan all workflows under workflows/. "
+            "With a workflow name (e.g., --matrix project_team): "
+            "scan only that workflow's role directories."
         ),
     )
     args = parser.parse_args()
 
-    if args.matrix:
+    if args.matrix is not None:
         catalog = load_rules_yaml(RULES_YAML)
         catalog_version = catalog.get("catalog_version", "?")
         rules = catalog.get("rules", [])
-        print(generate_matrix(rules, catalog_version))
+        workflow_name = None if args.matrix == "__all__" else args.matrix
+        print(generate_matrix(rules, catalog_version, workflow_name=workflow_name))
         return 0
 
     if args.check:

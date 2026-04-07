@@ -1,3 +1,3 @@
 # Launch Project Team
 
-Read and follow: `AI_agents/project_team/COORDINATOR.md`
+Read and follow: `workflows/project_team/coordinator/identity.md`

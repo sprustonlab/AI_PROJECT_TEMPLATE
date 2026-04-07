@@ -2,7 +2,7 @@
 
 A structured multi-agent workflow for building software projects with Claude Code. Launch it by running `/ao_project_team` in claudechic.
 
-**See [COORDINATOR.md](COORDINATOR.md) for the full orchestration logic.**
+**See [coordinator/identity.md](coordinator/identity.md) for the full orchestration logic.**
 
 ## Workflow
 
@@ -50,30 +50,30 @@ Tests are written and run. Leadership does a final review and signs off.
 
 | Agent | File | Role |
 |-------|------|------|
-| **Coordinator** | `COORDINATOR.md` | Orchestrates the workflow. Delegates, doesn't implement. |
-| **Composability** | `COMPOSABILITY.md` | Dissects problems into independent axes with defined seams. The most important leadership agent. |
-| **Terminology Guardian** | `TERMINOLOGY_GUARDIAN.md` | Ensures consistent naming across components. |
-| **Skeptic** | `SKEPTIC.md` | Checks for completeness and minimality. Correctness through simplicity. |
-| **User Alignment** | `USER_ALIGNMENT.md` | Protects user intent. Has veto power — cannot remove user-requested features. |
+| **Coordinator** | `coordinator/identity.md` | Orchestrates the workflow. Delegates, doesn't implement. |
+| **Composability** | `composability/identity.md` | Dissects problems into independent axes with defined seams. The most important leadership agent. |
+| **Terminology Guardian** | `terminology/identity.md` | Ensures consistent naming across components. |
+| **Skeptic** | `skeptic/identity.md` | Checks for completeness and minimality. Correctness through simplicity. |
+| **User Alignment** | `user_alignment/identity.md` | Protects user intent. Has veto power — cannot remove user-requested features. |
 
 ### Implementation
 
 | Agent | File | Role |
 |-------|------|------|
-| **Implementer** | `IMPLEMENTER.md` | Writes the code. Multiple instances spawned (one per file works well). |
-| **Test Engineer** | `TEST_ENGINEER.md` | Writes tests and CI configuration. |
-| **UI Designer** | `UI_DESIGNER.md` | Interface design (spawned when applicable). |
+| **Implementer** | `implementer/identity.md` | Writes the code. Multiple instances spawned (one per file works well). |
+| **Test Engineer** | `test_engineer/identity.md` | Writes tests and CI configuration. |
+| **UI Designer** | `ui_designer/identity.md` | Interface design (spawned when applicable). |
 
 ### Advisory (spawned when applicable)
 
 | Agent | File | Role |
 |-------|------|------|
-| **Researcher** | `RESEARCHER.md` | Investigates technical questions, surveys approaches. |
-| **Binary Portability** | `BINARY_PORTABILITY.md` | Cross-language/platform compatibility. |
-| **Sync Coordinator** | `SYNC_COORDINATOR.md` | Concurrency correctness (only for concurrent systems). |
-| **Memory Layout** | `MEMORY_LAYOUT.md` | Data structure and memory optimization. |
-| **Lab Notebook** | `LAB_NOTEBOOK.md` | Documents experiments and decisions. |
-| **Project Integrator** | `PROJECT_INTEGRATOR.md` | Integration with existing project infrastructure. |
+| **Researcher** | `researcher/identity.md` | Investigates technical questions, surveys approaches. |
+| **Binary Portability** | `binary_portability/identity.md` | Cross-language/platform compatibility. |
+| **Sync Coordinator** | `sync_coordinator/identity.md` | Concurrency correctness (only for concurrent systems). |
+| **Memory Layout** | `memory_layout/identity.md` | Data structure and memory optimization. |
+| **Lab Notebook** | `lab_notebook/identity.md` | Documents experiments and decisions. |
+| **Project Integrator** | `project_integrator/identity.md` | Integration with existing project infrastructure. |
 
 ---
 

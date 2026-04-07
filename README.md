@@ -20,8 +20,8 @@ my-project/
 ├── .claude/
 │   ├── commands/           # Claude Code skills (/ao_project_team, /init_project)
 │   └── guardrails/         # Permission system (rules.yaml → generated hooks)
-├── AI_agents/
-│   └── project_team/       # Multi-agent roles (Coordinator, Implementer, Skeptic, etc.)
+├── workflows/
+│   └── project_team/       # Multi-agent roles (coordinator/, implementer/, skeptic/, etc.)
 ├── commands/
 │   └── claudechic          # CLI wrapper (added to PATH by activate)
 ├── mcp_tools/              # MCP tool plugins (auto-discovered by claudechic)
@@ -92,7 +92,7 @@ Run `/ao_project_team` in claudechic to start the structured workflow:
 3. **Implementation** — implementer agents write code, guided by leadership
 4. **Testing** — tests are written and run, leadership signs off
 
-Each phase has a user checkpoint. See [`AI_agents/project_team/README.md`](AI_agents/project_team/README.md) for detailed documentation and tips.
+Each phase has a user checkpoint. See [`workflows/project_team/README.md`](workflows/project_team/README.md) for detailed documentation and tips.
 
 ### Existing Codebase Integration
 

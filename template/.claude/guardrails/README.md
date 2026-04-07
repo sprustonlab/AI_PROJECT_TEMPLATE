@@ -40,18 +40,18 @@ The primary reference for `rules.yaml` authors:
 **Filename ↔ type transform** (used by `type: spawn_type_defined` to validate `type` against role
 definition files):
 
-| Type string | Expected filename in `AI_agents/` |
-|-------------|-----------------------------------|
-| `Implementer` | `IMPLEMENTER.md` |
-| `TestEngineer` | `TEST_ENGINEER.md` |
-| `ClusterOperations` | `CLUSTER_OPERATIONS.md` |
-| `Composability` | `COMPOSABILITY.md` |
-| `Terminology` | `TERMINOLOGY.md` |
+| Type string | Expected path in `workflows/project_team/` |
+|-------------|----------------------------------------------|
+| `Implementer` | `implementer/identity.md` |
+| `TestEngineer` | `test_engineer/identity.md` |
+| `ClusterOperations` | `cluster_operations/identity.md` |
+| `Composability` | `composability/identity.md` |
+| `Terminology` | `terminology/identity.md` |
 
-Rule: two-pass insertion of `_` handles consecutive uppercase runs correctly (e.g. `UIDesigner` → `UI_DESIGNER`):
+Rule: two-pass insertion of `_` handles consecutive uppercase runs correctly (e.g. `UIDesigner` → `ui_designer`):
 pass 1 inserts `_` before an uppercase that ends a run (`XYZ→XY_Z`); pass 2 inserts `_` before an uppercase
-following a lowercase/digit (`aB→a_B`). Then uppercase the whole string.
-`type: spawn_type_defined` globs `AI_agents/**/<UPPER_SNAKE>.md`.
+following a lowercase/digit (`aB→a_B`). Then lowercase the whole string.
+`type: spawn_type_defined` checks `workflows/project_team/<lower_snake>/identity.md`.
 
 ---
 
@@ -180,7 +180,7 @@ file. See `rules.yaml.example` for one entry of each pattern type.
    - **`type: regex_match`** — fire when pattern matches. Optional `field:` for MCP/structured tool inputs. Add `allow:`/`block:` for role gating.
    - **`type: regex_miss`** — fire when pattern does NOT match. Same `field:` support. Add `allow:`/`block:` for role gating.
    - **`type: always`** — fires on every trigger match; add `allow:` or `block:` for role gating (required)
-   - **`type: spawn_type_defined`** — fires when agent `type` has no `AI_agents/**/<UPPER_SNAKE>.md`. Only for `mcp__chic__spawn_agent`.
+   - **`type: spawn_type_defined`** — fires when agent `type` has no `workflows/project_team/<lower_snake>/identity.md`. Only for `mcp__chic__spawn_agent`.
    - **No `allow:`/`block:`** — universal rule; applies to every agent regardless of role
    Use **either** `allow:` or `block:` — not both. `generate_hooks.py` exits with an error
    if both are present:
@@ -224,9 +224,9 @@ once you've confirmed no legitimate use by unlisted roles.
 1. Add the role type string to `allow:` or `block:` lists in the relevant rules in
    `rules.yaml`. List the **type** (e.g., `Implementer`), not numbered instance names.
    All instances spawned with `type="Implementer"` match this single entry.
-2. Create an agent definition file at `AI_agents/project_team/<UPPER_SNAKE>.md`
-   (CamelCase→UPPER_SNAKE transform from the type name; required for `type: spawn_type_defined`
-   filename validation). Example: type `TestEngineer` → file `TEST_ENGINEER.md`.
+2. Create an agent definition directory at `workflows/project_team/<lower_snake>/identity.md`
+   (CamelCase→lower_snake transform from the type name; required for `type: spawn_type_defined`
+   path validation). Example: type `TestEngineer` → directory `test_engineer/identity.md`.
 3. Run `python3 .claude/guardrails/generate_hooks.py` to regenerate hook scripts.
 4. Spawn with `spawn_agent(name="<InstanceName>", type="<RoleName>")`.
    The `type` string must exactly match the entry in `rules.yaml` (case-sensitive).

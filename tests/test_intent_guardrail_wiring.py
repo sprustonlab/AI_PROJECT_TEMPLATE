@@ -321,6 +321,10 @@ class TestSettingsJsonWiring:
             "guardrails are dead on arrival"
         )
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="bash staleness check not supported on Windows CI",
+    )
     def test_activate_regenerates_stale_settings_json(self, copier_output):
         """Sourcing activate must regenerate settings.json when rules.yaml is newer.
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 
 import pytest
 
@@ -33,6 +34,10 @@ pytestmark = [
     pytest.mark.skipif(
         not _copier_available(),
         reason="copier not installed",
+    ),
+    pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="bash shell scripts not supported on Windows CI",
     ),
     pytest.mark.copier,
 ]

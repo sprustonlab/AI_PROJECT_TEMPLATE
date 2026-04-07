@@ -665,12 +665,12 @@ class TestProjectContainment:
             project_in_parent,
             data={
                 "project_name": "my_project",
-                "claudechic_mode": "standard",
                 "quick_start": "defaults",
                 "use_cluster": False,
             },
             defaults=True,
             unsafe=True,
+            vcs_ref="HEAD",
         )
 
         # After copier, parent_dir should only contain the project subdir

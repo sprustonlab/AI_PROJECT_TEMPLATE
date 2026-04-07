@@ -166,6 +166,8 @@ _exclude:
   - "{% if quick_start != 'everything' and (quick_start != 'custom' or not example_patterns) %}commands/mine-patterns{% endif %}"
 
 _tasks:
+  # Post-generation: make scripts executable
+  - "chmod +x activate scripts/*.py 2>/dev/null || true"
   # Post-generation: clone claudechic for developer mode
   - "{% if claudechic_mode == 'developer' %}git clone https://github.com/sprustonlab/claudechic submodules/claudechic{% endif %}"
   # Post-generation: integrate existing codebase if path was provided

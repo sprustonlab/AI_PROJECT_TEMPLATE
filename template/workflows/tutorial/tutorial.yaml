@@ -2,19 +2,21 @@ workflow_id: tutorial
 main_role: learner
 
 phases:
-  - id: basics
-    file: basics
+  - id: checks
+    file: checks
     hints:
-      - message: "Phase 1/4: Basics. You'll see how workflow activation, phases, and hints work."
+      - message: "Phase 1/4: Checks & Phase Transitions. advance_checks gate phase transitions."
         lifecycle: show-once
-      - message: "Try: ask the agent to run 'echo hello' — it should succeed (no rule blocks it)."
+      - message: "This phase requires tutorial_checks_done.txt AND manual confirmation to advance."
         lifecycle: show-once
     advance_checks:
       - type: file-exists-check
-        path: "tutorial_basics_done.txt"
+        path: "tutorial_checks_done.txt"
         on_failure:
-          message: "Create tutorial_basics_done.txt to advance to next phase"
+          message: "Create tutorial_checks_done.txt first"
           severity: warning
+      - type: manual-confirm
+        prompt: "Ready to move to the rules phase?"
 
   - id: rules
     file: rules
@@ -34,21 +36,19 @@ phases:
           message: "Create tutorial_rules_done.txt to advance"
           severity: warning
 
-  - id: checks
-    file: checks
+  - id: injections
+    file: injections
     hints:
-      - message: "Phase 3/4: Checks & Phase Transitions. advance_checks gate phase transitions."
+      - message: "Phase 3/4: Injections. You'll see how tool inputs can be modified by workflow rules."
         lifecycle: show-once
-      - message: "This phase requires tutorial_checks_done.txt AND manual confirmation to advance."
+      - message: "Try: ask the agent to run 'echo hello' — the injection will append text to the command."
         lifecycle: show-once
     advance_checks:
       - type: file-exists-check
-        path: "tutorial_checks_done.txt"
+        path: "tutorial_injections_done.txt"
         on_failure:
-          message: "Create tutorial_checks_done.txt first"
+          message: "Create tutorial_injections_done.txt to advance to graduation"
           severity: warning
-      - type: manual-confirm
-        prompt: "Ready to graduate from the tutorial?"
 
   - id: graduation
     file: graduation
@@ -57,11 +57,11 @@ phases:
         lifecycle: show-once
 
 rules:
-  - id: no_write_in_basics
+  - id: no_write_in_checks
     trigger: PreToolUse/Write
     enforcement: warn
-    message: "In the basics phase, focus on reading — writing comes later."
-    phases: [basics]
+    message: "In the checks phase, focus on understanding advance_checks — writing comes later."
+    phases: [checks]
 
   - id: require_tee_in_rules
     trigger: PreToolUse/Bash
@@ -77,7 +77,7 @@ injections:
     detect:
       pattern: "^echo "
     inject_value: " '(injected by tutorial workflow)'"
-    phases: [basics]
+    phases: [injections]
 
 hints:
   - id: phase_scoping_tip

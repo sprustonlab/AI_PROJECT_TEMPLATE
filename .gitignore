@@ -22,6 +22,9 @@ __pycache__/
 # Hints runtime state
 .claude/hints_state.json
 
+# Phase context (written at runtime by workflow engine)
+.claude/phase_context.md
+
 # Test artifacts
 .test_runs/
 

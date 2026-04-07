@@ -50,8 +50,3 @@ rules:
     detect:
       pattern: "git push.*--force|git push.*-f"
     message: "Force push is never allowed"
-
-hints:
-  - id: delegate_reminder
-    message: "Remember: YOUR JOB IS TO DELEGATE, NOT TO DO. When you feel the urge to 'just quickly' do something, ask 'Which agent should do this?'"
-    lifecycle: show-every-session

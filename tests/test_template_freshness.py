@@ -31,16 +31,8 @@ PAIRED_FILES = [
     # Claude commands
     ".claude/commands/init_project.md",
 
-    # Hints system
-    "hints/__init__.py",
-    "hints/_types.py",
-    "hints/_state.py",
-    "hints/_engine.py",
-    "hints/hints.py",
-
     # Global config
     "global/rules.yaml",
-    "global/hints.yaml",
 
     # Workflow YAMLs
     "workflows/project_team/project_team.yaml",

@@ -1,73 +1,94 @@
-# Phase 4: Edit YAML Configuration
+# Phase 4: Hints
 
-In this exercise, the user edits this tutorial's own workflow YAML to customize its behavior. This teaches them how to tune workflows without touching code.
+In this exercise, the user adds and customizes hints. This teaches them how the toast notification system works to guide users during workflows.
 
-## Step 1: Explain YAML Config Options
+## Step 1: Explain Hints
 
-> "Workflow YAML files have several sections you can customize:
-> - **rules** — add, remove, or change enforcement levels (deny/warn/log)
-> - **hints** — add toast notifications that guide agents or users
-> - **phases** — reorder phases, add new ones, change advance checks
-> - **injections** — modify tool inputs based on patterns
+> "Hints are toast notifications that appear in the TUI to guide the user. They're declared in workflow YAML and have three key properties:
 >
-> Every change takes effect immediately — no code changes needed."
-
-## Step 2: Show Customization Options
-
-Read `workflows/tutorial_extending/tutorial_extending.yaml` and highlight the hints and rules sections. Explain:
-
-> "Here are three things you could change in this workflow's own YAML:
+> - **message** — the text shown to the user
+> - **lifecycle** — controls when and how often the hint appears:
+>   - `show-once` — appears the first time the trigger fires, never again
+>   - `show-until-resolved` — keeps showing until the trigger condition becomes false
+>   - `show-every-session` — always shows when the trigger fires (for critical reminders)
+>   - `cooldown` — shows at most once per cooldown window (requires `cooldown_seconds`)
+> - **id** — unique identifier (auto-generated for phase hints if omitted)
 >
-> **Option A: Add a new hint** — Add a workflow-level hint that shows every session:
+> Hints can be defined at two levels:
+> 1. **Workflow-level** — in the top-level `hints:` section, shown whenever the workflow is active
+> 2. **Phase-level** — nested inside a phase definition, shown only during that phase"
+
+## Step 2: Show Existing Hints
+
+Read `workflows/tutorial_extending/tutorial_extending.yaml` and point out the hints sections:
+
+> "Look at the hints already in this workflow:
+>
+> - **Workflow-level hint** (`extending-overview`) — shows every session to remind users what this tutorial covers
+> - **Phase-level hints** — each phase has `show-once` hints that explain what to do in that phase
+>
+> Also look at `global/hints.yaml` — these are global hints that fire regardless of which workflow is active. The welcome message and workflow tip are defined there."
+
+Read and display `global/hints.yaml` to the user.
+
+## Step 3: Explain the Exercise
+
+> "You're going to add hints at both levels:
+>
+> **Task A: Add a workflow-level hint** to `workflows/tutorial_extending/tutorial_extending.yaml`:
 > ```yaml
 > hints:
+>   - id: extending-overview
+>     ...existing hint...
 >   - id: my-custom-hint
 >     message: 'Remember: read the phase instructions before starting work!'
 >     lifecycle: show-every-session
 > ```
 >
-> **Option B: Change an enforcement level** — Change the `protect-workflow-engine` rule from `warn` to `log` (making it silent instead of blocking):
+> **Task B: Add a phase-level hint** to any phase in this workflow. For example, add a hint to the `add-rule` phase:
 > ```yaml
->   - id: protect-workflow-engine
->     trigger: PreToolUse/Edit
->     enforcement: log    # was 'warn'
->     ...
-> ```
->
-> **Option C: Add a phase-scoped hint** — Add a hint to a specific phase:
-> ```yaml
->   - id: edit-yaml-config
->     file: edit-yaml-config
+>   - id: add-rule
+>     file: add-rule
 >     hints:
->       - message: 'Phase 4/4: Almost done! Make one YAML edit to complete the tutorial.'
+>       - message: 'Phase 1/4: Add a Rule...'
 >         lifecycle: show-once
->       - message: 'Try adding a hint or changing a rule enforcement level.'
+>       - message: 'Hint: rules can use regex patterns in the detect field'
 >         lifecycle: show-once
 > ```
 >
-> Pick any option — or invent your own change!"
+> **Task C (optional): Add a global hint** to `global/hints.yaml`:
+> ```yaml
+> - id: my-global-hint
+>   message: 'Tip: Use /hints off to disable toast notifications.'
+>   lifecycle: show-once
+> ```
+>
+> Try at least Task A and B."
 
-## Step 3: Guide the Edit
+## Step 4: Guide the Edits
 
-Help the user make their chosen edit to `workflows/tutorial_extending/tutorial_extending.yaml`. Make sure:
+Help the user edit the YAML files. Make sure:
 
+- Workflow-level hints have `id`, `message`, and `lifecycle`
+- Phase-level hints need `message` and `lifecycle` (id is auto-generated)
 - The YAML indentation is correct (2 spaces)
-- New hints have `id`, `message`, and `lifecycle`
-- Enforcement levels are one of: `deny`, `warn`, `log`
-- Phase IDs in `phases:` lists match existing phase IDs
+- Lifecycle is one of: `show-once`, `show-until-resolved`, `show-every-session`, `cooldown`
+- If using `cooldown`, `cooldown_seconds` must also be set
 
-## Step 4: Verify
+## Step 5: Verify
 
-After the edit, verify everything parses correctly:
+After the edits, verify everything parses correctly:
 
 ```bash
 python -c "
 import yaml
 data = yaml.safe_load(open('workflows/tutorial_extending/tutorial_extending.yaml'))
-print(f'workflow_id: {data[\"workflow_id\"]}')
-print(f'phases: {len(data[\"phases\"])}')
-print(f'rules: {len(data.get(\"rules\", []))}')
-print(f'hints: {len(data.get(\"hints\", []))}')
+wf_hints = data.get('hints', [])
+phase_hints = sum(len(p.get('hints', [])) for p in data.get('phases', []))
+print(f'Workflow-level hints: {len(wf_hints)}')
+print(f'Phase-level hints: {phase_hints}')
+for h in wf_hints:
+    print(f'  [{h.get(\"lifecycle\")}] {h[\"id\"]}: {h[\"message\"][:60]}...')
 print('YAML is valid!')
 "
 ```
@@ -92,12 +113,12 @@ else:
 "
 ```
 
-## Step 5: Complete
+## Step 6: Complete
 
 Once verified, create the completion marker:
 
 ```bash
-echo "YAML config edited" > tutorial_extending_config_edited.txt
+echo "Hints customized" > tutorial_extending_config_edited.txt
 ```
 
 Then call `advance_phase` to proceed.
@@ -109,7 +130,7 @@ Then call `advance_phase` to proceed.
 > 1. **Add a global rule** — guardrails that apply everywhere
 > 2. **Add an advance check** — gate conditions for phase transitions
 > 3. **Edit an agent role** — customize how agents behave
-> 4. **Edit YAML config** — tune workflows without code changes
+> 4. **Add hints** — toast notifications to guide users through workflows
 >
 > These are the same tools the Project Team uses internally. You can now customize the system for your own projects.
 >
@@ -124,6 +145,6 @@ Then call `advance_phase` to proceed.
 
 > "You can revert all tutorial changes with:
 > ```bash
-> git checkout -- global/rules.yaml workflows/tutorial_extending/tutorial_extending.yaml workflows/project_team/
+> git checkout -- global/rules.yaml global/hints.yaml workflows/tutorial_extending/tutorial_extending.yaml workflows/project_team/
 > rm -f tutorial_extending_*.txt
 > ```"

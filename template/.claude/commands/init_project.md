@@ -14,13 +14,13 @@ Be conversational. If they say "I have a Python project for analyzing neuroscien
 
 ## Step 2: Explain Quick Start Presets
 
-Every project always gets the full infrastructure: guardrails (permission rules), workflows (phase-gated processes), hints (onboarding notifications), and the Project Team (multi-agent collaboration). The `quick_start` preset controls how many **examples** are pre-loaded:
+Every project always gets the full infrastructure: workflows (phase-gated processes with guardrails) and the Project Team (multi-agent collaboration). The `quick_start` preset controls how many **examples** are pre-loaded:
 
 | Preset | What you get | Best for |
 |--------|-------------|----------|
-| **everything** | All example rules, specialist roles, tutorial workflows, hints, pattern miner | Learning the system — explore everything |
-| **defaults** | Example rules, specialist roles, hints. No tutorials, no pattern miner. | First real project — useful defaults without clutter |
-| **empty** | Infrastructure only — no examples, no tutorials, no hints | Experienced users who'll add what they need |
+| **everything** | All example rules, specialist roles, tutorial workflows, pattern miner | Learning the system — explore everything |
+| **defaults** | Example rules, specialist roles. No tutorials, no pattern miner. | First real project — useful defaults without clutter |
+| **empty** | Infrastructure only — no examples, no tutorials | Experienced users who'll add what they need |
 | **custom** | You pick each category individually | Specific needs |
 
 **Recommendation:** Start with `defaults` for a first project, `everything` if they want to learn.
@@ -43,7 +43,6 @@ copier copy --trust --data project_name="<name>" \
   --data example_rules=true \
   --data example_agent_roles=true \
   --data example_workflows=false \
-  --data example_hints=true \
   --data example_patterns=false \
   --data existing_codebase="" \
   https://github.com/sprustonlab/AI_PROJECT_TEMPLATE <target_dir>

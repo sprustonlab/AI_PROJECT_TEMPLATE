@@ -18,10 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Directories to scan (project code, not vendored/env)
 SCAN_DIRS = [
     REPO_ROOT / "tests",
-    REPO_ROOT / "hints",
-    REPO_ROOT / "template" / "hints",
     REPO_ROOT / "scripts",
-    REPO_ROOT / ".claude" / "guardrails",
 ]
 
 # Files to skip (self-referential test only)

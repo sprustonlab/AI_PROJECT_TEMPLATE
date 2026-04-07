@@ -347,6 +347,7 @@ class TestQuickStartPresets:
             "example_rules": True,
             "example_agent_roles": True,
             "example_workflows": False,
+            "example_hints": False,
             "example_patterns": False,
             "use_cluster": False,
         })
@@ -379,11 +380,45 @@ class TestQuickStartPresets:
         # Pattern miner NOT present (example_patterns=False)
         assert not (dest / "scripts" / "mine_patterns.py").exists()
 
+        # Hints NOT present (example_hints=False)
+        global_hints = dest / "global" / "hints.yaml"
+        assert not global_hints.exists(), (
+            "global/hints.yaml should NOT be present when example_hints=False"
+        )
 
 
 # ---------------------------------------------------------------------------
-# Guardrail system completeness tests (removed — SDK handles guardrails)
+# Guardrail system completeness tests
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Hints system generation tests
+# ---------------------------------------------------------------------------
+
+
+class TestHints:
+    """Verify hints/ folder is always present (infrastructure, not gated)."""
+
+    def test_hints_always_present(self, copier_output):
+        """Hints infrastructure always ships — 5 Python files."""
+        dest = copier_output({
+            "project_name": "hints_on",
+            "claudechic_mode": "standard",
+            "quick_start": "defaults",
+            "use_cluster": False,
+        })
+        hints = dest / "hints"
+        assert hints.is_dir(), "hints/ directory should always exist"
+        expected_files = [
+            "__init__.py",
+            "_types.py",
+            "_state.py",
+            "_engine.py",
+            "hints.py",
+        ]
+        for fname in expected_files:
+            assert (hints / fname).is_file(), f"hints/{fname} should exist"
 
 
 # ---------------------------------------------------------------------------

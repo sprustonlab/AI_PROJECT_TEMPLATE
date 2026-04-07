@@ -8,6 +8,10 @@ __pycache__/
 # Claude Code
 .claude/cache/
 .claude/logs/
+.claude/hits.jsonl
+
+# Claudechic session state
+.chicsessions/
 
 # Guardrail runtime artifacts (generated at runtime, not tracked)
 .claude/guardrails/acks/

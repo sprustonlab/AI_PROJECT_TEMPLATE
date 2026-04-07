@@ -37,6 +37,9 @@ fi
 _SCRIPT_PATH="${_SCRIPT_PATH/#\~/$HOME}"
 BASEDIR="$(cd "$(dirname "$_SCRIPT_PATH")" && pwd)"
 
+# Always cd into the project root so all tools run in the right directory
+cd "$BASEDIR"
+
 # ─── Section 2: Pixi Bootstrap ───────────────────────────────────────────────
 if ! command -v pixi &> /dev/null; then
     echo ""

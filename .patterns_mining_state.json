@@ -1,0 +1,115 @@
+{
+  "last_run": "2026-03-31T11:44:13.228454+00:00",
+  "processed_sessions": {
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/00f893e4-4fbb-4941-88b8-3e8ddcdd8cf6.jsonl": {
+      "mtime": 1774836513.715161,
+      "corrections_found": 3
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/07a6db4c-3c2e-48d6-b435-23540f40f080.jsonl": {
+      "mtime": 1774836514.6533709,
+      "corrections_found": 0
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/0d04c2bc-46bc-4149-9a28-8b9a7fdbcb3b.jsonl": {
+      "mtime": 1774822126.2480812,
+      "corrections_found": 5
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/27ba152d-c91d-4796-b7ec-c9a6d88efbdf.jsonl": {
+      "mtime": 1774883780.5759718,
+      "corrections_found": 0
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/311df0a3-ff3c-4a36-b039-a0cf65cd43ee.jsonl": {
+      "mtime": 1774882930.65805,
+      "corrections_found": 1
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/33265e60-13fb-42f3-961a-0e9318634a5d.jsonl": {
+      "mtime": 1774836515.1326075,
+      "corrections_found": 1
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/6ac1cd3b-dab5-4793-a0ca-09437c865d86.jsonl": {
+      "mtime": 1774882930.6601408,
+      "corrections_found": 0
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/6cc7cd37-c3fc-40eb-aa7b-624ab192ff44.jsonl": {
+      "mtime": 1774899498.0921965,
+      "corrections_found": 4
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/767db42f-e4b7-4af6-842c-d4641922b88e.jsonl": {
+      "mtime": 1774957452.6899295,
+      "corrections_found": 92
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/8763ec26-2bba-488c-a2b1-d982db38dde0.jsonl": {
+      "mtime": 1774899464.1270218,
+      "corrections_found": 11
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/920bb03b-5b19-4982-8c59-8cf78660939a.jsonl": {
+      "mtime": 1774899445.6777198,
+      "corrections_found": 1
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/92b56f44-5cb1-4bfa-bddb-75817ed0b2aa.jsonl": {
+      "mtime": 1774899502.3420055,
+      "corrections_found": 0
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/ade001fe-6c6e-4cee-8cef-3cf615a0d291.jsonl": {
+      "mtime": 1774882930.6585424,
+      "corrections_found": 1
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/afe52e88-9898-4c9a-ade6-7e05dcd4d4fe.jsonl": {
+      "mtime": 1774882930.659826,
+      "corrections_found": 0
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/c5b6b056-f62f-4bad-82ba-b648e5f4822c.jsonl": {
+      "mtime": 1774882930.6569579,
+      "corrections_found": 3
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/c8e76ff4-c9fd-4cb2-885d-7db6c4a94adc.jsonl": {
+      "mtime": 1774821549.7061167,
+      "corrections_found": 3
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/ca3bbb5c-b970-445f-a1d1-b26757d1a531.jsonl": {
+      "mtime": 1774836514.9978015,
+      "corrections_found": 1
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/ca3d7158-88a8-4dd2-b0f9-2668336a822c.jsonl": {
+      "mtime": 1774882930.6599717,
+      "corrections_found": 0
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/cc2ccd79-2f6a-478d-8bc7-0bd17b319a14.jsonl": {
+      "mtime": 1774905745.9794235,
+      "corrections_found": 4
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/d929dd27-0d76-4859-a42d-9af93b079360.jsonl": {
+      "mtime": 1774899513.8070474,
+      "corrections_found": 1
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/d9587d98-1fd7-48a3-8f8e-2d79c5fdb067.jsonl": {
+      "mtime": 1774836514.7187645,
+      "corrections_found": 2
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/efef9853-fc99-4594-9235-fe745dbc32db.jsonl": {
+      "mtime": 1774910951.6326199,
+      "corrections_found": 3
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/f1398832-30ad-4591-befd-5dc07c3ee949.jsonl": {
+      "mtime": 1774883651.0809798,
+      "corrections_found": 0
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/f29faf02-03da-40ee-98a5-8dd13b9f586e.jsonl": {
+      "mtime": 1774882930.6558414,
+      "corrections_found": 80
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/f3c48b12-1f0a-4805-80c7-95297d268376.jsonl": {
+      "mtime": 1774882930.6591983,
+      "corrections_found": 2
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/f63b4bcc-06dc-4495-b178-e789cc3ce092.jsonl": {
+      "mtime": 1774883865.4776793,
+      "corrections_found": 1
+    },
+    "/groups/spruston/home/moharb/.claude/projects/-groups-spruston-home-moharb-AI-PROJECT-TEMPLATE/f753e5f1-b50e-4b6e-89bd-5cc46f8ddc63.jsonl": {
+      "mtime": 1774899487.222658,
+      "corrections_found": 1
+    }
+  },
+  "total_corrections": 220,
+  "total_sessions_scanned": 27
+}

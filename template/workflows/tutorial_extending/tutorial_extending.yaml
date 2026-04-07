@@ -1,0 +1,82 @@
+workflow_id: tutorial-extending
+main_role: learner
+
+phases:
+  - id: add-rule
+    file: add-rule
+    hints:
+      - message: "Phase 1/4: Add a Rule. You'll add a new global rule to global/rules.yaml."
+        lifecycle: show-once
+      - message: "Open global/rules.yaml and add a new rule entry. Use deny, warn, or log enforcement."
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: "tutorial_extending_rule_added.txt"
+        on_failure:
+          message: "Create tutorial_extending_rule_added.txt after adding your rule to global/rules.yaml."
+          severity: warning
+
+  - id: add-advance-check
+    file: add-advance-check
+    hints:
+      - message: "Phase 2/4: Add an Advance Check. You'll add a gate condition to a workflow YAML."
+        lifecycle: show-once
+      - message: "Advance checks use AND semantics — ALL checks must pass for phase transition."
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: "tutorial_extending_check_added.txt"
+        on_failure:
+          message: "Create tutorial_extending_check_added.txt after adding your advance check."
+          severity: warning
+
+  - id: edit-agent-role
+    file: edit-agent-role
+    hints:
+      - message: "Phase 3/4: Edit an Agent Role. You'll modify an agent's responsibilities in workflows/project_team/."
+        lifecycle: show-once
+      - message: "Agent roles are markdown files. Each defines what one agent does and how it communicates."
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: "tutorial_extending_role_edited.txt"
+        on_failure:
+          message: "Create tutorial_extending_role_edited.txt after editing the agent role file."
+          severity: warning
+
+  - id: edit-yaml-config
+    file: edit-yaml-config
+    hints:
+      - message: "Phase 4/4: Edit YAML Config. You'll customize a workflow by adding a hint or changing enforcement."
+        lifecycle: show-once
+      - message: "After this phase you'll have extended 4 different parts of the system. Run /tutorial-extending stop to finish."
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: "tutorial_extending_config_edited.txt"
+        on_failure:
+          message: "Create tutorial_extending_config_edited.txt after editing the YAML config."
+          severity: warning
+
+rules:
+  # Protect core infrastructure files during the tutorial
+  - id: protect-workflow-engine
+    trigger: PreToolUse/Edit
+    enforcement: warn
+    detect:
+      field: file_path
+      pattern: "claudechic/"
+    message: "This tutorial extends project-side files (global/, workflows/), not claudechic internals."
+
+  - id: protect-workflow-engine-write
+    trigger: PreToolUse/Write
+    enforcement: warn
+    detect:
+      field: file_path
+      pattern: "claudechic/"
+    message: "This tutorial extends project-side files (global/, workflows/), not claudechic internals."
+
+hints:
+  - id: extending-overview
+    message: "This tutorial teaches 4 extension skills: adding rules, adding advance checks, editing agent roles, and editing YAML config."
+    lifecycle: show-every-session

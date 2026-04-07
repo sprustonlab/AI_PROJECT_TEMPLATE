@@ -8,6 +8,10 @@ __pycache__/
 # Claude Code
 .claude/cache/
 .claude/logs/
+.claude/hits.jsonl
+
+# Claudechic session state
+.chicsessions/
 
 # Guardrail runtime artifacts (generated at runtime, not tracked)
 .claude/guardrails/acks/
@@ -18,11 +22,14 @@ __pycache__/
 # Hints runtime state
 .claude/hints_state.json
 
+# Phase context (written at runtime by workflow engine)
+.claude/phase_context.md
+
 # Test artifacts
 .test_runs/
 
-# Project team state
-# Specification docs are tracked on develop for design continuity
+# Project team runtime state
+.project_team/
 
 # submodules/claudechic/ is a git submodule — tracked by .gitmodules
 

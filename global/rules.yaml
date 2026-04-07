@@ -1,0 +1,20 @@
+- id: no_rm_rf
+  trigger: PreToolUse/Bash
+  enforcement: deny
+  detect:
+    pattern: "rm\\s+-rf\\s+/"
+  message: "Dangerous: rm -rf on absolute path. Request override if intentional."
+
+- id: warn_sudo
+  trigger: PreToolUse/Bash
+  enforcement: warn
+  detect:
+    pattern: "^sudo\\s"
+  message: "Using sudo — acknowledge if intentional."
+
+- id: log_git_operations
+  trigger: PreToolUse/Bash
+  enforcement: log
+  detect:
+    pattern: "^git\\s"
+  message: "Git operation logged for audit trail."

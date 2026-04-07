@@ -1,6 +1,6 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["tests"]
+testpaths = ["tests", "submodules/claudechic/tests"]
 markers = [
     "slow: tests that take >30s (copier+pixi install, E2E)",
     "copier: tests that run copier copy",

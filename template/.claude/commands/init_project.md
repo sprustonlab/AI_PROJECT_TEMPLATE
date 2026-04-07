@@ -12,63 +12,40 @@ Ask the user about their project. You need to understand:
 
 Be conversational. If they say "I have a Python project for analyzing neuroscience data", you already know: project_type=scientific, science_domain=biology. Don't ask questions you can infer.
 
-## Step 2: Explain Add-ons and Get Choices
+## Step 2: Explain Quick Start Presets
 
-For each add-on, explain the VALUE (not just what it does). Recommend based on their context.
+Every project always gets the full infrastructure: workflows (phase-gated processes with guardrails) and the Project Team (multi-agent collaboration). The `quick_start` preset controls how many **examples** are pre-loaded:
 
-### Guardrails (default: on)
-**What it does:** Creates a permission system that controls what Claude Code can do — which tools it can call, which files it can modify, what commands it can run.
+| Preset | What you get | Best for |
+|--------|-------------|----------|
+| **everything** | All example rules, specialist roles, tutorial workflows, pattern miner | Learning the system — explore everything |
+| **defaults** | Example rules, specialist roles. No tutorials, no pattern miner. | First real project — useful defaults without clutter |
+| **empty** | Infrastructure only — no examples, no tutorials | Experienced users who'll add what they need |
+| **custom** | You pick each category individually | Specific needs |
 
-**Why it matters:** Without guardrails, Claude Code has unrestricted access. For teams, for production code, or for overnight autonomous runs, guardrails prevent accidents. A single `rm -rf` in the wrong directory or a force-push to main can ruin your day.
-
-**Recommendation:** Keep enabled unless this is a quick prototype you'll throw away.
-
-### Project Team (default: on)
-**What it does:** Sets up multi-agent roles — Coordinator, Implementer, Skeptic, Test Engineer, and others. When you run `/ao_project_team`, Claude Code spawns specialized agents that collaborate on your task.
-
-**Why it matters:** Solo Claude is good. A team of specialized Claudes is better. The Skeptic catches bugs the Implementer misses. The Test Engineer writes tests the Implementer wouldn't think of. It's structured peer review, but faster.
-
-**Recommendation:** Keep enabled for any project beyond trivial scripts.
-
-### Pattern Miner (default: off)
-**What it does:** Scans your Claude Code conversation history for moments where you corrected Claude — "no, that's wrong", "I already told you", "you missed the point". Extracts these into a structured report that feeds into PATTERNS.md.
-
-**Why it matters:** Claude makes the same mistakes repeatedly across sessions. Pattern mining turns your frustration into systematic improvement. It's the difference between complaining and fixing.
-
-**Recommendation:** Enable if you've been using Claude Code for a while and want to improve its behavior on your specific project.
-
-### Scientific Questions (if project_type == scientific)
-
-If the user chose scientific:
-
-**Science domain** — Ask which domain. This affects suggested skill packs and conventions.
-- Biology / Genomics / Neuroscience
-- Physics / Cosmology / Materials
-- Chemistry / Drug Discovery
-- Data Science / ML / Statistics
-- Other
-
-**Autonomous agents** — Will Claude run unattended (overnight, weekend GPU jobs)?
-If yes, the template adds:
-- CLAUDE.md with research goals and success criteria
-- CHANGELOG.md as structured agent memory
-- Test oracle directories for self-validation
-- Stricter guardrails for unattended operation
+**Recommendation:** Start with `defaults` for a first project, `everything` if they want to learn.
 
 ## Step 3: Run Copier
 
 Once you have all answers, construct and run the Copier command:
 
 ```bash
-copier copy --data project_name="<name>" \
-  --data use_guardrails=<true|false> \
-  --data use_project_team=<true|false> \
-  --data use_pattern_miner=<true|false> \
-  --data project_type="<general|scientific>" \
-  --data science_domain="<domain>" \
-  --data autonomous_agents=<true|false> \
+copier copy --trust --data project_name="<name>" \
+  --data quick_start="<everything|defaults|empty|custom>" \
   --data existing_codebase="<path_or_empty>" \
-  https://github.com/<org>/AI_PROJECT_TEMPLATE <target_dir>
+  https://github.com/sprustonlab/AI_PROJECT_TEMPLATE <target_dir>
+```
+
+For the `custom` preset, you can also pass individual flags:
+```bash
+copier copy --trust --data project_name="<name>" \
+  --data quick_start="custom" \
+  --data example_rules=true \
+  --data example_agent_roles=true \
+  --data example_workflows=false \
+  --data example_patterns=false \
+  --data existing_codebase="" \
+  https://github.com/sprustonlab/AI_PROJECT_TEMPLATE <target_dir>
 ```
 
 Before running, confirm the choices with the user in a clear summary table.
@@ -82,7 +59,7 @@ pip install copier
 
 After Copier runs, report:
 1. What files were created
-2. Which add-ons are active
+2. Which preset was used and what's included
 3. Next steps:
    - `cd <project_name> && source activate` (Linux/macOS)
    - `cd <project_name>; . .\activate.ps1` (Windows/PowerShell)
@@ -92,4 +69,4 @@ After Copier runs, report:
 
 - If the user provides a path to an existing codebase, the post-generation task will symlink it into `repos/` and check for `.claude/` conflicts
 - The `activate` script handles pixi bootstrap, environment installation, and PATH setup automatically
-- All add-ons are just files in the right directories — they can be added or removed later without breaking anything
+- All example content is just files in the right directories — it can be added or removed later without breaking anything

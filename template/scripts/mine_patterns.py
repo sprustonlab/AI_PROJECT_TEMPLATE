@@ -134,7 +134,7 @@ class ParseResult:
     messages: list[Message] = field(default_factory=list)
     session_type: str = "main"          # "main" | "sub-agent"
     agent_type: str | None = None
-    workflow: str = "solo"              # "ao_project_team" | "ao_experiment_team" | "solo"
+    workflow: str = "solo"              # "project_team" | "ao_experiment_team" | "solo"
     session_date: str = "unknown"
     session_id: str | None = None
     stats: ParseStats = field(default_factory=ParseStats)
@@ -270,8 +270,8 @@ def parse_session(
         # Detect workflow from any user message
         for m in result.messages:
             if m.role == "user":
-                if "/ao_project_team" in m.text:
-                    result.workflow = "ao_project_team"
+                if "/project-team" in m.text:
+                    result.workflow = "project_team"
                     break
                 if "/ao_experiment_team" in m.text:
                     result.workflow = "ao_experiment_team"

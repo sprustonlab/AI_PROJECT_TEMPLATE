@@ -18,10 +18,10 @@ cd my-project && pixi install
 ```
 my-project/
 ├── .claude/
-│   ├── commands/           # Claude Code skills (/ao_project_team, /init_project)
+│   ├── commands/           # Claude Code skills (/project-team, /init_project)
 │   └── guardrails/         # Permission system (rules.yaml → generated hooks)
-├── AI_agents/
-│   └── project_team/       # Multi-agent roles (Coordinator, Implementer, Skeptic, etc.)
+├── workflows/
+│   └── project_team/       # Multi-agent roles (coordinator/, implementer/, skeptic/, etc.)
 ├── commands/
 │   └── claudechic          # CLI wrapper (added to PATH by activate)
 ├── mcp_tools/              # MCP tool plugins (auto-discovered by claudechic)
@@ -57,7 +57,7 @@ source activate      # Sets up PATH, PYTHONPATH, shows available tools
 pixi run claudechic  # Launch the TUI
 ```
 
-In claudechic, run `/ao_project_team` to start the multi-agent workflow.
+In claudechic, run `/project-team` to start the multi-agent workflow.
 
 ## Components
 
@@ -85,14 +85,14 @@ See [`mcp_tools/README.md`](template/mcp_tools/README.md) for full documentation
 
 ### Multi-Agent Project Team
 
-Run `/ao_project_team` in claudechic to start the structured workflow:
+Run `/project-team` in claudechic to start the structured workflow:
 
 1. **Vision** — describe what you want, agent clarifies and confirms
 2. **Specification** — leadership agents (Composability, Terminology, UserAlignment, Skeptic) draft a spec
 3. **Implementation** — implementer agents write code, guided by leadership
 4. **Testing** — tests are written and run, leadership signs off
 
-Each phase has a user checkpoint. See [`AI_agents/project_team/README.md`](AI_agents/project_team/README.md) for detailed documentation and tips.
+Each phase has a user checkpoint. See [`workflows/project_team/README.md`](workflows/project_team/README.md) for detailed documentation and tips.
 
 ### Existing Codebase Integration
 

@@ -1,0 +1,52 @@
+workflow_id: project-team
+main_role: coordinator
+
+phases:
+  - id: vision
+    file: vision
+  - id: setup
+    file: setup
+  - id: leadership
+    file: leadership
+  - id: specification
+    file: specification
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Specification approved by user?"
+    hints:
+      - message: "Synthesize all Leadership findings before presenting to user"
+        lifecycle: show-once
+  - id: implementation
+    file: implementation
+    advance_checks:
+      - type: manual-confirm
+        prompt: "All Leadership agents approve implementation?"
+  - id: testing
+    file: testing
+    advance_checks:
+      - type: manual-confirm
+        prompt: "All tests passing?"
+  - id: signoff
+    file: signoff
+
+rules:
+  - id: no_direct_code_coordinator
+    trigger: PreToolUse/Write
+    enforcement: warn
+    message: "Coordinator should delegate code writing to Implementer agents"
+    roles: [coordinator]
+
+  - id: no_push_before_testing
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    detect:
+      pattern: "git push"
+    message: "No pushing before testing phase"
+    exclude_phases: [testing, signoff]
+
+  - id: no_force_push
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    detect:
+      pattern: "git push.*--force|git push.*-f"
+    message: "Force push is never allowed"

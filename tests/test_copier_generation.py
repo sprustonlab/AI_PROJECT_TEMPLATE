@@ -3,7 +3,8 @@
 Verifies:
 - Standard vs developer claudechic mode in pixi.toml
 - Cluster scheduler file inclusion/exclusion (LSF, SLURM, none)
-- _exclude rules: docs/, .ao_project_team/, submodules/, tests/ never in output
+- _exclude rules: docs/, .project_team/, submodules/, tests/ never in output
+- quick_start presets: everything, defaults, empty, custom
 
 Requires: copier (pip install copier). Tests are skipped if copier is not installed.
 """
@@ -48,6 +49,7 @@ class TestClaudechicMode:
         dest = copier_output({
             "project_name": "std_project",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         pixi_toml = dest / "pixi.toml"
@@ -61,6 +63,7 @@ class TestClaudechicMode:
         dest = copier_output({
             "project_name": "dev_project",
             "claudechic_mode": "developer",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         pixi_toml = dest / "pixi.toml"
@@ -84,6 +87,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "lsf_project",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": True,
             "cluster_scheduler": "lsf",
             "cluster_ssh_target": "login1.example.com",
@@ -100,6 +104,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "slurm_project",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": True,
             "cluster_scheduler": "slurm",
             "cluster_ssh_target": "",
@@ -116,6 +121,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "no_cluster",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         mcp = dest / "mcp_tools"
@@ -132,6 +138,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "lsf_ssh",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": True,
             "cluster_scheduler": "lsf",
             "cluster_ssh_target": "mylogin.janelia.org",
@@ -144,6 +151,7 @@ class TestClusterScheduler:
         dest = copier_output({
             "project_name": "yaml_dep",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         content = (dest / "pixi.toml").read_text(encoding="utf-8")
@@ -159,322 +167,229 @@ class TestExclude:
     """Verify _exclude rules prevent certain dirs from appearing in output."""
 
     def test_always_excluded_dirs(self, copier_output):
-        """docs/, .ao_project_team/, submodules/, tests/ never in generated project."""
+        """docs/, .project_team/, submodules/, tests/ never in generated project."""
         dest = copier_output({
             "project_name": "excl_test",
             "claudechic_mode": "standard",
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         assert not (dest / "docs").exists(), "docs/ should be excluded"
-        assert not (dest / ".ao_project_team").exists(), ".ao_project_team/ should be excluded"
+        assert not (dest / ".project_team").exists(), ".project_team/ should be excluded"
         assert not (dest / "submodules").exists(), "submodules/ should be excluded"
         assert not (dest / "tests").exists(), "tests/ should be excluded"
 
-    def test_guardrails_excluded_when_disabled(self, copier_output):
-        """use_guardrails=false → no guardrail files in .claude/guardrails/."""
-        dest = copier_output({
-            "project_name": "no_guard",
-            "claudechic_mode": "standard",
-            "use_guardrails": False,
-            "use_cluster": False,
-        })
-        guardrails = dest / ".claude" / "guardrails"
-        if guardrails.exists():
-            files = list(guardrails.rglob("*"))
-            files = [f for f in files if f.is_file()]
-            assert files == [], f"Guardrail files should be excluded: {files}"
 
-    def test_project_team_excluded_when_disabled(self, copier_output):
-        """use_project_team=false → no agent role files in AI_agents/."""
+# ---------------------------------------------------------------------------
+# quick_start preset tests
+# ---------------------------------------------------------------------------
+
+
+class TestQuickStartPresets:
+    """Verify quick_start presets control example content correctly."""
+
+    # Core roles that ALWAYS ship (regardless of preset)
+    CORE_ROLES = [
+        "coordinator", "composability", "implementer", "skeptic",
+        "terminology", "user_alignment", "test_engineer",
+    ]
+
+    # Specialist roles (only with everything/defaults/custom+example_agent_roles)
+    SPECIALIST_ROLES = [
+        "researcher", "lab_notebook", "ui_designer", "git_setup",
+        "binary_portability", "memory_layout", "project_integrator",
+        "sync_coordinator",
+    ]
+
+    # Tutorial workflows (only with everything/custom+example_workflows)
+    TUTORIAL_WORKFLOWS = [
+        "tutorial_extending",
+        "tutorial_toy_project",
+    ]
+
+    def test_everything_mode(self, copier_output):
+        """quick_start=everything → ALL content: specialists, tutorials, global, patterns."""
         dest = copier_output({
-            "project_name": "no_team",
+            "project_name": "everything_test",
             "claudechic_mode": "standard",
-            "use_project_team": False,
+            "quick_start": "everything",
             "use_cluster": False,
         })
-        ai_agents = dest / "AI_agents"
-        if ai_agents.exists():
-            files = list(ai_agents.rglob("*"))
-            files = [f for f in files if f.is_file()]
-            assert files == [], f"AI_agents files should be excluded: {files}"
+
+        # Core infrastructure always present
+        assert (dest / "pixi.toml").exists()
+        assert (dest / "activate").exists()
+
+        # Core roles always present
+        for role in self.CORE_ROLES:
+            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
+                f"Core role {role} should always be present"
+            )
+
+        # Specialist roles present in everything mode
+        for role in self.SPECIALIST_ROLES:
+            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
+                f"Specialist role {role} should be present in everything mode"
+            )
+
+        # Tutorial workflows present in everything mode
+        for wf in self.TUTORIAL_WORKFLOWS:
+            assert (dest / "workflows" / wf).is_dir(), (
+                f"Tutorial workflow {wf} should be present in everything mode"
+            )
+
+        # Global config present
+        assert (dest / "global" / "rules.yaml").exists(), "global/rules.yaml should be present"
+
+        # Pattern miner present in everything mode
+        assert (dest / "scripts" / "mine_patterns.py").exists(), (
+            "Pattern miner should be present in everything mode"
+        )
+        assert (dest / "commands" / "mine-patterns").exists(), (
+            "mine-patterns command should be present in everything mode"
+        )
+
+        # project_team workflow YAML always present
+        assert (dest / "workflows" / "project_team" / "project_team.yaml").exists()
+
+    def test_defaults_mode(self, copier_output):
+        """quick_start=defaults → core + specialists + global, NO tutorials, NO patterns."""
+        dest = copier_output({
+            "project_name": "defaults_test",
+            "claudechic_mode": "standard",
+            "quick_start": "defaults",
+            "use_cluster": False,
+        })
+
+        # Core roles present
+        for role in self.CORE_ROLES:
+            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
+                f"Core role {role} should be present in defaults mode"
+            )
+
+        # Specialist roles present in defaults mode
+        for role in self.SPECIALIST_ROLES:
+            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
+                f"Specialist role {role} should be present in defaults mode"
+            )
+
+        # Global config present in defaults
+        assert (dest / "global" / "rules.yaml").exists(), "global/rules.yaml should be present"
+
+        # Tutorial workflows NOT present in defaults
+        for wf in self.TUTORIAL_WORKFLOWS:
+            wf_dir = dest / "workflows" / wf
+            if wf_dir.exists():
+                files = list(wf_dir.rglob("*"))
+                files = [f for f in files if f.is_file()]
+                assert files == [], f"Tutorial {wf} should be excluded in defaults mode"
+
+        # Pattern miner NOT present in defaults
+        assert not (dest / "scripts" / "mine_patterns.py").exists(), (
+            "Pattern miner should NOT be present in defaults mode"
+        )
+        assert not (dest / "commands" / "mine-patterns").exists(), (
+            "mine-patterns should NOT be present in defaults mode"
+        )
+
+    def test_empty_mode(self, copier_output):
+        """quick_start=empty → infrastructure + core roles ONLY. No specialists, no examples."""
+        dest = copier_output({
+            "project_name": "empty_test",
+            "claudechic_mode": "standard",
+            "quick_start": "empty",
+            "use_cluster": False,
+        })
+
+        # Infrastructure always present
+        assert (dest / "pixi.toml").exists()
+        assert (dest / "activate").exists()
+
+        # Core roles always present
+        for role in self.CORE_ROLES:
+            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
+                f"Core role {role} should be present even in empty mode"
+            )
+
+        # Specialist roles NOT present in empty mode
+        for role in self.SPECIALIST_ROLES:
+            role_dir = dest / "workflows" / "project_team" / role
+            if role_dir.exists():
+                files = list(role_dir.rglob("*"))
+                files = [f for f in files if f.is_file()]
+                assert files == [], (
+                    f"Specialist role {role} should be excluded in empty mode"
+                )
+
+        # Global example rules NOT present
+        global_rules = dest / "global" / "rules.yaml"
+        assert not global_rules.exists(), (
+            "global/rules.yaml should NOT be present in empty mode"
+        )
+
+        # Tutorials NOT present
+        for wf in self.TUTORIAL_WORKFLOWS:
+            wf_dir = dest / "workflows" / wf
+            if wf_dir.exists():
+                files = list(wf_dir.rglob("*"))
+                files = [f for f in files if f.is_file()]
+                assert files == [], f"Tutorial {wf} should be excluded in empty mode"
+
+        # Pattern miner NOT present
+        assert not (dest / "scripts" / "mine_patterns.py").exists()
+
+    def test_custom_selective(self, copier_output):
+        """custom with example_workflows=False but example_agent_roles=True works."""
+        dest = copier_output({
+            "project_name": "custom_test",
+            "claudechic_mode": "standard",
+            "quick_start": "custom",
+            "example_rules": True,
+            "example_agent_roles": True,
+            "example_workflows": False,
+            "example_hints": False,
+            "example_patterns": False,
+            "use_cluster": False,
+        })
+
+        # Core roles always present
+        for role in self.CORE_ROLES:
+            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
+                f"Core role {role} should be present"
+            )
+
+        # Specialist roles present (example_agent_roles=True)
+        for role in self.SPECIALIST_ROLES:
+            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
+                f"Specialist role {role} should be present when example_agent_roles=True"
+            )
+
+        # Tutorial workflows NOT present (example_workflows=False)
+        for wf in self.TUTORIAL_WORKFLOWS:
+            wf_dir = dest / "workflows" / wf
+            if wf_dir.exists():
+                files = list(wf_dir.rglob("*"))
+                files = [f for f in files if f.is_file()]
+                assert files == [], (
+                    f"Tutorial {wf} should be excluded when example_workflows=False"
+                )
+
+        # Global rules present (example_rules=True)
+        assert (dest / "global" / "rules.yaml").exists()
+
+        # Pattern miner NOT present (example_patterns=False)
+        assert not (dest / "scripts" / "mine_patterns.py").exists()
+
+        # Hints NOT present (example_hints=False)
+        global_hints = dest / "global" / "hints.yaml"
+        assert not global_hints.exists(), (
+            "global/hints.yaml should NOT be present when example_hints=False"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Guardrail system completeness tests
 # ---------------------------------------------------------------------------
-
-
-class TestGuardrails:
-    """Verify the guardrail system is complete in generated projects."""
-
-    def test_guardrail_files_present(self, copier_output):
-        """use_guardrails=true → all guardrail components are present."""
-        dest = copier_output({
-            "project_name": "guard_test",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
-            "use_cluster": False,
-        })
-        guardrails = dest / ".claude" / "guardrails"
-        assert guardrails.exists(), "guardrails/ directory should exist"
-        assert (guardrails / "rules.yaml").exists(), "rules.yaml missing"
-        assert (guardrails / "generate_hooks.py").exists(), "generate_hooks.py missing"
-        assert (guardrails / "role_guard.py").exists(), "role_guard.py missing"
-        assert (guardrails / "hooks").is_dir(), "hooks/ directory missing"
-
-    def test_generate_hooks_runs(self, copier_output):
-        """generate_hooks.py can parse rules.yaml without errors."""
-        import subprocess
-        dest = copier_output({
-            "project_name": "guard_run",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
-            "use_cluster": False,
-        })
-        result = subprocess.run(
-            [sys.executable, str(dest / ".claude" / "guardrails" / "generate_hooks.py")],
-            cwd=dest,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0, (
-            f"generate_hooks.py failed:\nSTDOUT: {result.stdout[:500]}\nSTDERR: {result.stderr[:500]}"
-        )
-        # After running, hooks/ should have generated scripts
-        hooks = list((dest / ".claude" / "guardrails" / "hooks").glob("*.py"))
-        assert len(hooks) > 0, "generate_hooks.py should create hook scripts"
-
-    def test_generate_hooks_registers_in_settings_json(self, copier_output):
-        """generate_hooks.py must create/update .claude/settings.json with hook entries.
-
-        Without settings.json, Claude Code never invokes the hooks — the guardrail
-        system is non-operational even though hook scripts exist.
-        """
-        import json
-        dest = copier_output({
-            "project_name": "guard_settings",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
-            "use_cluster": False,
-        })
-        # Run generate_hooks.py
-        result = subprocess.run(
-            [sys.executable, str(dest / ".claude" / "guardrails" / "generate_hooks.py")],
-            cwd=dest,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0, (
-            f"generate_hooks.py failed:\nSTDOUT: {result.stdout[:500]}\nSTDERR: {result.stderr[:500]}"
-        )
-
-        # settings.json must exist
-        settings_path = dest / ".claude" / "settings.json"
-        assert settings_path.exists(), (
-            ".claude/settings.json not created by generate_hooks.py — "
-            "hooks will never fire without it"
-        )
-
-        settings = json.loads(settings_path.read_text(encoding="utf-8"))
-
-        # Must have hooks.PreToolUse entries
-        hooks = settings.get("hooks", {})
-        pre_tool_use = hooks.get("PreToolUse", [])
-        assert len(pre_tool_use) > 0, (
-            "settings.json has no PreToolUse hooks — guardrails are non-operational"
-        )
-
-        # Each generated hook script must have a matching entry
-        hook_scripts = list((dest / ".claude" / "guardrails" / "hooks").glob("*.py"))
-        hook_scripts = [h for h in hook_scripts if h.name != ".gitkeep"]
-        for hook in hook_scripts:
-            matched = any(
-                hook.name in (e.get("hooks", [{}])[0].get("command", ""))
-                for e in pre_tool_use
-            )
-            assert matched, (
-                f"Hook script {hook.name} exists but has no entry in "
-                f"settings.json — it will never be invoked by Claude Code"
-            )
-
-    def test_guardrail_files_no_jinja_artifacts(self, copier_output):
-        """Guardrail Python files should not have unprocessed Jinja2 artifacts."""
-        dest = copier_output({
-            "project_name": "guard_jinja",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
-            "use_cluster": False,
-        })
-        for pyfile in (dest / ".claude" / "guardrails").glob("*.py"):
-            content = pyfile.read_text(encoding="utf-8")
-            # Real Jinja2 artifacts like {% or {{ project_name }} should not appear
-            # but Python f-string {{ }} is fine
-            assert "{%" not in content, f"Jinja artifact in {pyfile.name}"
-
-    def test_generated_hook_blocks_dangerous_command(self, copier_output):
-        """Full E2E: generate hooks, then fire bash_guard with 'rm -rf /' → blocked."""
-        dest = copier_output({
-            "project_name": "guard_e2e",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
-            "use_cluster": False,
-        })
-        guardrails = dest / ".claude" / "guardrails"
-
-        # Step 1: generate hooks
-        gen_result = subprocess.run(
-            [sys.executable, str(guardrails / "generate_hooks.py")],
-            cwd=dest, capture_output=True, text=True, timeout=30,
-        )
-        assert gen_result.returncode == 0, f"generate_hooks.py failed: {gen_result.stderr[:300]}"
-
-        bash_guard = guardrails / "hooks" / "bash_guard.py"
-        assert bash_guard.exists(), "bash_guard.py not generated"
-
-        # Step 2: simulate a dangerous tool call (what Claude Code sends on stdin)
-        import json
-        tool_call = json.dumps({
-            "tool_name": "Bash",
-            "tool_input": {"command": "rm -rf /"},
-            "session_id": "test-session",
-        })
-
-        result = subprocess.run(
-            [sys.executable, str(bash_guard)],
-            input=tool_call,
-            cwd=dest,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        # Hook should exit non-zero (deny) with R01 message
-        assert result.returncode != 0, (
-            f"bash_guard should DENY 'rm -rf /' but exited 0.\nSTDOUT: {result.stdout[:300]}"
-        )
-        output = result.stdout + result.stderr
-        assert "R01" in output, (
-            f"Expected R01 in output.\nSTDOUT: {result.stdout[:300]}\nSTDERR: {result.stderr[:300]}"
-        )
-        assert "not allowed" in output.lower() or "blocked" in output.lower(), (
-            f"Expected block message.\nOutput: {output[:300]}"
-        )
-
-    def test_generated_hook_allows_safe_command(self, copier_output):
-        """Full E2E: fire bash_guard with 'ls -la' → allowed."""
-        dest = copier_output({
-            "project_name": "guard_allow",
-            "claudechic_mode": "standard",
-            "use_guardrails": True,
-            "use_cluster": False,
-        })
-        guardrails = dest / ".claude" / "guardrails"
-
-        # Generate hooks
-        subprocess.run(
-            [sys.executable, str(guardrails / "generate_hooks.py")],
-            cwd=dest, capture_output=True, text=True, timeout=30,
-        )
-
-        bash_guard = guardrails / "hooks" / "bash_guard.py"
-        assert bash_guard.exists()
-
-        import json
-        tool_call = json.dumps({
-            "tool_name": "Bash",
-            "tool_input": {"command": "ls -la"},
-            "session_id": "test-session",
-        })
-
-        result = subprocess.run(
-            [sys.executable, str(bash_guard)],
-            input=tool_call,
-            cwd=dest,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        assert result.returncode == 0, (
-            f"bash_guard should ALLOW 'ls -la' but denied.\nSTDOUT: {result.stdout[:300]}\nSTDERR: {result.stderr[:300]}"
-        )
-
-
-# ---------------------------------------------------------------------------
-# Hints system generation tests
-# ---------------------------------------------------------------------------
-
-
-class TestHints:
-    """Verify hints/ folder inclusion/exclusion based on use_hints."""
-
-    def test_hints_included_when_enabled(self, copier_output):
-        """use_hints=true → hints/ folder with all 5 files."""
-        dest = copier_output({
-            "project_name": "hints_on",
-            "claudechic_mode": "standard",
-            "use_hints": True,
-            "use_cluster": False,
-        })
-        hints = dest / "hints"
-        assert hints.is_dir(), "hints/ directory should exist when use_hints=true"
-        expected_files = [
-            "__init__.py",
-            "_types.py",
-            "_state.py",
-            "_engine.py",
-            "hints.py",
-        ]
-        for fname in expected_files:
-            assert (hints / fname).is_file(), f"hints/{fname} should exist"
-
-    def test_hints_skill_included_when_enabled(self, copier_output):
-        """use_hints=true → /hints skill exists."""
-        dest = copier_output({
-            "project_name": "hints_skill_on",
-            "claudechic_mode": "standard",
-            "use_hints": True,
-            "use_cluster": False,
-        })
-        assert (dest / ".claude" / "skills" / "hints" / "SKILL.md").is_file(), (
-            "hints SKILL.md should exist when use_hints=true"
-        )
-
-    def test_hints_skill_excluded_when_disabled(self, copier_output):
-        """use_hints=false → /hints skill excluded."""
-        dest = copier_output({
-            "project_name": "hints_skill_off",
-            "claudechic_mode": "standard",
-            "use_hints": False,
-            "use_cluster": False,
-        })
-        skill_dir = dest / ".claude" / "skills" / "hints"
-        if skill_dir.exists():
-            assert not (skill_dir / "SKILL.md").exists(), (
-                "hints SKILL.md should NOT exist when use_hints=false"
-            )
-
-    def test_hints_excluded_when_disabled(self, copier_output):
-        """use_hints=false → no hint files in generated project.
-
-        Note: Copier may create an empty hints/ directory (the _exclude
-        pattern excludes contents, not the directory itself). The key
-        assertion is that no hint Python files are present.
-        """
-        dest = copier_output({
-            "project_name": "hints_off",
-            "claudechic_mode": "standard",
-            "use_hints": False,
-            "use_cluster": False,
-        })
-        hints = dest / "hints"
-        if hints.exists():
-            py_files = list(hints.glob("*.py"))
-            assert py_files == [], (
-                f"hints/ should have no Python files when use_hints=false, "
-                f"found: {[f.name for f in py_files]}"
-            )
-
 
 
 # ---------------------------------------------------------------------------
@@ -523,11 +438,12 @@ class TestProjectContainment:
             project_in_parent,
             data={
                 "project_name": "my_project",
-                "claudechic_mode": "standard",
+                "quick_start": "defaults",
                 "use_cluster": False,
             },
             defaults=True,
             unsafe=True,
+            vcs_ref="HEAD",
         )
 
         # After copier, parent_dir should only contain the project subdir
@@ -599,7 +515,7 @@ class TestAnswersFile:
         dest = copier_output({
             "project_name": "answers_test",
             "claudechic_mode": "standard",
-            "use_hints": True,
+            "quick_start": "defaults",
             "use_cluster": False,
         })
         answers_file = dest / ".copier-answers.yml"
@@ -610,4 +526,4 @@ class TestAnswersFile:
         data = yaml.safe_load(answers_file.read_text(encoding="utf-8"))
         assert isinstance(data, dict), ".copier-answers.yml should be a YAML dict"
         assert data.get("project_name") == "answers_test"
-        assert data.get("use_hints") is True
+        assert data.get("quick_start") == "defaults"

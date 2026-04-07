@@ -52,7 +52,8 @@ fi
 
 # 2. Ask where to create the project and what to name it
 read -rp "Where should the project be created? [$(pwd)] " INSTALL_DIR < /dev/tty
-INSTALL_DIR="${INSTALL_DIR:-.}"
+INSTALL_DIR="${INSTALL_DIR:-$(pwd)}"
+INSTALL_DIR="$(cd "$INSTALL_DIR" && pwd)"  # resolve to absolute path
 read -rp "Project name: " PROJECT_NAME < /dev/tty
 if [ -z "$PROJECT_NAME" ]; then
     echo "Error: project name is required."
@@ -76,23 +77,11 @@ fi
 echo ""
 echo "Copier will now ask you a few questions to configure your project."
 echo ""
-echo "[debug] TEMPLATE_URL=$TEMPLATE_URL"
-echo "[debug] PROJECT_DIR=$PROJECT_DIR"
-echo "[debug] git version: $(git --version)"
-echo "[debug] credential.helper: $(git config --global credential.helper 2>/dev/null || echo 'not set')"
-echo "[debug] GIT_ASKPASS: ${GIT_ASKPASS:-not set}"
-echo "[debug] GIT_TERMINAL_PROMPT: ${GIT_TERMINAL_PROMPT:-not set}"
-
-# Credentials are already cached from step 1c — copier and pixi can use them.
-
-echo "[debug] Starting copier copy..."
 pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust --vcs-ref develop -d "project_name=$PROJECT_NAME" "$TEMPLATE_URL" "$PROJECT_DIR"
-echo "[debug] Copier copy completed."
 
 # 5. Install environments
 echo ""
 echo "Installing environments..."
-echo "[debug] Running pixi install in $PROJECT_DIR"
 cd "$PROJECT_DIR"
 pixi install
 
@@ -128,5 +117,6 @@ fi
 echo ""
 echo "✔ Project is ready! Launching claudechic..."
 echo ""
+cd "$PROJECT_DIR"
 source activate
 pixi run claudechic

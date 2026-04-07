@@ -12,16 +12,16 @@ quick_start:
   help: |
     How much starter content should your project include?
 
-    Your project always ships with the full infrastructure: guardrails
-    (permission rules), workflows (phase-gated processes), hints
-    (onboarding notifications), and the Project Team (multi-agent
-    collaboration). This choice controls how many EXAMPLES are pre-loaded.
+    Your project always ships with the full infrastructure: workflows
+    (phase-gated processes with guardrails) and the Project Team
+    (multi-agent collaboration). This choice controls how many
+    EXAMPLES are pre-loaded.
   choices:
     "Give me everything — learning mode": everything
     "Reasonable defaults — first project": defaults
     "Start empty — experienced user": empty
     "Ask me about each — granular": custom
-  default: "Reasonable defaults — first project"
+  default: "defaults"
 
 example_rules:
   type: bool
@@ -51,14 +51,6 @@ example_workflows:
     Two guided walkthroughs: "Extending the System" and "Toy Project"
     (build labmeta with the full agent team). The core project_team
     workflow is always included.
-
-example_hints:
-  type: bool
-  default: true
-  when: "{{ quick_start == 'custom' }}"
-  help: |
-    Include onboarding hints?
-    Toast notifications that guide new users through features.
 
 example_patterns:
   type: bool
@@ -149,14 +141,11 @@ _exclude:
   - "{% if not use_cluster or cluster_scheduler != 'slurm' %}mcp_tools/slurm.yaml{% endif %}"
 
   # Example content: controlled by quick_start preset or custom sub-questions
-  # Helper: _inc_rules, _inc_roles, _inc_workflows, _inc_hints, _inc_patterns
-  # "everything" = all true; "defaults" = rules+roles+hints; "empty" = all false; "custom" = per-question
+  # Helper: _inc_rules, _inc_roles, _inc_workflows, _inc_patterns
+  # "everything" = all true; "defaults" = rules+roles; "empty" = all false; "custom" = per-question
 
   # Example guardrail rules (global/rules.yaml with starter rules)
   - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_rules) %}global/rules.yaml{% endif %}"
-
-  # Onboarding hints
-  - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_hints) %}global/hints.yaml{% endif %}"
 
   # Tutorial workflows (project_team workflow always ships)
   - "{% if quick_start in ['empty', 'defaults'] or (quick_start == 'custom' and not example_workflows) %}workflows/tutorial_extending/{% endif %}"

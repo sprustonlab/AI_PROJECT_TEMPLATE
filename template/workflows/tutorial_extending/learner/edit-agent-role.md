@@ -2,17 +2,31 @@
 
 In this exercise, the user edits an agent role markdown file. This teaches them how agent behavior is defined.
 
-## Step 1: Explain Agent Roles
+## Step 1: Explain the Role + Phase Architecture
 
-> "Agent roles are markdown files in `workflows/project_team/`. Each file defines one agent's:
-> - **Responsibilities** — what the agent does
-> - **Workflow** — how it approaches tasks
-> - **Communication patterns** — when to use `ask_agent` vs `tell_agent`
-> - **Interaction rules** — how it works with other agents
+> "In the project_team workflow, the **coordinator** is the main agent. It has phase-specific markdown files that change its instructions as the project progresses:
 >
-> When an agent is spawned with a role, the role file shapes its behavior. Editing the file changes how the agent works in future sessions."
+> | Phase | File | Purpose |
+> |-------|------|---------|
+> | vision | `vision.md` | Understand the project goals |
+> | setup | `setup.md` | Set up repo, dependencies, structure |
+> | leadership | `leadership.md` | Delegate research to Leadership agents |
+> | specification | `specification.md` | Synthesize findings into a spec |
+> | implementation | `implementation.md` | Delegate coding to Implementer agents |
+> | testing | `testing.md` | Delegate testing to TestEngineer |
+> | signoff | `signoff.md` | Final review and sign-off |
+>
+> The `identity.md` file is the agent's base personality — it's always loaded. The phase file is layered on top for phase-specific instructions. Together they form the system prompt context."
 
-## Step 2: Show Available Roles
+## Step 2: Explain Agent Roles
+
+> "Agent roles are markdown files in `workflows/project_team/<role>/`. Each role has:
+> - **identity.md** — the agent's base personality, responsibilities, and rules (always active)
+> - **Phase files** (e.g. `vision.md`, `implementation.md`) — phase-specific instructions
+>
+> When an agent is spawned with a role, identity.md shapes its core behavior. The active phase file adds context for what it should be doing right now. Editing these files changes how the agent works."
+
+## Step 3: Show Available Roles
 
 List the agent role files:
 
@@ -20,9 +34,11 @@ List the agent role files:
 ls workflows/project_team/*/identity.md
 ```
 
-Show the user one role file — `implementer/identity.md` is a good choice because it's clear and practical. Read it aloud and explain the sections.
+Show the user the coordinator's identity.md — it's the most important role and demonstrates the structure clearly. Read it aloud and explain the sections (Prime Directive, delegation rules, interaction patterns).
 
-## Step 3: Explain the Exercise
+Then show a phase file like `coordinator/specification.md` to demonstrate how phase-specific instructions layer on top.
+
+## Step 4: Explain the Exercise
 
 > "You're going to add a new section to an agent role file. Pick any role — `implementer/identity.md` is a good starting point.
 >
@@ -39,7 +55,7 @@ Show the user one role file — `implementer/identity.md` is a good choice becau
 >
 > The point is: you're customizing how this agent behaves. Your change will take effect the next time this role is used."
 
-## Step 4: Guide the Edit
+## Step 5: Guide the Edit
 
 Help the user pick a role file and add their new section or guideline. Suggestions:
 
@@ -50,7 +66,7 @@ Help the user pick a role file and add their new section or guideline. Suggestio
 
 The user should make a meaningful addition, not just change a word.
 
-## Step 5: Verify
+## Step 6: Verify
 
 After the edit, verify the file is non-empty and well-formed:
 
@@ -72,7 +88,7 @@ for s in sections:
 "
 ```
 
-## Step 6: Complete
+## Step 7: Complete
 
 Once verified, create the completion marker:
 

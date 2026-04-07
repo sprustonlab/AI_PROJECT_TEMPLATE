@@ -1,0 +1,171 @@
+workflow_id: tutorial-toy-project
+main_role: coordinator
+
+phases:
+  - id: vision
+    file: vision
+    hints:
+      - message: "Phase 1/5: Vision. The project goal (labmeta) is pre-selected — confirm it with the user."
+        lifecycle: show-once
+    advance_checks:
+      - type: manual-confirm
+        prompt: "User confirmed labmeta (Animal Experiment Metadata Manager) as the project goal?"
+
+  - id: specification
+    file: specification
+    hints:
+      - message: "Phase 2/5: Specification. Spawn Leadership agents to analyze the project."
+        lifecycle: show-once
+      - message: "Leadership team: Composability, Terminology, Skeptic, UserAlignment. Spawn all 4."
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: "protocols/schema.yaml"
+        on_failure:
+          message: "Create protocols/schema.yaml before advancing — the schema defines validation rules for protocols and sessions."
+          severity: warning
+      - type: manual-confirm
+        prompt: "User confirmed single-level inheritance model (protocol -> session)?"
+
+  - id: implementation
+    file: implementation
+    hints:
+      - message: "Phase 3/5: Implementation. Spawn Implementer agents to build the 4 labmeta modules."
+        lifecycle: show-once
+      - message: "Target: ~380 lines across cli.py, resolver.py, schema.py, store.py"
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: "protocols/examples/mouse_surgery_protocol.yaml"
+        on_failure:
+          message: "Create protocols/examples/mouse_surgery_protocol.yaml — example protocol required."
+          severity: warning
+      - type: file-exists-check
+        path: "sessions/examples/mouse_001_session_20260406.yaml"
+        on_failure:
+          message: "Create sessions/examples/mouse_001_session_20260406.yaml — example session required."
+          severity: warning
+      - type: file-exists-check
+        path: "labmeta/resolver.py"
+        on_failure:
+          message: "Create labmeta/resolver.py — the inheritance resolver is a core module."
+          severity: warning
+      - type: file-exists-check
+        path: "labmeta/cli.py"
+        on_failure:
+          message: "Create labmeta/cli.py — the CLI entry point is required."
+          severity: warning
+      - type: file-exists-check
+        path: "labmeta/schema.py"
+        on_failure:
+          message: "Create labmeta/schema.py — the validation module is required."
+          severity: warning
+      - type: file-exists-check
+        path: "labmeta/store.py"
+        on_failure:
+          message: "Create labmeta/store.py — the YAML read/write module is required."
+          severity: warning
+      - type: manual-confirm
+        prompt: "All Leadership agents approve the implementation?"
+
+  - id: testing
+    file: testing
+    hints:
+      - message: "Phase 4/5: Testing. Spawn TestEngineer to verify resolver, schema, store, and CLI."
+        lifecycle: show-once
+    advance_checks:
+      - type: file-exists-check
+        path: ".test_runs/latest_results.txt"
+        on_failure:
+          message: "Save test results to .test_runs/latest_results.txt before advancing."
+          severity: warning
+      - type: manual-confirm
+        prompt: "All tests passing?"
+
+  - id: signoff
+    file: signoff
+    hints:
+      - message: "Phase 5/5: Sign-off. Present the finished labmeta tool to the user."
+        lifecycle: show-once
+
+rules:
+  # R-TOY-01: Locked sessions are immutable (only after implementation is done)
+  - id: R-TOY-01
+    trigger: PreToolUse/Write
+    enforcement: deny
+    detect:
+      field: file_path
+      pattern: "sessions/.*\\.yaml"
+    message: "This session may be locked (experiment complete). Verify _locked status before editing. Use labmeta unlock if needed."
+    phases: [testing, signoff]
+
+  - id: R-TOY-01b
+    trigger: PreToolUse/Edit
+    enforcement: deny
+    detect:
+      field: file_path
+      pattern: "sessions/.*\\.yaml"
+    message: "This session may be locked (experiment complete). Verify _locked status before editing. Use labmeta unlock if needed."
+    phases: [testing, signoff]
+
+  # R-TOY-02: Don't delete protocols that have dependents
+  - id: R-TOY-02
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    detect:
+      pattern: "rm.*protocols/.*\\.yaml"
+    message: "Cannot delete a protocol with active sessions. Run labmeta dependents first."
+
+  # R-TOY-03: Schema edits during implementation need acknowledgment
+  - id: R-TOY-03
+    trigger: PreToolUse/Write
+    enforcement: warn
+    detect:
+      field: file_path
+      pattern: "schema\\.yaml"
+    message: "Editing schema during implementation may invalidate existing configs."
+    phases: [implementation]
+
+  - id: R-TOY-03b
+    trigger: PreToolUse/Edit
+    enforcement: warn
+    detect:
+      field: file_path
+      pattern: "schema\\.yaml"
+    message: "Editing schema during implementation may invalidate existing configs."
+    phases: [implementation]
+
+  # R-TOY-04: No hardcoded absolute paths in source
+  - id: R-TOY-04
+    trigger: PreToolUse/Write
+    enforcement: warn
+    detect:
+      pattern: "/home/|/Users/|C:\\\\"
+    message: "Hardcoded absolute path detected. Use relative or config-driven paths."
+    phases: [implementation, testing]
+
+  - id: R-TOY-04b
+    trigger: PreToolUse/Edit
+    enforcement: warn
+    detect:
+      pattern: "/home/|/Users/|C:\\\\"
+    message: "Hardcoded absolute path detected. Use relative or config-driven paths."
+    phases: [implementation, testing]
+
+  # R-TOY-05: No pushing before tests pass
+  - id: R-TOY-05
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    detect:
+      pattern: "git push"
+    message: "Cannot push until testing phase is complete and all tests pass."
+    exclude_phases: [signoff]
+
+hints:
+  - id: terminology-reminder
+    message: "Domain terminology: protocol (NOT template/base config), session record (NOT experiment config), resolved config (merged output), lock (NOT freeze/protect)."
+    lifecycle: show-every-session
+
+  - id: delegate-reminder
+    message: "Coordinator delegates — Implementers write code, TestEngineer writes tests, Leadership reviews."
+    lifecycle: show-every-session

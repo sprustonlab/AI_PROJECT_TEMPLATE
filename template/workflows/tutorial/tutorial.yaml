@@ -39,9 +39,11 @@ phases:
   - id: injections
     file: injections
     hints:
-      - message: "Phase 3/4: Injections. You'll see how tool inputs can be modified by workflow rules."
+      - message: "Phase 3/4: Injections. You'll see how tool inputs can be modified and how phase-scoped rules work."
         lifecycle: show-once
       - message: "Try: ask the agent to run 'echo hello' — the injection will append text to the command."
+        lifecycle: show-once
+      - message: "There's also a phase-scoped warn rule here that blocks Write — it only fires in this phase, not others."
         lifecycle: show-once
     advance_checks:
       - type: file-exists-check
@@ -57,11 +59,11 @@ phases:
         lifecycle: show-once
 
 rules:
-  - id: no_write_in_checks
+  - id: no_write_in_injections
     trigger: PreToolUse/Write
     enforcement: warn
-    message: "In the checks phase, focus on understanding advance_checks — writing comes later."
-    phases: [checks]
+    message: "Writing is restricted in the injections phase — this rule is phase-scoped, it only fires here."
+    phases: [injections]
 
   - id: require_tee_in_rules
     trigger: PreToolUse/Bash

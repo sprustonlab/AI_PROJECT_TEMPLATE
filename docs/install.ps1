@@ -1,11 +1,11 @@
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 $TemplateUrl = "https://github.com/sprustonlab/AI_PROJECT_TEMPLATE"
 
 Write-Host ""
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-Write-Host "  AI Project Template — setup"
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+Write-Host "==================================================="
+Write-Host "  AI Project Template -- setup"
+Write-Host "==================================================="
 Write-Host ""
 
 # 1. Check git is available (required for claudechic install)
@@ -17,13 +17,13 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
         if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
             Write-Host "Error: git was installed but not found in PATH. Please restart PowerShell and try again." -ForegroundColor Red
-            exit 1
+            return
         }
         Write-Host "Git installed successfully." -ForegroundColor Green
     } else {
         Write-Host "Error: git is required but not found, and winget is not available to install it." -ForegroundColor Red
         Write-Host "  Please install git manually: https://git-scm.com/downloads" -ForegroundColor Yellow
-        exit 1
+        return
     }
 }
 
@@ -42,7 +42,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "    gh auth login               # authenticate (opens browser)"
     Write-Host "    gh auth setup-git           # configure git credentials"
     Write-Host ""
-    exit 1
+    return
 }
 
 # 3. Ask where to create the project and what to name it
@@ -52,14 +52,14 @@ if (-not $InstallDir) { $InstallDir = $DefaultDir }
 
 $ProjectName = Read-Host "Project name"
 if (-not $ProjectName) {
-    Write-Error "Project name is required."
-    exit 1
+    Write-Host "Error:" -ForegroundColor Red; Write-Host "Project name is required."
+    return
 }
 
 $ProjectDir = Join-Path $InstallDir $ProjectName
 if (Test-Path $ProjectDir) {
-    Write-Error "$ProjectDir already exists."
-    exit 1
+    Write-Host "Error:" -ForegroundColor Red; Write-Host "$ProjectDir already exists."
+    return
 }
 
 # 4. Install pixi if not present
@@ -93,7 +93,7 @@ Pop-Location
 $ClaudeCmd = Get-Command claude -ErrorAction SilentlyContinue
 if (-not $ClaudeCmd) {
     Write-Host ""
-    Write-Host "✔ Project is ready!" -ForegroundColor Green
+    Write-Host "[OK] Project is ready!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Claude Code is not installed. To get started:"
     Write-Host ""
@@ -102,13 +102,13 @@ if (-not $ClaudeCmd) {
     Write-Host "  cd $ProjectDir"
     Write-Host "  . .\activate.ps1"
     Write-Host "  pixi run claudechic"
-    exit 0
+    return
 }
 
 $ClaudeAuth = claude auth status 2>&1 | Out-String
 if ($ClaudeAuth -match '"loggedIn":\s*false') {
     Write-Host ""
-    Write-Host "✔ Project is ready!" -ForegroundColor Green
+    Write-Host "[OK] Project is ready!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Claude Code is installed but not logged in. To get started:"
     Write-Host ""
@@ -116,11 +116,11 @@ if ($ClaudeAuth -match '"loggedIn":\s*false') {
     Write-Host "  cd $ProjectDir"
     Write-Host "  . .\activate.ps1"
     Write-Host "  pixi run claudechic"
-    exit 0
+    return
 }
 
 Write-Host ""
-Write-Host "✔ Project is ready! Launching claudechic..." -ForegroundColor Green
+Write-Host "[OK] Project is ready! Launching claudechic..." -ForegroundColor Green
 Write-Host ""
 Push-Location $ProjectDir
 . .\activate.ps1

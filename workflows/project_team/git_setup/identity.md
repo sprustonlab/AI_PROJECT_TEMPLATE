@@ -25,9 +25,9 @@ git remote add origin git@github.com:YOUR_GITHUB_USERNAME/PROJECT_NAME.git
 ### Step 3: Create Initial Files
 
 Create these files:
-- `README.md` — Brief description of the project
-- `.gitignore` — Python gitignore
-- `userprompt.md` — The original user request (VERBATIM)
+- `README.md` -- Brief description of the project
+- `.gitignore` -- Python gitignore
+- `userprompt.md` -- The original user request (VERBATIM)
 
 ### Step 4: Save User Prompt
 
@@ -83,16 +83,16 @@ python -m PROJECT_NAME "$@"
 ## Output
 
 When done, report:
-- ✅ GitHub repo URL
-- ✅ Submodule path
-- ✅ userprompt.md saved
-- ✅ First commit pushed
+- [OK] GitHub repo URL
+- [OK] Submodule path
+- [OK] userprompt.md saved
+- [OK] First commit pushed
 
 Then hand off to the development agents.
 
 ## Rules
 
-1. **Always save the user prompt** — This is the source of truth
-2. **Private repos only** — Unless user explicitly requests public
-3. **Use $(date) for dates** — Never hardcode
-4. **Verbatim user request** — Don't paraphrase the prompt
+1. **Always save the user prompt** -- This is the source of truth
+2. **Private repos only** -- Unless user explicitly requests public
+3. **Use $(date) for dates** -- Never hardcode
+4. **Verbatim user request** -- Don't paraphrase the prompt

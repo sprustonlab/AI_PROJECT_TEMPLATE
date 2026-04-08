@@ -13,26 +13,26 @@ Spawn a TestEngineer agent with `requires_answer: true`. Provide this assignment
 
 **Test the 4 labmeta modules:**
 
-1. **test_store.py** — YAML read/write, file discovery
+1. **test_store.py** -- YAML read/write, file discovery
    - Load a valid YAML file
    - Save and reload roundtrip
    - Discover files in a directory
 
-2. **test_schema.py** — Validation
+2. **test_schema.py** -- Validation
    - Valid data passes
    - Missing required field fails
    - Invalid enum value fails
    - Out-of-range number fails
    - Nested field validation (coordinates)
 
-3. **test_resolver.py** — Inheritance resolution
+3. **test_resolver.py** -- Inheritance resolution
    - Session inherits protocol defaults
    - Session overrides protocol values
    - Deep merge for nested fields (coordinates)
    - Missing protocol raises error
    - Internal fields (_type, _protocol, _locked) handled correctly
 
-4. **test_cli.py** — CLI commands
+4. **test_cli.py** -- CLI commands
    - `init protocol` creates a protocol file
    - `create session` creates a session file with protocol reference
    - `validate` catches schema violations
@@ -65,4 +65,4 @@ Once all tests pass and results are saved, call `advance_phase`.
 ## Active Rules This Phase
 
 - **R-TOY-04** (warn): Hardcoded paths in test files get flagged
-- **R-TOY-05** (deny): No git push allowed yet — testing must complete first
+- **R-TOY-05** (deny): No git push allowed yet -- testing must complete first

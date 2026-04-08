@@ -5,4 +5,4 @@
 3. Follow patterns established by existing tests
 4. Report fixes to Coordinator
 
-Do NOT run the full test suite — that is TestEngineer's job.
+Do NOT run the full test suite -- that is TestEngineer's job.

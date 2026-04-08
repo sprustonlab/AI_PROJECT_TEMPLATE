@@ -24,13 +24,13 @@ At Phase 0, classify project by signals. Use default axes for that type.
 ## Classification Procedure
 
 1. **Match signals** from user prompt to Type column
-2. **Overlapping signals** → ask user to confirm primary type
-3. **No match** → default to Implementation
-4. **Multiple types** → union axes, let N/A procedure filter irrelevant ones
+2. **Overlapping signals** -> ask user to confirm primary type
+3. **No match** -> default to Implementation
+4. **Multiple types** -> union axes, let N/A procedure filter irrelevant ones
 
 Example multi-type:
-- "Add authentication feature" → Implementation + Security
-- "Speed up the API" → Performance + Refactoring
+- "Add authentication feature" -> Implementation + Security
+- "Speed up the API" -> Performance + Refactoring
 
 ---
 

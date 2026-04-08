@@ -1,56 +1,56 @@
 # =============================================================================
-# PROJECT ACTIVATE SCRIPT (pixi) — PowerShell
+# PROJECT ACTIVATE SCRIPT (pixi) -- PowerShell
 # =============================================================================
 # Dot-source this file to activate the project environment:
 #   . .\activate.ps1
 #
-# Same seam registry as activate (bash) — discovers all six seams.
+# Same seam registry as activate (bash) -- discovers all six seams.
 # =============================================================================
 
 $ErrorActionPreference = "Stop"
 $ProjectName = "{{ project_name }}"
 
-# ─── Section 1: Path Resolution ──────────────────────────────────────────────
+# --- Section 1: Path Resolution ----------------------------------------------
 $BASEDIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# ─── Section 2: Pixi Bootstrap ───────────────────────────────────────────────
+# --- Section 2: Pixi Bootstrap -----------------------------------------------
 if (-not (Get-Command pixi -ErrorAction SilentlyContinue)) {
     Write-Host ""
-    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    Write-Host "==========================================================="
     Write-Host "  First-time setup: Installing pixi..."
-    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    Write-Host "==========================================================="
     Write-Host ""
     try {
         iwr -useb https://pixi.sh/install.ps1 | iex
     } catch {
-        Write-Host "❌ Error: pixi installation failed"
-        Write-Host "💡 Install manually: https://pixi.sh"
+        Write-Host "[ERROR] pixi installation failed" -ForegroundColor Red
+        Write-Host "  Install manually: https://pixi.sh"
         return
     }
     $env:PATH = "$HOME\.pixi\bin;$env:PATH"
-    Write-Host "✔ pixi installed successfully"
+    Write-Host "[OK] pixi installed successfully" -ForegroundColor Green
     Write-Host ""
 }
 
-# ─── Section 3: Environment Install ──────────────────────────────────────────
+# --- Section 3: Environment Install ------------------------------------------
 if ((Test-Path "$BASEDIR\pixi.toml") -and -not (Test-Path "$BASEDIR\.pixi\envs")) {
     Write-Host ""
-    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    Write-Host "==========================================================="
     Write-Host "  Installing environments from pixi.toml..."
-    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    Write-Host "==========================================================="
     Write-Host ""
     Push-Location $BASEDIR
     try { pixi install } catch {
-        Write-Host "❌ Error: pixi install failed"
+        Write-Host "[ERROR] pixi install failed" -ForegroundColor Red
         Pop-Location
         return
     }
     Pop-Location
-    Write-Host "✔ Environments installed"
+    Write-Host "[OK] Environments installed" -ForegroundColor Green
     Write-Host ""
 }
 
-# ─── Section 4: Environment Setup ────────────────────────────────────────────
+# --- Section 4: Environment Setup --------------------------------------------
 $env:PROJECT_ROOT = $BASEDIR
 
 # Activate default pixi environment via shell-hook
@@ -75,38 +75,38 @@ if ((Test-Path "$BASEDIR\.git") -and (Test-Path "$BASEDIR\.githooks")) {
     git -C $BASEDIR config core.hooksPath "$BASEDIR\.githooks"
 }
 
-# ─── Section 5: Submodule Auto-Init ──────────────────────────────────────────
+# --- Section 5: Submodule Auto-Init ------------------------------------------
 $Warnings = @()
 
 if (Test-Path "$BASEDIR\.gitmodules") {
     if ((Get-Content "$BASEDIR\.gitmodules" -Raw) -match "claudechic") {
         if (-not (Test-Path "$BASEDIR\submodules\claudechic\pyproject.toml")) {
             Write-Host ""
-            Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            Write-Host "==========================================================="
             Write-Host "  Initializing git submodules..."
-            Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            Write-Host "==========================================================="
             Write-Host ""
             try {
                 git -C $BASEDIR submodule update --init --recursive
                 if (Test-Path "$BASEDIR\submodules\claudechic\pyproject.toml") {
-                    Write-Host "✔ Submodules initialized successfully"
+                    Write-Host "[OK] Submodules initialized successfully" -ForegroundColor Green
                     Write-Host ""
                 }
             } catch {
-                $Warnings += "⚠️  Failed to initialize submodules"
+                $Warnings += "[WARNING] Failed to initialize submodules"
                 $Warnings += "   Try manually: cd $BASEDIR; git submodule update --init --recursive"
             }
         }
     }
 }
 
-# ─── Section 6: Status Display ───────────────────────────────────────────────
+# --- Section 6: Status Display -----------------------------------------------
 Write-Host ""
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+Write-Host "==========================================================="
 Write-Host "  $ProjectName environment activated"
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+Write-Host "==========================================================="
 $pixiVersion = try { pixi --version 2>$null } catch { "(version unknown)" }
-Write-Host "  ✔ pixi $pixiVersion"
+Write-Host "  [OK] pixi $pixiVersion"
 
 # --- Show pixi environments ---
 if (Test-Path "$BASEDIR\pixi.toml") {
@@ -128,9 +128,9 @@ if (Test-Path "$BASEDIR\pixi.toml") {
 
     if ($installedEnvs.Count -gt 0) {
         Write-Host ""
-        Write-Host "📦 Installed environments:"
+        Write-Host "Installed environments:"
         foreach ($env in $installedEnvs) {
-            Write-Host "    ✔ $env"
+            Write-Host "    [+] $env"
         }
         Write-Host "  Use with: pixi run -e <name> <command>"
         Write-Host "  Or shell: pixi shell -e <name>"
@@ -138,9 +138,9 @@ if (Test-Path "$BASEDIR\pixi.toml") {
 
     if ($availableEnvs.Count -gt 0) {
         Write-Host ""
-        Write-Host "📋 Available to install:"
+        Write-Host "Available to install:"
         foreach ($env in $availableEnvs) {
-            Write-Host "    ○ $env"
+            Write-Host "    [ ] $env"
         }
         Write-Host "  Install with: cd $BASEDIR; pixi install"
     }
@@ -154,7 +154,7 @@ if (Test-Path "$BASEDIR\commands") {
 
     if ($cliCommands.Count -gt 0) {
         Write-Host ""
-        Write-Host "🛠  CLI commands:"
+        Write-Host "CLI commands:"
         foreach ($cmd in $cliCommands) {
             Write-Host "    $cmd"
         }
@@ -166,7 +166,7 @@ if (Test-Path "$BASEDIR\.claude\commands") {
     $skills = Get-ChildItem "$BASEDIR\.claude\commands\*.md" -ErrorAction SilentlyContinue
     if ($skills.Count -gt 0) {
         Write-Host ""
-        Write-Host "🤖 Claude Code skills:"
+        Write-Host "Claude Code skills:"
         foreach ($skill in $skills) {
             $skillName = $skill.BaseName
             $skillTitle = (Select-String -Path $skill.FullName -Pattern '^# (.+)' | Select-Object -First 1).Matches.Groups[1].Value
@@ -181,13 +181,13 @@ if (Test-Path "$BASEDIR\mcp_tools") {
         Where-Object { $_.Name -notlike "_*" }).Count
     if ($mcpCount -gt 0) {
         Write-Host ""
-        Write-Host "🔌 MCP tools: $mcpCount tool(s) in mcp_tools/"
+        Write-Host "MCP tools: $mcpCount tool(s) in mcp_tools/"
     }
 }
 
 # --- Show warnings ---
 foreach ($warning in $Warnings) {
-    Write-Host $warning
+    Write-Host $warning -ForegroundColor Yellow
 }
 
 Write-Host ""

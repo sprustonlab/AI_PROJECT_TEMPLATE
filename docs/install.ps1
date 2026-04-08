@@ -1,3 +1,6 @@
+# Allow scripts to run in this session (needed when invoked via iwr|iex)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force 2>$null
+
 $ErrorActionPreference = "Continue"
 
 $TemplateUrl = "https://github.com/sprustonlab/AI_PROJECT_TEMPLATE"
@@ -97,7 +100,16 @@ if (-not $ClaudeCmd) {
     Write-Host ""
     Write-Host "Claude Code is not installed. To get started:"
     Write-Host ""
-    Write-Host "  npm install -g @anthropic-ai/claude-code"
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+        Write-Host "  Step 1 - Install Node.js (needed for npm):" -ForegroundColor Yellow
+        Write-Host "    winget install OpenJS.NodeJS.LTS"
+        Write-Host ""
+        Write-Host "  Step 2 - Restart PowerShell, then run:" -ForegroundColor Yellow
+        Write-Host "    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass"
+        Write-Host "    npm install -g @anthropic-ai/claude-code"
+    } else {
+        Write-Host "  npm install -g @anthropic-ai/claude-code"
+    }
     Write-Host "  claude login"
     Write-Host "  cd $ProjectDir"
     Write-Host "  . .\activate.ps1"

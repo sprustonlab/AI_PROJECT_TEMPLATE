@@ -79,20 +79,38 @@ if ($GitCmd) {
     $env:PATH = "$GitDir\cmd;$env:PATH"
 }
 
-# 6. Run copier (project_name is passed so copier won't re-ask)
+# 6. Choose quick-start preset
+Write-Host ""
+Write-Host "Choose a quick-start preset:"
+Write-Host "  1) everything  - all features enabled (recommended for new users)"
+Write-Host "  2) defaults    - sensible defaults, no extras"
+Write-Host "  3) empty       - minimal skeleton, configure manually"
+Write-Host "  4) custom      - answer every question individually"
+Write-Host ""
+$PresetChoice = Read-Host "Preset [1]"
+if (-not $PresetChoice) { $PresetChoice = "1" }
+switch ($PresetChoice) {
+    "1" { $QuickStart = "everything" }
+    "2" { $QuickStart = "defaults" }
+    "3" { $QuickStart = "empty" }
+    "4" { $QuickStart = "custom" }
+    default { Write-Host "Invalid choice, using 'everything'"; $QuickStart = "everything" }
+}
+
+# 7. Run copier (project_name and quick_start are passed so copier won't re-ask)
 Write-Host ""
 Write-Host "Copier will now ask you a few questions to configure your project."
 Write-Host ""
-pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$ProjectName" $TemplateUrl $ProjectDir
+pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$ProjectName" -d "quick_start=$QuickStart" $TemplateUrl $ProjectDir
 
-# 7. Install environments
+# 8. Install environments
 Write-Host ""
 Write-Host "Installing environments..."
 Push-Location $ProjectDir
 pixi install --all
 Pop-Location
 
-# 8. Check Claude Code is installed and authenticated
+# 9. Check Claude Code is installed and authenticated
 $ClaudeCmd = Get-Command claude -ErrorAction SilentlyContinue
 if (-not $ClaudeCmd) {
     Write-Host ""

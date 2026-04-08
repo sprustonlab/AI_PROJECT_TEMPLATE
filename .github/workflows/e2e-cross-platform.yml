@@ -1,0 +1,72 @@
+# =============================================================================
+# E2E Cross-Platform Test Workflow
+# =============================================================================
+# Dedicated CI workflow for the full E2E lifecycle test across all 3 platforms.
+# Manual dispatch only — no inputs needed, all 3 OSes always run.
+#
+# 3-Layer Timeout Strategy:
+#   Layer 1 (Job):  30 min  — hard ceiling, prevents runaway CI
+#   Layer 2 (Step): 20 min  — catches hanging pytest process
+#   Layer 3 (Test): 300s    — catches individual test hangs
+# =============================================================================
+
+name: E2E Cross-Platform
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-cross-platform-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GIT_AUTHOR_NAME: "CI"
+  GIT_AUTHOR_EMAIL: "ci@test.com"
+  GIT_COMMITTER_NAME: "CI"
+  GIT_COMMITTER_EMAIL: "ci@test.com"
+
+jobs:
+  e2e:
+    name: E2E (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          token: ${{ secrets.SUBMODULE_PAT }}
+          persist-credentials: true
+
+      - name: Configure git credentials for submodule access
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.SUBMODULE_PAT }}@github.com/".insteadOf "https://github.com/"
+          git config --global credential.helper ""
+
+      - uses: prefix-dev/setup-pixi@v0.8.8
+        with:
+          cache: true
+
+      - name: Run E2E tests
+        timeout-minutes: 20
+        run: >
+          pixi run pytest
+          tests/test_e2e_cross_platform.py
+          -v --tb=long
+          --timeout=300
+          -m ""
+          --junit-xml=e2e-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-${{ matrix.os }}
+          path: |
+            e2e-results.xml
+          retention-days: 30

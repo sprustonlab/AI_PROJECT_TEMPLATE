@@ -73,19 +73,36 @@ if ! command -v pixi &> /dev/null; then
     export PATH="$HOME/.pixi/bin:$PATH"
 fi
 
-# 4. Run copier (project_name is passed so copier won't re-ask)
+# 4. Choose quick-start preset
+echo ""
+echo "Choose a quick-start preset:"
+echo "  1) everything  — all features enabled (recommended for new users)"
+echo "  2) defaults    — sensible defaults, no extras"
+echo "  3) empty       — minimal skeleton, configure manually"
+echo "  4) custom      — answer every question individually"
+echo ""
+read -rp "Preset [1]: " PRESET_CHOICE < /dev/tty
+case "${PRESET_CHOICE:-1}" in
+    1) QUICK_START="everything" ;;
+    2) QUICK_START="defaults" ;;
+    3) QUICK_START="empty" ;;
+    4) QUICK_START="custom" ;;
+    *) echo "Invalid choice, using 'everything'"; QUICK_START="everything" ;;
+esac
+
+# 5. Run copier (project_name and quick_start are passed so copier won't re-ask)
 echo ""
 echo "Copier will now ask you a few questions to configure your project."
 echo ""
-pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust --vcs-ref develop -d "project_name=$PROJECT_NAME" "$TEMPLATE_URL" "$PROJECT_DIR"
+pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$PROJECT_NAME" -d "quick_start=$QUICK_START" "$TEMPLATE_URL" "$PROJECT_DIR"
 
-# 5. Install environments
+# 6. Install environments
 echo ""
 echo "Installing environments..."
 cd "$PROJECT_DIR"
 pixi install --all
 
-# 6. Check Claude Code is installed and authenticated
+# 7. Check Claude Code is installed and authenticated
 if ! command -v claude &> /dev/null; then
     echo ""
     echo "[OK] Project is ready!"

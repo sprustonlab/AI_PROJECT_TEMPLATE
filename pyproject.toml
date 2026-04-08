@@ -8,6 +8,7 @@ markers = [
     "network: tests requiring network access",
     "tui: Textual TUI tests using App.run_test()",
     "unix_only: tests that only work on Linux/macOS (pexpect)",
+    "e2e: full end-to-end lifecycle tests",
 ]
 # Default: skip slow tests locally
 addopts = "-m 'not slow'"

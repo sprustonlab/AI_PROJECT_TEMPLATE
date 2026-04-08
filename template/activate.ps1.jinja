@@ -7,6 +7,9 @@
 # Same seam registry as activate (bash) -- discovers all six seams.
 # =============================================================================
 
+# Allow scripts to run in this session
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force 2>$null
+
 $ErrorActionPreference = "Continue"
 $ProjectName = "{{ project_name }}"
 
@@ -117,10 +120,21 @@ if (Test-Path "$BASEDIR\pixi.toml") {
     $installedEnvs = @()
     $availableEnvs = @()
 
-    $envNames = Select-String -Path "$BASEDIR\pixi.toml" -Pattern '^\[feature\.([^\]]+)\]' -AllMatches |
+    # Parse environment names from [environments] section, not [feature.*]
+    $envNames = Select-String -Path "$BASEDIR\pixi.toml" -Pattern '^(\w[\w-]*)\s*=' -AllMatches |
         ForEach-Object { $_.Matches } |
         ForEach-Object { $_.Groups[1].Value } |
         Sort-Object -Unique
+    # Filter: only lines that appear after [environments] header
+    $inEnvSection = $false
+    $envNames = @()
+    foreach ($line in (Get-Content "$BASEDIR\pixi.toml")) {
+        if ($line -match '^\[environments\]') { $inEnvSection = $true; continue }
+        if ($line -match '^\[' -and $inEnvSection) { break }
+        if ($inEnvSection -and $line -match '^(\w[\w-]*)\s*=') {
+            $envNames += $Matches[1]
+        }
+    }
 
     foreach ($envName in $envNames) {
         if (Test-Path "$BASEDIR\.pixi\envs\$envName") {

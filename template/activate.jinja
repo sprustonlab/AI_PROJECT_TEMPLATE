@@ -142,14 +142,19 @@ if [[ -f "$BASEDIR/pixi.toml" ]]; then
     installed_envs=()
     available_envs=()
 
-    # Parse environment names from pixi.toml [feature.*] sections
-    while IFS= read -r envname; do
-        if [[ -d "$BASEDIR/.pixi/envs/$envname" ]]; then
-            installed_envs+=("$envname")
-        else
-            available_envs+=("$envname")
+    # Parse environment names from [environments] section
+    _in_env_section=false
+    while IFS= read -r line; do
+        if [[ "$line" == "[environments]"* ]]; then _in_env_section=true; continue; fi
+        if [[ "$_in_env_section" == true && "$line" == "["* ]]; then break; fi
+        if [[ "$_in_env_section" == true ]] && envname=$(echo "$line" | grep -oP '^\w[\w-]*(?=\s*=)'); then
+            if [[ -d "$BASEDIR/.pixi/envs/$envname" ]]; then
+                installed_envs+=("$envname")
+            else
+                available_envs+=("$envname")
+            fi
         fi
-    done < <(grep -oP '^\[feature\.\K[^]]+(?=\])' "$BASEDIR/pixi.toml" | sort -u)
+    done < "$BASEDIR/pixi.toml"
 
     if [[ ${#installed_envs[@]} -gt 0 ]]; then
         echo ""

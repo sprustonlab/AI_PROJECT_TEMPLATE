@@ -4,13 +4,26 @@ main_role: coordinator
 phases:
   - id: vision
     file: vision
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Vision approved by user?"
   - id: setup
     file: setup
+    advance_checks:
+      - type: command-output-check
+        command: "ls .project_team/*/STATUS.md 2>/dev/null"
+        pattern: "STATUS\\.md"
+      - type: command-output-check
+        command: "ls .project_team/*/userprompt.md 2>/dev/null"
+        pattern: "userprompt\\.md"
   - id: leadership
     file: leadership
   - id: specification
     file: specification
     advance_checks:
+      - type: command-output-check
+        command: "ls .project_team/*/specification/SPECIFICATION.md 2>/dev/null"
+        pattern: "SPECIFICATION\\.md"
       - type: manual-confirm
         prompt: "Specification approved by user?"
     hints:
@@ -26,6 +39,8 @@ phases:
     advance_checks:
       - type: manual-confirm
         prompt: "All tests passing?"
+      - type: manual-confirm
+        prompt: "Ready to proceed to sign-off?"
   - id: signoff
     file: signoff
 

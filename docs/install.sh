@@ -73,19 +73,49 @@ if ! command -v pixi &> /dev/null; then
     export PATH="$HOME/.pixi/bin:$PATH"
 fi
 
-# 4. Run copier (project_name is passed so copier won't re-ask)
+# 4. Pick a quick-start preset
 echo ""
-echo "Copier will now ask you a few questions to configure your project."
+echo "How much starter content should your project include?"
 echo ""
-pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust --vcs-ref develop -d "project_name=$PROJECT_NAME" "$TEMPLATE_URL" "$PROJECT_DIR"
+echo "  Your project always ships with the full infrastructure: workflows"
+echo "  (phase-gated processes with guardrails) and the Project Team"
+echo "  (multi-agent collaboration). This choice controls how many"
+echo "  EXAMPLES are pre-loaded."
+echo ""
+echo "  1) Everything  — all example content included (learning mode)"
+echo "  2) Defaults    — sensible defaults (recommended for first project)"
+echo "  3) Empty       — minimal skeleton (experienced user)"
+echo "  4) Custom      — ask me about each option individually"
+echo ""
+read -rp "Pick a preset [1-4, default=2]: " PRESET_CHOICE < /dev/tty
+case "${PRESET_CHOICE:-2}" in
+    1) QUICK_START="everything" ;;
+    2) QUICK_START="defaults"   ;;
+    3) QUICK_START="empty"      ;;
+    4) QUICK_START="custom"     ;;
+    *) echo "Invalid choice, using defaults."; QUICK_START="defaults" ;;
+esac
 
-# 5. Install environments
+# 5. Run copier (project_name + quick_start passed so copier skips those)
+echo ""
+if [ "$QUICK_START" = "custom" ]; then
+    echo "Copier will now ask you about each option individually."
+else
+    echo "Using '$QUICK_START' preset. Copier will ask a few remaining questions."
+fi
+echo ""
+pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust --vcs-ref develop \
+    -d "project_name=$PROJECT_NAME" \
+    -d "quick_start=$QUICK_START" \
+    "$TEMPLATE_URL" "$PROJECT_DIR"
+
+# 6. Install environments
 echo ""
 echo "Installing environments..."
 cd "$PROJECT_DIR"
 pixi install
 
-# 6. Check Claude Code is installed and authenticated
+# 7. Check Claude Code is installed and authenticated
 if ! command -v claude &> /dev/null; then
     echo ""
     echo "✔ Project is ready!"

@@ -28,8 +28,7 @@ __pycache__/
 # Test artifacts
 .test_runs/
 
-# Project team runtime state
-.project_team/
+# Project team runtime state (tracked on develop, blocked from main via pre-commit hook)
 
 # submodules/claudechic/ is a git submodule — tracked by .gitmodules
 

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import ExitStack
 from pathlib import Path
+from typing import Generator
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -74,3 +78,120 @@ def copier_output(tmp_path):
         return dest
 
     return _run
+
+
+# ---------------------------------------------------------------------------
+# E2E fixtures
+# ---------------------------------------------------------------------------
+
+
+async def _empty_async_gen():
+    """Empty async generator for mocking receive_response."""
+    return
+    yield  # noqa: unreachable - makes this an async generator
+
+
+@pytest.fixture(scope="module")
+def e2e_project(tmp_path_factory) -> Generator[Path, None, None]:
+    """Copier copy with 'everything' preset into a clean temp directory.
+
+    Module-scoped so the generated project is shared across all test steps.
+    Handles git init, copier run_copy, and cleanup.
+    """
+    from copier import run_copy
+
+    tmp = tmp_path_factory.mktemp("e2e_cross_platform")
+    dest = tmp / "e2e_cross_platform"
+
+    env = os.environ.copy()
+    env["GIT_AUTHOR_NAME"] = "Test"
+    env["GIT_AUTHOR_EMAIL"] = "test@test.com"
+    env["GIT_COMMITTER_NAME"] = "Test"
+    env["GIT_COMMITTER_EMAIL"] = "test@test.com"
+
+    # Initialize a git repo in dest first (copier requires it)
+    dest.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "init"],
+        cwd=dest, capture_output=True, check=True, env=env,
+    )
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-m", "init"],
+        cwd=dest, capture_output=True, check=True, env=env,
+    )
+
+    run_copy(
+        str(TEMPLATE_ROOT),
+        dest,
+        data={
+            "project_name": "e2e_cross_platform",
+            "claudechic_mode": "standard",
+            "quick_start": "everything",
+            "use_cluster": False,
+            "use_guardrails": True,
+            "use_project_team": True,
+        },
+        defaults=True,
+        unsafe=True,
+        vcs_ref="HEAD",
+    )
+
+    yield dest
+
+    # Cleanup
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.fixture
+def mock_sdk_e2e():
+    """Mock SDK to prevent real Claude connections. 4 patches only.
+
+    Patches both app.py and agent.py imports since agents create their own clients.
+    Also patches FileIndex to avoid subprocess transport leaks during test cleanup.
+    Disables analytics to avoid httpx connection leaks.
+    """
+    mock_client = MagicMock()
+    mock_client.connect = AsyncMock()
+    mock_client.query = AsyncMock()
+    mock_client.interrupt = AsyncMock()
+    mock_client.get_server_info = AsyncMock(return_value={"commands": [], "models": []})
+    mock_client.set_permission_mode = AsyncMock()
+    mock_client.receive_response = lambda: _empty_async_gen()
+    mock_client._transport = None
+
+    mock_file_index = MagicMock()
+    mock_file_index.refresh = AsyncMock()
+    mock_file_index.files = []
+
+    with ExitStack() as stack:
+        # Patch 1+2: SDK client in both app.py and agent.py
+        stack.enter_context(
+            patch("claudechic.app.ClaudeSDKClient", return_value=mock_client)
+        )
+        stack.enter_context(
+            patch("claudechic.agent.ClaudeSDKClient", return_value=mock_client)
+        )
+        # Patch 3: FileIndex (prevents subprocess leaks)
+        stack.enter_context(
+            patch("claudechic.app.FileIndex", return_value=mock_file_index)
+        )
+        stack.enter_context(
+            patch("claudechic.agent.FileIndex", return_value=mock_file_index)
+        )
+        # Patch 4: Analytics (prevents httpx connections)
+        stack.enter_context(
+            patch.dict("claudechic.analytics.CONFIG", {"analytics": {"enabled": False}})
+        )
+        yield mock_client
+
+
+@pytest.fixture
+def fast_sleep():
+    """Patch asyncio.sleep to resolve immediately (no real delays)."""
+    original = asyncio.sleep
+
+    async def _fast(delay, *a, **kw):
+        await original(0)
+
+    with patch.object(asyncio, "sleep", side_effect=_fast):
+        yield

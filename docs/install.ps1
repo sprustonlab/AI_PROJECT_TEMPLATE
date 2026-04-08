@@ -76,48 +76,20 @@ if ($GitCmd) {
     $env:PATH = "$GitDir\cmd;$env:PATH"
 }
 
-# 6. Pick a quick-start preset
+# 6. Run copier (project_name is passed so copier won't re-ask)
 Write-Host ""
-Write-Host "How much starter content should your project include?"
+Write-Host "Copier will now ask you a few questions to configure your project."
 Write-Host ""
-Write-Host "  Your project always ships with the full infrastructure: workflows"
-Write-Host "  (phase-gated processes with guardrails) and the Project Team"
-Write-Host "  (multi-agent collaboration). This choice controls how many"
-Write-Host "  EXAMPLES are pre-loaded."
-Write-Host ""
-Write-Host "  1) Everything  - all example content included (learning mode)"
-Write-Host "  2) Defaults    - sensible defaults (recommended for first project)"
-Write-Host "  3) Empty       - minimal skeleton (experienced user)"
-Write-Host "  4) Custom      - ask me about each option individually"
-Write-Host ""
-$PresetChoice = Read-Host "Pick a preset [1-4, default=2]"
-if (-not $PresetChoice) { $PresetChoice = "2" }
-switch ($PresetChoice) {
-    "1" { $QuickStart = "everything" }
-    "2" { $QuickStart = "defaults" }
-    "3" { $QuickStart = "empty" }
-    "4" { $QuickStart = "custom" }
-    default { Write-Host "Invalid choice, using defaults."; $QuickStart = "defaults" }
-}
+pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$ProjectName" $TemplateUrl $ProjectDir
 
-# 7. Run copier (project_name + quick_start passed so copier skips those)
-Write-Host ""
-if ($QuickStart -eq "custom") {
-    Write-Host "Copier will now ask you about each option individually."
-} else {
-    Write-Host "Using '$QuickStart' preset. Copier will ask a few remaining questions."
-}
-Write-Host ""
-pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$ProjectName" -d "quick_start=$QuickStart" $TemplateUrl $ProjectDir
-
-# 8. Install environments
+# 7. Install environments
 Write-Host ""
 Write-Host "Installing environments..."
 Push-Location $ProjectDir
 pixi install
 Pop-Location
 
-# 9. Check Claude Code is installed and authenticated
+# 8. Check Claude Code is installed and authenticated
 $ClaudeCmd = Get-Command claude -ErrorAction SilentlyContinue
 if (-not $ClaudeCmd) {
     Write-Host ""

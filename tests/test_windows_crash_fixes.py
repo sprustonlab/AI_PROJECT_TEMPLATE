@@ -46,31 +46,14 @@ class TestIsProcessAlive:
             proc.wait()
 
     def test_dead_process_returns_false(self):
-        """A terminated subprocess is detected as dead.
-
-        On Windows, OpenProcess can succeed briefly for recently-exited
-        processes because the kernel handle isn't fully cleaned up yet.
-        We retry with a short timeout to tolerate this.
-        """
-        import time
-
+        """A terminated subprocess is detected as dead."""
         proc = subprocess.Popen(
             [sys.executable, "-c", "pass"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         proc.wait()
-
-        # Retry for up to 2 seconds to handle Windows handle cleanup delay
-        deadline = time.monotonic() + 2.0
-        alive = True
-        while time.monotonic() < deadline:
-            alive = Agent._is_process_alive(proc.pid)
-            if not alive:
-                break
-            time.sleep(0.1)
-
-        assert alive is False
+        assert Agent._is_process_alive(proc.pid) is False
 
     def test_nonexistent_pid_returns_false(self):
         """A PID that was never valid returns False."""

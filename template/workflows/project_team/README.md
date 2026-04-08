@@ -8,11 +8,11 @@ A structured multi-agent workflow for building software projects with Claude Cod
 
 ### 1. Vision (1 agent)
 
-You describe what you want to build. The agent clarifies your intent — spelling out what success and failure look like — and iterates with you until it's correct and complete. You're also asked where the project lives (new or existing directory).
+You describe what you want to build. The agent clarifies your intent -- spelling out what success and failure look like -- and iterates with you until it's correct and complete. You're also asked where the project lives (new or existing directory).
 
 The agent creates `.project_team/{project_name}/` with:
-- `userprompt.md` — your verbatim prompt + the approved vision
-- `STATUS.md` — tracks workflow progress
+- `userprompt.md` -- your verbatim prompt + the approved vision
+- `STATUS.md` -- tracks workflow progress
 
 **User checkpoint:** approve the vision before work proceeds.
 
@@ -40,7 +40,7 @@ Implementer agents write code directly in the project, guided by leadership agen
 
 Tests are written and run. Leadership does a final review and signs off.
 
-**User checkpoint:** optionally request end-to-end tests. By default, agents write "smoke" tests with short runtimes. E2E tests run full real-world use cases but aren't always reliable — sometimes it's faster to run them yourself.
+**User checkpoint:** optionally request end-to-end tests. By default, agents write "smoke" tests with short runtimes. E2E tests run full real-world use cases but aren't always reliable -- sometimes it's faster to run them yourself.
 
 ---
 
@@ -54,7 +54,7 @@ Tests are written and run. Leadership does a final review and signs off.
 | **Composability** | `composability/identity.md` | Dissects problems into independent axes with defined seams. The most important leadership agent. |
 | **Terminology Guardian** | `terminology/identity.md` | Ensures consistent naming across components. |
 | **Skeptic** | `skeptic/identity.md` | Checks for completeness and minimality. Correctness through simplicity. |
-| **User Alignment** | `user_alignment/identity.md` | Protects user intent. Has veto power — cannot remove user-requested features. |
+| **User Alignment** | `user_alignment/identity.md` | Protects user intent. Has veto power -- cannot remove user-requested features. |
 
 ### Implementation
 
@@ -79,8 +79,8 @@ Tests are written and run. Leadership does a final review and signs off.
 
 ## Key Rules
 
-1. **Git Setup runs first** — always save `userprompt.md` before coding begins
-2. **User Alignment has veto** — cannot remove user-requested features
-3. **Skeptic ensures correctness** — complete, simple, verifiable; no shortcuts
-4. **Composability drives architecture** — independent axes, defined seams, no hidden coupling
-5. **Advisory agents are non-blocking** — spawned only when relevant, don't hold up the workflow
+1. **Git Setup runs first** -- always save `userprompt.md` before coding begins
+2. **User Alignment has veto** -- cannot remove user-requested features
+3. **Skeptic ensures correctness** -- complete, simple, verifiable; no shortcuts
+4. **Composability drives architecture** -- independent axes, defined seams, no hidden coupling
+5. **Advisory agents are non-blocking** -- spawned only when relevant, don't hold up the workflow

@@ -5,4 +5,4 @@
 3. If Researcher active, request testing patterns and edge cases
 4. Exit when all tests pass
 
-Do NOT write test code yourself — delegate to TestEngineer and Implementers.
+Do NOT write test code yourself -- delegate to TestEngineer and Implementers.

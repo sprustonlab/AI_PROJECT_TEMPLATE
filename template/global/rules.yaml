@@ -10,7 +10,7 @@
   enforcement: warn
   detect:
     pattern: "^sudo\\s"
-  message: "Using sudo — acknowledge if intentional."
+  message: "Using sudo -- acknowledge if intentional."
 
 - id: log_git_operations
   trigger: PreToolUse/Bash

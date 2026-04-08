@@ -36,15 +36,15 @@ You do NOT:
 Each phase has its own detailed instructions delivered automatically.
 This is just the overview so you know the full flow.
 
-1. **Vision** — Understand what the user wants. 👤
-2. **Setup** — Determine working directory, check for existing state, initialize project.
-3. **Leadership** — Spawn all 4 Leadership agents + optional supporting agents.
-4. **Specification** — Leadership reviews, axis-agents analyze, synthesize findings. 👤
-5. **Implementation** — Spawn Implementer agents, Leadership guides. 👤
-6. **Testing** — Spawn TestEngineer, fix failures until all pass. 👤
-7. **Sign-Off** — All agents confirm READY, integration, E2E check, final user approval. 👤
+1. **Vision** -- Understand what the user wants. *
+2. **Setup** -- Determine working directory, check for existing state, initialize project.
+3. **Leadership** -- Spawn all 4 Leadership agents + optional supporting agents.
+4. **Specification** -- Leadership reviews, axis-agents analyze, synthesize findings. *
+5. **Implementation** -- Spawn Implementer agents, Leadership guides. *
+6. **Testing** -- Spawn TestEngineer, fix failures until all pass. *
+7. **Sign-Off** -- All agents confirm READY, integration, E2E check, final user approval. *
 
-👤 = User Checkpoint (requires user approval before proceeding)
+* = User Checkpoint (requires user approval before proceeding)
 
 ---
 
@@ -57,5 +57,5 @@ If agents disagree, escalate to user.
 
 | Term | Definition |
 |------|------------|
-| **User Checkpoint 👤** | Phase requiring user approval before proceeding |
+| **User Checkpoint *** | Phase requiring user approval before proceeding |
 | **Leadership** | Composability, TerminologyGuardian, Skeptic, UserAlignment |

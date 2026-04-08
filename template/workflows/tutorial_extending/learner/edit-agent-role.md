@@ -16,13 +16,13 @@ In this exercise, the user edits an agent role markdown file. This teaches them 
 > | testing | `testing.md` | Delegate testing to TestEngineer |
 > | signoff | `signoff.md` | Final review and sign-off |
 >
-> The `identity.md` file is the agent's base personality — it's always loaded. The phase file is layered on top for phase-specific instructions. Together they form the system prompt context."
+> The `identity.md` file is the agent's base personality -- it's always loaded. The phase file is layered on top for phase-specific instructions. Together they form the system prompt context."
 
 ## Step 2: Explain Agent Roles
 
 > "Agent roles are markdown files in `workflows/project_team/<role>/`. Each role has:
-> - **identity.md** — the agent's base personality, responsibilities, and rules (always active)
-> - **Phase files** (e.g. `vision.md`, `implementation.md`) — phase-specific instructions
+> - **identity.md** -- the agent's base personality, responsibilities, and rules (always active)
+> - **Phase files** (e.g. `vision.md`, `implementation.md`) -- phase-specific instructions
 >
 > When an agent is spawned with a role, identity.md shapes its core behavior. The active phase file adds context for what it should be doing right now. Editing these files changes how the agent works."
 
@@ -34,13 +34,13 @@ List the agent role files:
 ls workflows/project_team/*/identity.md
 ```
 
-Show the user the coordinator's identity.md — it's the most important role and demonstrates the structure clearly. Read it aloud and explain the sections (Prime Directive, delegation rules, interaction patterns).
+Show the user the coordinator's identity.md -- it's the most important role and demonstrates the structure clearly. Read it aloud and explain the sections (Prime Directive, delegation rules, interaction patterns).
 
 Then show a phase file like `coordinator/specification.md` to demonstrate how phase-specific instructions layer on top.
 
 ## Step 4: Explain the Exercise
 
-> "You're going to add a new section to an agent role file. Pick any role — `implementer/identity.md` is a good starting point.
+> "You're going to add a new section to an agent role file. Pick any role -- `implementer/identity.md` is a good starting point.
 >
 > **Task:** Add a new guideline to the Implementation Guidelines section. For example:
 >
@@ -59,10 +59,10 @@ Then show a phase file like `coordinator/specification.md` to demonstrate how ph
 
 Help the user pick a role file and add their new section or guideline. Suggestions:
 
-- **implementer/identity.md** — add a documentation or logging guideline
-- **skeptic/identity.md** — add a new category of things to challenge
-- **coordinator/identity.md** — add a new delegation rule
-- **test_engineer/identity.md** — add a test coverage requirement
+- **implementer/identity.md** -- add a documentation or logging guideline
+- **skeptic/identity.md** -- add a new category of things to challenge
+- **coordinator/identity.md** -- add a new delegation rule
+- **test_engineer/identity.md** -- add a test coverage requirement
 
 The user should make a meaningful addition, not just change a word.
 
@@ -100,4 +100,4 @@ Then call `advance_phase` to proceed.
 
 ## Revert Note
 
-> "As before, you can revert with `git checkout workflows/project_team/implementer/identity.md` if you want to undo your change — or keep it to customize your team's behavior."
+> "As before, you can revert with `git checkout workflows/project_team/implementer/identity.md` if you want to undo your change -- or keep it to customize your team's behavior."

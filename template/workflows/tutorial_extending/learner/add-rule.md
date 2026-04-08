@@ -7,15 +7,15 @@ In this exercise, the user adds a new rule to `global/rules.yaml`. This teaches 
 Read and display `global/rules.yaml` to the user. Explain:
 
 > "Global rules apply to every workflow in this project. Each rule has:
-> - **id** — unique identifier
-> - **trigger** — which tool use triggers evaluation (e.g., `PreToolUse/Bash`)
-> - **enforcement** — `deny` (hard block), `warn` (must acknowledge), or `log` (silent audit)
-> - **detect.pattern** — regex that matches the blocked action
-> - **message** — what the agent sees when the rule fires"
+> - **id** -- unique identifier
+> - **trigger** -- which tool use triggers evaluation (e.g., `PreToolUse/Bash`)
+> - **enforcement** -- `deny` (hard block), `warn` (must acknowledge), or `log` (silent audit)
+> - **detect.pattern** -- regex that matches the blocked action
+> - **message** -- what the agent sees when the rule fires"
 
 ## Step 2: Explain the Exercise
 
-> "You're going to add a new rule. Here's an example — a `warn` rule that flags when someone tries to install Python packages during a workflow:"
+> "You're going to add a new rule. Here's an example -- a `warn` rule that flags when someone tries to install Python packages during a workflow:"
 >
 > ```yaml
 > - id: warn_pip_install

@@ -6,17 +6,17 @@ In this exercise, the user adds and customizes hints. This teaches them how the 
 
 > "Hints are toast notifications that appear in the TUI to guide the user. They're declared in workflow YAML and have three key properties:
 >
-> - **message** — the text shown to the user
-> - **lifecycle** — controls when and how often the hint appears:
->   - `show-once` — appears the first time the trigger fires, never again
->   - `show-until-resolved` — keeps showing until the trigger condition becomes false
->   - `show-every-session` — always shows when the trigger fires (for critical reminders)
->   - `cooldown` — shows at most once per cooldown window (requires `cooldown_seconds`)
-> - **id** — unique identifier (auto-generated for phase hints if omitted)
+> - **message** -- the text shown to the user
+> - **lifecycle** -- controls when and how often the hint appears:
+>   - `show-once` -- appears the first time the trigger fires, never again
+>   - `show-until-resolved` -- keeps showing until the trigger condition becomes false
+>   - `show-every-session` -- always shows when the trigger fires (for critical reminders)
+>   - `cooldown` -- shows at most once per cooldown window (requires `cooldown_seconds`)
+> - **id** -- unique identifier (auto-generated for phase hints if omitted)
 >
 > Hints can be defined at two levels:
-> 1. **Workflow-level** — in the top-level `hints:` section, shown whenever the workflow is active
-> 2. **Phase-level** — nested inside a phase definition, shown only during that phase"
+> 1. **Workflow-level** -- in the top-level `hints:` section, shown whenever the workflow is active
+> 2. **Phase-level** -- nested inside a phase definition, shown only during that phase"
 
 ## Step 2: Show Existing Hints
 
@@ -24,10 +24,10 @@ Read `workflows/tutorial_extending/tutorial_extending.yaml` and point out the hi
 
 > "Look at the hints already in this workflow:
 >
-> - **Workflow-level hint** (`extending-overview`) — shows every session to remind users what this tutorial covers
-> - **Phase-level hints** — each phase has `show-once` hints that explain what to do in that phase
+> - **Workflow-level hint** (`extending-overview`) -- shows every session to remind users what this tutorial covers
+> - **Phase-level hints** -- each phase has `show-once` hints that explain what to do in that phase
 >
-> Also look at `global/hints.yaml` — these are global hints that fire regardless of which workflow is active. The welcome message and workflow tip are defined there."
+> Also look at `global/hints.yaml` -- these are global hints that fire regardless of which workflow is active. The welcome message and workflow tip are defined there."
 
 Read and display `global/hints.yaml` to the user.
 
@@ -127,10 +127,10 @@ Then call `advance_phase` to proceed.
 
 > "Congratulations! You've learned 4 ways to extend the AI Project Template:
 >
-> 1. **Add a global rule** — guardrails that apply everywhere
-> 2. **Add an advance check** — gate conditions for phase transitions
-> 3. **Edit an agent role** — customize how agents behave
-> 4. **Add hints** — toast notifications to guide users through workflows
+> 1. **Add a global rule** -- guardrails that apply everywhere
+> 2. **Add an advance check** -- gate conditions for phase transitions
+> 3. **Edit an agent role** -- customize how agents behave
+> 4. **Add hints** -- toast notifications to guide users through workflows
 >
 > These are the same tools the Project Team uses internally. You can now customize the system for your own projects.
 >

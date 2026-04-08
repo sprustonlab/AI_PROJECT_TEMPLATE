@@ -152,9 +152,14 @@ if (Test-Path "$BASEDIR\pixi.toml") {
 
 # --- Show CLI commands ---
 if (Test-Path "$BASEDIR\commands") {
-    $cliCommands = Get-ChildItem "$BASEDIR\commands" -File |
-        Where-Object { $_.Extension -ne ".md" -and $_.Name -notmatch '^\.' } |
-        ForEach-Object { $_.Name }
+    # On Windows, prefer .cmd wrappers; hide extensionless Unix scripts that have a .cmd counterpart
+    $allFiles = Get-ChildItem "$BASEDIR\commands" -File |
+        Where-Object { $_.Extension -ne ".md" -and $_.Name -notmatch '^\.' }
+    $cmdFiles = $allFiles | Where-Object { $_.Extension -eq ".cmd" } | ForEach-Object { $_.BaseName }
+    $cliCommands = $allFiles |
+        Where-Object { $_.Extension -eq ".cmd" -or ($_.Extension -eq "" -and $_.BaseName -notin $cmdFiles) } |
+        ForEach-Object { $_.BaseName } |
+        Sort-Object -Unique
 
     if ($cliCommands.Count -gt 0) {
         Write-Host ""

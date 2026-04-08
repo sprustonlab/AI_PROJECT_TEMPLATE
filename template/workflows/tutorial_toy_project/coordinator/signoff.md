@@ -17,15 +17,15 @@ Tell the user what was built:
 > **labmeta is complete!** Here's what you built using the Project Team workflow:
 >
 > **4 Python modules** (~380 lines total):
-> - `store.py` — YAML file I/O and discovery
-> - `schema.py` — config validation against schema.yaml
-> - `resolver.py` — protocol + session inheritance merge
-> - `cli.py` — 7 CLI commands (init, create, validate, resolve, lock, tree, dependents)
+> - `store.py` -- YAML file I/O and discovery
+> - `schema.py` -- config validation against schema.yaml
+> - `resolver.py` -- protocol + session inheritance merge
+> - `cli.py` -- 7 CLI commands (init, create, validate, resolve, lock, tree, dependents)
 >
 > **Example data:**
-> - `protocols/examples/mouse_surgery_protocol.yaml` — cranial window protocol
-> - `sessions/examples/mouse_001_session_20260406.yaml` — mouse_001 session
-> - `protocols/schema.yaml` — validation schema
+> - `protocols/examples/mouse_surgery_protocol.yaml` -- cranial window protocol
+> - `sessions/examples/mouse_001_session_20260406.yaml` -- mouse_001 session
+> - `protocols/schema.yaml` -- validation schema
 >
 > **Tests:** Full test suite covering all 4 modules
 >
@@ -41,11 +41,11 @@ Tell the user what was built:
 Explain what the user experienced:
 
 > **What you saw in this tutorial:**
-> 1. **Vision phase** — pre-selected goal, user confirmation
-> 2. **Specification phase** — 4 Leadership agents analyzed the project simultaneously
-> 3. **Implementation phase** — Implementer agents built the code (you didn't write any!)
-> 4. **Testing phase** — TestEngineer verified everything
-> 5. **Sign-off phase** — final review
+> 1. **Vision phase** -- pre-selected goal, user confirmation
+> 2. **Specification phase** -- 4 Leadership agents analyzed the project simultaneously
+> 3. **Implementation phase** -- Implementer agents built the code (you didn't write any!)
+> 4. **Testing phase** -- TestEngineer verified everything
+> 5. **Sign-off phase** -- final review
 >
 > **Workflow features exercised:**
 > - Phase-gated transitions with advance checks (file-exists + manual-confirm)

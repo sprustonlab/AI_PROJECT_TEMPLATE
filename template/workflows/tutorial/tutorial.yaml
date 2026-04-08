@@ -23,11 +23,11 @@ phases:
     hints:
       - message: "Phase 2/4: Rules. You'll see deny, warn, and log enforcement in action."
         lifecycle: show-once
-      - message: "Try: ask the agent to run 'rm -rf /tmp/test' — deny rule should block it."
+      - message: "Try: ask the agent to run 'rm -rf /tmp/test' -- deny rule should block it."
         lifecycle: show-once
-      - message: "Try: ask the agent to run 'sudo echo hi' — warn rule should fire, agent can acknowledge."
+      - message: "Try: ask the agent to run 'sudo echo hi' -- warn rule should fire, agent can acknowledge."
         lifecycle: show-once
-      - message: "Try: ask the agent to run 'git status' — log rule fires silently, check .claude/hits.jsonl."
+      - message: "Try: ask the agent to run 'git status' -- log rule fires silently, check .claude/hits.jsonl."
         lifecycle: show-once
     advance_checks:
       - type: file-exists-check
@@ -41,9 +41,9 @@ phases:
     hints:
       - message: "Phase 3/4: Injections. You'll see how tool inputs can be modified and how phase-scoped rules work."
         lifecycle: show-once
-      - message: "Try: ask the agent to run 'echo hello' — the injection will append text to the command."
+      - message: "Try: ask the agent to run 'echo hello' -- the injection will append text to the command."
         lifecycle: show-once
-      - message: "There's also a phase-scoped warn rule here that blocks Write — it only fires in this phase, not others."
+      - message: "There's also a phase-scoped warn rule here that blocks Write -- it only fires in this phase, not others."
         lifecycle: show-once
     advance_checks:
       - type: file-exists-check
@@ -62,7 +62,7 @@ rules:
   - id: no_write_in_injections
     trigger: PreToolUse/Write
     enforcement: warn
-    message: "Writing is restricted in the injections phase — this rule is phase-scoped, it only fires here."
+    message: "Writing is restricted in the injections phase -- this rule is phase-scoped, it only fires here."
     phases: [injections]
 
   - id: require_tee_in_rules
@@ -70,7 +70,7 @@ rules:
     enforcement: log
     detect:
       pattern: "pytest"
-    message: "Pytest detected in rules phase — logged for demonstration."
+    message: "Pytest detected in rules phase -- logged for demonstration."
     phases: [rules]
 
 injections:

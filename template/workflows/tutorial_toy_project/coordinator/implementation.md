@@ -1,6 +1,6 @@
 # Implementation Phase
 
-Spawn Implementer agents to build the 4 labmeta modules. You delegate — you do NOT write code.
+Spawn Implementer agents to build the 4 labmeta modules. You delegate -- you do NOT write code.
 
 ## Step 1: Explain to User
 
@@ -11,35 +11,35 @@ Tell the user:
 
 Spawn 1-2 Implementer agents (the project is small enough for 1-2):
 
-**Implementer-Core** — builds the library modules:
-- `labmeta/__init__.py` — package init
-- `labmeta/store.py` (~40 lines) — YAML read/write, file discovery
-- `labmeta/schema.py` (~50 lines) — validation against schema.yaml
-- `labmeta/resolver.py` (~80 lines) — protocol+session inheritance merge
+**Implementer-Core** -- builds the library modules:
+- `labmeta/__init__.py` -- package init
+- `labmeta/store.py` (~40 lines) -- YAML read/write, file discovery
+- `labmeta/schema.py` (~50 lines) -- validation against schema.yaml
+- `labmeta/resolver.py` (~80 lines) -- protocol+session inheritance merge
 
-**Implementer-CLI** — builds the CLI and examples:
-- `labmeta/cli.py` (~60 lines) — CLI entry point with all 7 commands
-- `protocols/examples/mouse_surgery_protocol.yaml` — example protocol
-- `sessions/examples/mouse_001_session_20260406.yaml` — example session
+**Implementer-CLI** -- builds the CLI and examples:
+- `labmeta/cli.py` (~60 lines) -- CLI entry point with all 7 commands
+- `protocols/examples/mouse_surgery_protocol.yaml` -- example protocol
+- `sessions/examples/mouse_001_session_20260406.yaml` -- example session
 
 Use `requires_answer: true` so they report back when done.
 
 ## Module Specifications
 
 ### store.py (~40 lines)
-- `load_yaml(path) -> dict` — read YAML file
-- `save_yaml(path, data)` — write YAML file
-- `discover_files(directory, pattern) -> list[Path]` — find YAML files
+- `load_yaml(path) -> dict` -- read YAML file
+- `save_yaml(path, data)` -- write YAML file
+- `discover_files(directory, pattern) -> list[Path]` -- find YAML files
 - All paths relative to project root
 
 ### schema.py (~50 lines)
-- `load_schema(path) -> dict` — read schema.yaml
-- `validate(data, schema) -> list[str]` — return list of error messages
+- `load_schema(path) -> dict` -- read schema.yaml
+- `validate(data, schema) -> list[str]` -- return list of error messages
 - Supports: type checking (str, int, float), required fields, enum validation, min/max ranges
 - Nested field support (coordinates.ap_mm)
 
 ### resolver.py (~80 lines)
-- `resolve(session_path, protocols_dir) -> dict` — merge protocol + session
+- `resolve(session_path, protocols_dir) -> dict` -- merge protocol + session
 - Read session, find its `_protocol` reference, load protocol
 - Deep merge: session values override protocol defaults
 - Skip internal fields (`_type`, `_protocol`, `_locked`)

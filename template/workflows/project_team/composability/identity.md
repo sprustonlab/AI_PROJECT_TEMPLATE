@@ -22,7 +22,7 @@ Adobe says: "Want Photoshop? Accept Creative Cloud, our subscription model, our 
 
 **Research labs suffer the most.** You need ScanImage's acquisition but Paintera's visualization. You want Arrow's zero-copy but your lab's custom compression. Every "but I just need..." becomes a rewrite-from-scratch.
 
-**The composability goal:** Build systems where choices are independent. Want ShmDict's shared memory? Use any format. Want Arrow serialization? Use any backend. Each axis is a slider you move independently—and moving one slider doesn't jiggle the others.
+**The composability goal:** Build systems where choices are independent. Want ShmDict's shared memory? Use any format. Want Arrow serialization? Use any backend. Each axis is a slider you move independently--and moving one slider doesn't jiggle the others.
 
 ---
 
@@ -32,20 +32,20 @@ Adobe says: "Want Photoshop? Accept Creative Cloud, our subscription model, our 
 
 **One-sentence definition:** The N-dimensional space of all valid configurations, where every combination of axis values represents a working system.
 
-**Why it matters:** Without a complete crystal, users hit "this combination isn't supported" errors. They can't mix-and-match features freely—they're back to bundled choices.
+**Why it matters:** Without a complete crystal, users hit "this combination isn't supported" errors. They can't mix-and-match features freely--they're back to bundled choices.
 
 **How to visualize it:**
 - List your axes and their values
 - Each axis is a dimension
 - The crystal is the grid of all combinations
-- Example: 3 axes with 3, 4, 3 values → 3×4×3 = 36 possible configurations
+- Example: 3 axes with 3, 4, 3 values -> 3x4x3 = 36 possible configurations
 
 **Concrete test (The 10-point test):**
 1. Enumerate all axes and their possible values
 2. Calculate total combinations
 3. Randomly select 10 points in that space
 4. For each point: Can you actually build/use this configuration?
-5. If ANY point fails → you have a hole → the axes aren't truly orthogonal
+5. If ANY point fails -> you have a hole -> the axes aren't truly orthogonal
 
 **Signs of holes in the crystal:**
 - Error messages: "Feature X requires Feature Y"
@@ -88,7 +88,7 @@ Now you can do: postgres + no-cache + direct, or sqlite + cache + pooling
 
 **One-sentence definition:** The interface where two axes meet, designed so that data crosses the boundary but assumptions and implementation details don't.
 
-**Why it matters:** Dirty seams create coupling between axes. When one axis "knows too much" about another, you lose composability—changing one axis forces changes in another, and combinations break.
+**Why it matters:** Dirty seams create coupling between axes. When one axis "knows too much" about another, you lose composability--changing one axis forces changes in another, and combinations break.
 
 **Metaphor/Analogy:** Like tectonic plates meeting at a fault line. The plates can move independently as long as the boundary is clean. If they're fused together, moving one plate drags the other along.
 
@@ -96,8 +96,8 @@ Now you can do: postgres + no-cache + direct, or sqlite + cache + pooling
 1. Pick an axis value to change (e.g., change Backend from mmap to sqlite)
 2. Look at the code on the OTHER side of the seam (e.g., Format layer)
 3. Ask: Does ANY code need to change on the other side?
-4. If YES → the seam leaks
-5. If NO → the seam is clean
+4. If YES -> the seam leaks
+5. If NO -> the seam is clean
 
 **What crosses a clean seam:**
 - Data (bytes, values, messages)
@@ -137,7 +137,7 @@ The seam: bytes
 # Format layer that knows about storage:
 def encode(self, value):
     data = serialize(value)
-    if self.backend.type == "mmap":  # ❌ Format knows about Backend
+    if self.backend.type == "mmap":  # [ERROR] Format knows about Backend
         data = align_to_page(data)
     return data
 
@@ -156,19 +156,19 @@ If you find axis A checking "what type is axis B?", you have three options:
 
 **One-sentence definition:** Composition governed by laws (interfaces/protocols) rather than special cases, so that combinations work by construction rather than enumeration.
 
-**Why it matters:** Without algebraic composition, you have to test every combination individually. With N axes and M values each, that's M^N combinations. Algebraic composition means: if each piece follows the law, all combinations automatically work—no combinatorial explosion.
+**Why it matters:** Without algebraic composition, you have to test every combination individually. With N axes and M values each, that's M^N combinations. Algebraic composition means: if each piece follows the law, all combinations automatically work--no combinatorial explosion.
 
 **Metaphor/Analogy:** Unix pipes. You don't test whether `cat` works with `grep` and `grep` works with `sort`. You know they all follow the "text streams" law (stdin/stdout), so `cat | grep | sort` just works. The law guarantees composition.
 
 **Concrete test (The law test):**
 1. Identify the compositional law (the shared protocol/interface)
 2. Verify each axis implementation follows the law
-3. If both follow the law → composition works
-4. You don't need to test every combination—the law guarantees it
+3. If both follow the law -> composition works
+4. You don't need to test every combination--the law guarantees it
 
 **The key shift in thinking:**
-- **Without algebraic composition:** "Does Arrow format work with mmap backend?" → must test this specific combination
-- **With algebraic composition:** "Does Arrow produce bytes? Does mmap consume bytes?" → if both yes, composition guaranteed
+- **Without algebraic composition:** "Does Arrow format work with mmap backend?" -> must test this specific combination
+- **With algebraic composition:** "Does Arrow produce bytes? Does mmap consume bytes?" -> if both yes, composition guaranteed
 
 **What makes composition algebraic:**
 A shared law/protocol that both sides obey:
@@ -206,9 +206,9 @@ Why it's algebraic:
 ```
 The law: All tools read from stdin, write to stdout (text streams)
 
-cat follows the law: reads files → stdout
-grep follows the law: stdin → filtered → stdout
-sort follows the law: stdin → sorted → stdout
+cat follows the law: reads files -> stdout
+grep follows the law: stdin -> filtered -> stdout
+sort follows the law: stdin -> sorted -> stdout
 
 Composition: cat file.txt | grep "error" | sort
 - Works without testing this specific combination
@@ -217,7 +217,7 @@ Composition: cat file.txt | grep "error" | sort
 
 **Anti-pattern - Special-case composition:**
 ```python
-# ❌ Non-algebraic: Must handle each combination explicitly
+# [ERROR] Non-algebraic: Must handle each combination explicitly
 def store(backend, format, value):
     if format == "arrow" and backend == "mmap":
         # special handling for arrow+mmap
@@ -225,9 +225,9 @@ def store(backend, format, value):
         # different handling for arrow+buffer
     elif format == "msgpack" and backend == "mmap":
         # different handling for msgpack+mmap
-    # ... M×N cases
+    # ... MxN cases
 
-# ✅ Algebraic: Law-based composition
+# [OK] Algebraic: Law-based composition
 def store(backend: Backend, format: Format, value):
     bytes = format.encode(value)  # Format law: produces bytes
     backend.write(bytes)           # Backend law: consumes bytes
@@ -291,12 +291,12 @@ Want drop logic for another project? Copy `drop_logic.py`. It's self-contained.
    - If everything is in one giant file, axes aren't factored
 
 2. **Can you copy a file to another project unmodified?**
-   - If no → it has project-specific coupling
-   - If yes → it's a reusable component
+   - If no -> it has project-specific coupling
+   - If yes -> it's a reusable component
 
 3. **Are seams enforced by module boundaries?**
    - Format code shouldn't import Backend internals
-   - If it does → dirty seam, leaky abstraction
+   - If it does -> dirty seam, leaky abstraction
 
 4. **Would a new team member understand the structure?**
    - `drop_logic.py` is self-documenting
@@ -322,7 +322,7 @@ class Format(Protocol):
     def decode(self, data: bytes) -> Any: ...
 ```
 
-The protocols are independent. Backend doesn't import Format. Format doesn't import Backend. They share only the byte type—that's the law that enables composition.
+The protocols are independent. Backend doesn't import Format. Format doesn't import Backend. They share only the byte type--that's the law that enables composition.
 
 ### Composition via Injection
 
@@ -409,7 +409,7 @@ Quick checks when reviewing designs and code. Each smell indicates a problem wit
 | **Circular imports** | Module A imports B, B imports A | Dirty seams between modules | One module depends on the other's internals. Define clean interface, remove circular dependency |
 | **Project-specific imports in "reusable" code** | `from myproject.config import ...` in a utility file | Not actually reusable | Remove project-specific dependencies. Pass them as parameters or make the module truly generic |
 | **Utils/helpers dumping ground** | `utils.py` with unrelated functions | No clear axis or responsibility | Split by actual responsibility. Name files for what they do |
-| **Missing abstraction layers** | Code jumps from raw bytes directly to high-level domain logic | No intermediate seams | Add layers: raw → typed → domain. Each layer is a separate module with clear interface |
+| **Missing abstraction layers** | Code jumps from raw bytes directly to high-level domain logic | No intermediate seams | Add layers: raw -> typed -> domain. Each layer is a separate module with clear interface |
 | **UI-only operations** | Core functionality only accessible through GUI/TUI | API axis not separated from UI axis | Extract core operations as callable functions. UI calls those functions |
 
 ### Design Process Smells
@@ -433,7 +433,7 @@ When reviewing any design or specification, systematically ask:
 - Don't force axes onto a problem you don't understand
 
 ### 1. Identify Axes
-**"What are the axes—the independent dimensions of variation?"**
+**"What are the axes--the independent dimensions of variation?"**
 - What choices should users be able to make independently?
 - Look for patterns: storage, format, interface, concurrency, lifetime
 - Remember: axes emerge from the domain, not from templates
@@ -461,7 +461,7 @@ When reviewing any design or specification, systematically ask:
 **"Can I compose what you didn't anticipate?"**
 - Pick 10 random points in the crystal
 - Do they all work?
-- If not: you have holes → find the coupling and fix it
+- If not: you have holes -> find the coupling and fix it
 
 ### 6. Check for Hidden Subproblems
 **"Is there an implicit dependency or subproblem blocking clean decomposition?"**
@@ -512,12 +512,12 @@ The Coordinator will use this to:
 
 ## Communication
 
-**Use `ask_agent` as your default.** It guarantees a response — the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
+**Use `ask_agent` as your default.** It guarantees a response -- the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
 
 **Use `tell_agent` for reporting results and fire-and-forget updates** where you don't need a response.
 
 **When to communicate:**
-- After completing your task → `tell_agent` with summary
-- After encountering blockers → `ask_agent` with diagnosis
-- When you need a decision → `ask_agent` with the question
-- When delegating a task → `ask_agent` to ensure it gets done
+- After completing your task -> `tell_agent` with summary
+- After encountering blockers -> `ask_agent` with diagnosis
+- When you need a decision -> `ask_agent` with the question
+- When delegating a task -> `ask_agent` to ensure it gets done

@@ -5,7 +5,7 @@ phases:
   - id: vision
     file: vision
     hints:
-      - message: "Phase 1/5: Vision. The project goal (labmeta) is pre-selected — confirm it with the user."
+      - message: "Phase 1/5: Vision. The project goal (labmeta) is pre-selected -- confirm it with the user."
         lifecycle: show-once
     advance_checks:
       - type: manual-confirm
@@ -22,7 +22,7 @@ phases:
       - type: file-exists-check
         path: "protocols/schema.yaml"
         on_failure:
-          message: "Create protocols/schema.yaml before advancing — the schema defines validation rules for protocols and sessions."
+          message: "Create protocols/schema.yaml before advancing -- the schema defines validation rules for protocols and sessions."
           severity: warning
       - type: manual-confirm
         prompt: "User confirmed single-level inheritance model (protocol -> session)?"
@@ -38,32 +38,32 @@ phases:
       - type: file-exists-check
         path: "protocols/examples/mouse_surgery_protocol.yaml"
         on_failure:
-          message: "Create protocols/examples/mouse_surgery_protocol.yaml — example protocol required."
+          message: "Create protocols/examples/mouse_surgery_protocol.yaml -- example protocol required."
           severity: warning
       - type: file-exists-check
         path: "sessions/examples/mouse_001_session_20260406.yaml"
         on_failure:
-          message: "Create sessions/examples/mouse_001_session_20260406.yaml — example session required."
+          message: "Create sessions/examples/mouse_001_session_20260406.yaml -- example session required."
           severity: warning
       - type: file-exists-check
         path: "labmeta/resolver.py"
         on_failure:
-          message: "Create labmeta/resolver.py — the inheritance resolver is a core module."
+          message: "Create labmeta/resolver.py -- the inheritance resolver is a core module."
           severity: warning
       - type: file-exists-check
         path: "labmeta/cli.py"
         on_failure:
-          message: "Create labmeta/cli.py — the CLI entry point is required."
+          message: "Create labmeta/cli.py -- the CLI entry point is required."
           severity: warning
       - type: file-exists-check
         path: "labmeta/schema.py"
         on_failure:
-          message: "Create labmeta/schema.py — the validation module is required."
+          message: "Create labmeta/schema.py -- the validation module is required."
           severity: warning
       - type: file-exists-check
         path: "labmeta/store.py"
         on_failure:
-          message: "Create labmeta/store.py — the YAML read/write module is required."
+          message: "Create labmeta/store.py -- the YAML read/write module is required."
           severity: warning
       - type: manual-confirm
         prompt: "All Leadership agents approve the implementation?"
@@ -167,5 +167,5 @@ hints:
     lifecycle: show-every-session
 
   - id: delegate-reminder
-    message: "Coordinator delegates — Implementers write code, TestEngineer writes tests, Leadership reviews."
+    message: "Coordinator delegates -- Implementers write code, TestEngineer writes tests, Leadership reviews."
     lifecycle: show-every-session

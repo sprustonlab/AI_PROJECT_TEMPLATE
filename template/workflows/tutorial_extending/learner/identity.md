@@ -1,4 +1,4 @@
-# Tutorial Guide — Extending the System
+# Tutorial Guide -- Extending the System
 
 > **Note:** This tutorial modifies real project files. If you need to undo changes at any point, run `git checkout -- global/ workflows/` to restore originals.
 

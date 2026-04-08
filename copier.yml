@@ -17,10 +17,10 @@ quick_start:
     (multi-agent collaboration). This choice controls how many
     EXAMPLES are pre-loaded.
   choices:
-    "Give me everything — learning mode": everything
-    "Reasonable defaults — first project": defaults
-    "Start empty — experienced user": empty
-    "Ask me about each — granular": custom
+    "Give me everything -- learning mode": everything
+    "Reasonable defaults -- first project": defaults
+    "Start empty -- experienced user": empty
+    "Ask me about each -- granular": custom
   default: "defaults"
 
 example_rules:
@@ -82,8 +82,8 @@ target_platform:
 claudechic_mode:
   type: str
   choices:
-    "Standard — installs from git, updates via pixi update (recommended)": standard
-    "Developer — clones locally for hacking on claudechic itself": developer
+    "Standard -- installs from git, updates via pixi update (recommended)": standard
+    "Developer -- clones locally for hacking on claudechic itself": developer
   default: "standard"
   help: |
     Standard mode: claudechic installed from git URL. You get updates with `pixi update`.
@@ -126,8 +126,8 @@ codebase_link_mode:
   type: str
   when: "{{ existing_codebase }}"
   choices:
-    "Symlink — saves disk space, changes reflect immediately (Linux/macOS)": symlink
-    "Copy — works everywhere, independent copy": copy
+    "Symlink -- saves disk space, changes reflect immediately (Linux/macOS)": symlink
+    "Copy -- works everywhere, independent copy": copy
   default: "symlink"
   help: "How to integrate the existing codebase into repos/?"
 
@@ -178,7 +178,7 @@ _exclude:
 
 _tasks:
   # Post-generation: make scripts executable
-  - "chmod +x activate scripts/*.py 2>/dev/null || true"
+  - "{% if _copier_conf.os != 'windows' %}chmod +x activate scripts/*.py 2>/dev/null || true{% endif %}"
   # Post-generation: clone claudechic for developer mode
   - "{% if claudechic_mode == 'developer' %}git clone https://github.com/sprustonlab/claudechic submodules/claudechic{% endif %}"
   # Post-generation: integrate existing codebase if path was provided

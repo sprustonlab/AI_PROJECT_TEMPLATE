@@ -6,9 +6,9 @@ You are helping the user set up a new project using the AI_PROJECT_TEMPLATE. Gui
 
 Ask the user about their project. You need to understand:
 
-1. **Project name** — What should we call this project? (used for directory name and environment naming)
-2. **Project type** — Is this a general software project or scientific computing/research?
-3. **Existing code** — Are they starting fresh or wrapping an existing codebase?
+1. **Project name** -- What should we call this project? (used for directory name and environment naming)
+2. **Project type** -- Is this a general software project or scientific computing/research?
+3. **Existing code** -- Are they starting fresh or wrapping an existing codebase?
 
 Be conversational. If they say "I have a Python project for analyzing neuroscience data", you already know: project_type=scientific, science_domain=biology. Don't ask questions you can infer.
 
@@ -18,9 +18,9 @@ Every project always gets the full infrastructure: workflows (phase-gated proces
 
 | Preset | What you get | Best for |
 |--------|-------------|----------|
-| **everything** | All example rules, specialist roles, tutorial workflows, pattern miner | Learning the system — explore everything |
-| **defaults** | Example rules, specialist roles. No tutorials, no pattern miner. | First real project — useful defaults without clutter |
-| **empty** | Infrastructure only — no examples, no tutorials | Experienced users who'll add what they need |
+| **everything** | All example rules, specialist roles, tutorial workflows, pattern miner | Learning the system -- explore everything |
+| **defaults** | Example rules, specialist roles. No tutorials, no pattern miner. | First real project -- useful defaults without clutter |
+| **empty** | Infrastructure only -- no examples, no tutorials | Experienced users who'll add what they need |
 | **custom** | You pick each category individually | Specific needs |
 
 **Recommendation:** Start with `defaults` for a first project, `everything` if they want to learn.
@@ -69,4 +69,4 @@ After Copier runs, report:
 
 - If the user provides a path to an existing codebase, the post-generation task will symlink it into `repos/` and check for `.claude/` conflicts
 - The `activate` script handles pixi bootstrap, environment installation, and PATH setup automatically
-- All example content is just files in the right directories — it can be added or removed later without breaking anything
+- All example content is just files in the right directories -- it can be added or removed later without breaking anything

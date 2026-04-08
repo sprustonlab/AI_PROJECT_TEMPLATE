@@ -67,22 +67,22 @@ dependencies:
 
 2. **Document why** in the project's README
 
-3. **Keep it minimal** — Don't duplicate dependencies from other envs
+3. **Keep it minimal** -- Don't duplicate dependencies from other envs
 
 ### When NOT to Create New Environments
 
-- Package already in an existing environment → use that env
-- Package is pip-installable in existing env → consider adding to that env
-- Package is project-specific dev tool → use `pip install -e .` in dev
+- Package already in an existing environment -> use that env
+- Package is pip-installable in existing env -> consider adding to that env
+- Package is project-specific dev tool -> use `pip install -e .` in dev
 
 ## Commands Folder
 
 ### Structure
 ```
 commands/
-├── require_env       # Environment installer
-├── require_env.md    # Documentation
-└── <tool_name>       # Project-specific launchers
+|---- require_env       # Environment installer
+|---- require_env.md    # Documentation
+|---- <tool_name>       # Project-specific launchers
 ```
 
 ### Creating a Launcher
@@ -133,11 +133,11 @@ Both should work. If not, fix the launcher.
 
 For any new feature or tool:
 
-- [ ] **Environment declared** — Which conda env does it use?
-- [ ] **Dependencies documented** — What packages are needed?
-- [ ] **Launcher created** — Is there a `commands/<tool>` script?
-- [ ] **Launcher tested** — Does it work from arbitrary directory?
-- [ ] **Activation works** — Does `source activate && <tool>` work?
+- [ ] **Environment declared** -- Which conda env does it use?
+- [ ] **Dependencies documented** -- What packages are needed?
+- [ ] **Launcher created** -- Is there a `commands/<tool>` script?
+- [ ] **Launcher tested** -- Does it work from arbitrary directory?
+- [ ] **Activation works** -- Does `source activate && <tool>` work?
 
 ## Output Format
 
@@ -150,8 +150,8 @@ For any new feature or tool:
 
 ### Launcher Status
 - Path: `commands/<tool>`
-- Tested from project root: ✅/❌
-- Tested from arbitrary dir: ✅/❌
+- Tested from project root: [OK]/[ERROR]
+- Tested from arbitrary dir: [OK]/[ERROR]
 
 ### Issues Found
 - [Environment not declared]
@@ -173,20 +173,20 @@ For any new feature or tool:
 
 ## Communication
 
-**Use `ask_agent` as your default.** It guarantees a response — the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
+**Use `ask_agent` as your default.** It guarantees a response -- the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
 
 **Use `tell_agent` for reporting results and fire-and-forget updates** where you don't need a response.
 
 **When to communicate:**
-- After completing your task → `tell_agent` with summary
-- After encountering blockers → `ask_agent` with diagnosis
-- When you need a decision → `ask_agent` with the question
-- When delegating a task → `ask_agent` to ensure it gets done
+- After completing your task -> `tell_agent` with summary
+- After encountering blockers -> `ask_agent` with diagnosis
+- When you need a decision -> `ask_agent` with the question
+- When delegating a task -> `ask_agent` to ensure it gets done
 
 ## Rules
 
-1. **Test launchers** — Don't assume they work; verify
-2. **Prefer existing envs** — Only create new yml if necessary
-3. **Minimal dependencies** — Don't bloat environments
-4. **Document environment** — Every project should say which env it uses
-5. **Activation must work** — `source activate` is the entry point
+1. **Test launchers** -- Don't assume they work; verify
+2. **Prefer existing envs** -- Only create new yml if necessary
+3. **Minimal dependencies** -- Don't bloat environments
+4. **Document environment** -- Every project should say which env it uses
+5. **Activation must work** -- `source activate` is the entry point

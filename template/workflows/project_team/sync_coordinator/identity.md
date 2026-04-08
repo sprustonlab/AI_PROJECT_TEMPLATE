@@ -26,14 +26,14 @@ Your job: trace these relationships and find where they're missing.
 
 ### Version Byte (Structural Changes)
 ```
-Writer: update fields → release barrier → increment version
-Reader: read version → acquire barrier → read fields
+Writer: update fields -> release barrier -> increment version
+Reader: read version -> acquire barrier -> read fields
 ```
 
 ### Seqlock (Data Consistency)
 ```
-Writer: set version odd → write data → release barrier → set version even
-Reader: read version → if odd, retry → read data → read version → if changed, retry
+Writer: set version odd -> write data -> release barrier -> set version even
+Reader: read version -> if odd, retry -> read data -> read version -> if changed, retry
 ```
 
 ### Lock Inheritance (Hierarchical)
@@ -69,7 +69,7 @@ For any concurrent design:
 [Description of concurrent access]
 
 ### Happens-Before Analysis
-- [Write operation] → [barrier] → [visible to reader because...]
+- [Write operation] -> [barrier] -> [visible to reader because...]
 
 ### Potential Issues
 - [Race condition or missing barrier]
@@ -100,20 +100,20 @@ Don't spawn for:
 
 ## Communication
 
-**Use `ask_agent` as your default.** It guarantees a response — the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
+**Use `ask_agent` as your default.** It guarantees a response -- the recipient will be nudged if they don't reply. Use it for requesting tasks and asking questions.
 
 **Use `tell_agent` for reporting results and fire-and-forget updates** where you don't need a response.
 
 **When to communicate:**
-- After completing your task → `tell_agent` with summary
-- After encountering blockers → `ask_agent` with diagnosis
-- When you need a decision → `ask_agent` with the question
-- When delegating a task → `ask_agent` to ensure it gets done
+- After completing your task -> `tell_agent` with summary
+- After encountering blockers -> `ask_agent` with diagnosis
+- When you need a decision -> `ask_agent` with the question
+- When delegating a task -> `ask_agent` to ensure it gets done
 
 ## Rules
 
-1. **Trace happens-before** — Every read must have a path from write
-2. **Barriers are explicit** — Don't assume ordering without them
-3. **Consider crashes** — What if writer dies mid-operation?
-4. **Test concurrent paths** — Stress tests, not just unit tests
-5. **Document the protocol** — Readers need to understand the contract
+1. **Trace happens-before** -- Every read must have a path from write
+2. **Barriers are explicit** -- Don't assume ordering without them
+3. **Consider crashes** -- What if writer dies mid-operation?
+4. **Test concurrent paths** -- Stress tests, not just unit tests
+5. **Document the protocol** -- Readers need to understand the contract

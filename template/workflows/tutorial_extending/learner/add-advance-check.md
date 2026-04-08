@@ -5,10 +5,10 @@ In this exercise, the user adds a new advance check to this tutorial's own workf
 ## Step 1: Explain Advance Checks
 
 > "Advance checks are gate conditions that must ALL pass before a phase can transition to the next one (AND semantics). There are four types:
-> - **file-exists-check** — verifies a file exists at a given path
-> - **file-content-check** — verifies file content matches a regex pattern
-> - **command-output-check** — verifies a command's stdout matches a regex pattern
-> - **manual-confirm** — prompts the user to approve in the TUI
+> - **file-exists-check** -- verifies a file exists at a given path
+> - **file-content-check** -- verifies file content matches a regex pattern
+> - **command-output-check** -- verifies a command's stdout matches a regex pattern
+> - **manual-confirm** -- prompts the user to approve in the TUI
 >
 > If any check fails, `advance_phase` is blocked and returns an error message."
 
@@ -16,7 +16,7 @@ In this exercise, the user adds a new advance check to this tutorial's own workf
 
 Read and display `workflows/tutorial_extending/tutorial_extending.yaml` to the user. Point out the advance_checks sections:
 
-> "Look at the phases in this workflow — each one has a `file-exists-check` for a marker file. The `edit-yaml-config` phase only has a file-exists check. You're going to add a `manual-confirm` check to it, so advancing from that phase will require BOTH the marker file AND user confirmation."
+> "Look at the phases in this workflow -- each one has a `file-exists-check` for a marker file. The `edit-yaml-config` phase only has a file-exists check. You're going to add a `manual-confirm` check to it, so advancing from that phase will require BOTH the marker file AND user confirmation."
 
 ## Step 3: Explain the Exercise
 
@@ -95,7 +95,7 @@ if result.errors:
     for e in result.errors:
         print(f'  {e.source}: {e.message}')
 else:
-    print('No errors — YAML is valid!')
+    print('No errors -- YAML is valid!')
 "
 ```
 
@@ -111,4 +111,4 @@ Then call `advance_phase` to proceed.
 
 ## What You Learned
 
-> "You just modified this workflow while it was running! The change takes effect on the next `advance_phase` call. This is how workflows are iteratively refined — edit the YAML, verify it loads, and the system adapts."
+> "You just modified this workflow while it was running! The change takes effect on the next `advance_phase` call. This is how workflows are iteratively refined -- edit the YAML, verify it loads, and the system adapts."

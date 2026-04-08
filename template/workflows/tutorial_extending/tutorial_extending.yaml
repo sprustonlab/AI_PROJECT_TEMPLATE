@@ -21,7 +21,7 @@ phases:
     hints:
       - message: "Phase 2/4: Add an Advance Check. You'll add a gate condition to a workflow YAML."
         lifecycle: show-once
-      - message: "Advance checks use AND semantics — ALL checks must pass for phase transition."
+      - message: "Advance checks use AND semantics -- ALL checks must pass for phase transition."
         lifecycle: show-once
     advance_checks:
       - type: file-exists-check

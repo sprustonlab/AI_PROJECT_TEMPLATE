@@ -12,7 +12,7 @@ def get_tools(caller_name=None, send_notification=None, find_agent=None, **kwarg
     return [my_tool_1, my_tool_2]
 ```
 
-Discovery happens at startup — claudechic walks `mcp_tools/*.py`, imports each module, and calls `get_tools()`. Files that start with `_` are skipped (they're helpers, not entry points).
+Discovery happens at startup -- claudechic walks `mcp_tools/*.py`, imports each module, and calls `get_tools()`. Files that start with `_` are skipped (they're helpers, not entry points).
 
 ### Per-Tool Config
 
@@ -20,10 +20,10 @@ Each tool can have a sibling YAML config file with the same name:
 
 ```
 mcp_tools/
-├── lsf.py          # Tool implementation
-├── lsf.yaml        # Config for lsf.py (SSH target, defaults, etc.)
-├── _cluster.py     # Shared helper (underscore = not discovered)
-└── README.md
+|---- lsf.py          # Tool implementation
+|---- lsf.yaml        # Config for lsf.py (SSH target, defaults, etc.)
+|---- _cluster.py     # Shared helper (underscore = not discovered)
+|---- README.md
 ```
 
 Load config in your tool with:
@@ -40,12 +40,12 @@ The template includes HPC cluster job management with two backends:
 ### LSF (`lsf.py`)
 
 For IBM LSF clusters (bsub/bjobs). Provides tools for:
-- **cluster_jobs** — list running/pending jobs
-- **cluster_submit** — submit batch jobs via bsub
-- **cluster_job_details** — detailed job info
-- **cluster_kill** — kill jobs
-- **cluster_logs** — read job output/error logs
-- **cluster_watch** — poll a job until completion
+- **cluster_jobs** -- list running/pending jobs
+- **cluster_submit** -- submit batch jobs via bsub
+- **cluster_job_details** -- detailed job info
+- **cluster_kill** -- kill jobs
+- **cluster_logs** -- read job output/error logs
+- **cluster_watch** -- poll a job until completion
 
 ### SLURM (`slurm.py`)
 
@@ -54,11 +54,11 @@ For SLURM clusters (sbatch/squeue). Same tool names, same interface, different b
 ### Shared Infrastructure (`_cluster.py`)
 
 Both backends share common infrastructure via the underscore-prefixed `_cluster.py` helper:
-- **SSH layer** — run commands on remote login nodes
-- **Log reading** — tail job output files
-- **Watch mechanism** — poll job status with configurable intervals
-- **Config reader** — load per-tool YAML config
-- **Response helpers** — format tool responses consistently
+- **SSH layer** -- run commands on remote login nodes
+- **Log reading** -- tail job output files
+- **Watch mechanism** -- poll job status with configurable intervals
+- **Config reader** -- load per-tool YAML config
+- **Response helpers** -- format tool responses consistently
 
 ### Configuration
 
@@ -93,19 +93,19 @@ Host login1.example.com
     User your_username
 ```
 
-The cluster tools use `ssh <target> <command>` under the hood — any SSH config that makes `ssh login1.example.com bjobs` work interactively will also work from claudechic.
+The cluster tools use `ssh <target> <command>` under the hood -- any SSH config that makes `ssh login1.example.com bjobs` work interactively will also work from claudechic.
 
 ## Adding a New Tool
 
 1. Create `mcp_tools/my_tool.py` with a `get_tools(**kwargs)` function
 2. Optionally create `mcp_tools/my_tool.yaml` for configuration
-3. Restart claudechic — your tool is automatically discovered
+3. Restart claudechic -- your tool is automatically discovered
 
 The kwargs passed to `get_tools()` include:
-- `caller_name` — name of the calling agent
-- `send_notification` — function to send notifications to the TUI
-- `find_agent` — function to look up other agents
+- `caller_name` -- name of the calling agent
+- `send_notification` -- function to send notifications to the TUI
+- `find_agent` -- function to look up other agents
 
 ### Iron Rule
 
-Discovery never crashes. If your tool file has an import error or `get_tools()` raises, it's logged and skipped — other tools still load.
+Discovery never crashes. If your tool file has an import error or `get_tools()` raises, it's logged and skipped -- other tools still load.

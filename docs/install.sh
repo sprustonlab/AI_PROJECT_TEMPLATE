@@ -3,9 +3,9 @@ set -euo pipefail
 
 TEMPLATE_URL="https://github.com/sprustonlab/AI_PROJECT_TEMPLATE"
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  AI Project Template — setup"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "================================================"
+echo "  AI Project Template -- setup"
+echo "================================================="
 echo ""
 
 # 1. Check git is available (required for claudechic install)
@@ -88,10 +88,26 @@ pixi install
 # 6. Check Claude Code is installed and authenticated
 if ! command -v claude &> /dev/null; then
     echo ""
-    echo "✔ Project is ready!"
+    echo "[OK] Project is ready!"
     echo ""
     echo "Claude Code is not installed. To get started:"
     echo ""
+    if ! command -v npm &> /dev/null; then
+        echo "  Step 1 - Install Node.js (needed for npm):"
+        case "$(uname -s)" in
+            Darwin*) echo "    brew install node" ;;
+            Linux*)
+                if command -v apt-get &> /dev/null; then
+                    echo "    sudo apt install nodejs npm"
+                elif command -v dnf &> /dev/null; then
+                    echo "    sudo dnf install nodejs npm"
+                else
+                    echo "    See https://nodejs.org/en/download"
+                fi
+                ;;
+        esac
+        echo ""
+    fi
     echo "  npm install -g @anthropic-ai/claude-code"
     echo "  claude login"
     echo "  cd $PROJECT_DIR"
@@ -103,7 +119,7 @@ fi
 CLAUDE_AUTH=$(claude auth status 2>/dev/null || echo '{"loggedIn": false}')
 if echo "$CLAUDE_AUTH" | grep -q '"loggedIn": false'; then
     echo ""
-    echo "✔ Project is ready!"
+    echo "[OK] Project is ready!"
     echo ""
     echo "Claude Code is installed but not logged in. To get started:"
     echo ""
@@ -115,7 +131,7 @@ if echo "$CLAUDE_AUTH" | grep -q '"loggedIn": false'; then
 fi
 
 echo ""
-echo "✔ Project is ready! Launching claudechic..."
+echo "[OK] Project is ready! Launching claudechic..."
 echo ""
 cd "$PROJECT_DIR"
 source activate

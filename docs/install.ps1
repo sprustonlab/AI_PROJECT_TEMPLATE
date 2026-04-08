@@ -108,7 +108,7 @@ if ($QuickStart -eq "custom") {
     Write-Host "Using '$QuickStart' preset. Copier will ask a few remaining questions."
 }
 Write-Host ""
-pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_name=$ProjectName" -d "quick_start=$QuickStart" $TemplateUrl $ProjectDir
+pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust --vcs-ref main -d "project_name=$ProjectName" -d "quick_start=$QuickStart" $TemplateUrl $ProjectDir
 
 # 8. Install environments
 Write-Host ""

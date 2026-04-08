@@ -83,7 +83,7 @@ pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust --vcs-ref dev
 echo ""
 echo "Installing environments..."
 cd "$PROJECT_DIR"
-pixi install
+pixi install --all
 
 # 6. Check Claude Code is installed and authenticated
 if ! command -v claude &> /dev/null; then

@@ -89,7 +89,7 @@ pixi exec --spec "copier>=9,<10" --spec git -- copier copy --trust -d "project_n
 Write-Host ""
 Write-Host "Installing environments..."
 Push-Location $ProjectDir
-pixi install
+pixi install --all
 Pop-Location
 
 # 8. Check Claude Code is installed and authenticated

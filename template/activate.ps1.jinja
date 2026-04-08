@@ -7,11 +7,14 @@
 # Same seam registry as activate (bash) -- discovers all six seams.
 # =============================================================================
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $ProjectName = "{{ project_name }}"
 
 # --- Section 1: Path Resolution ----------------------------------------------
 $BASEDIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# Clear stale pixi manifest pointer from a previous project session
+$env:PIXI_PROJECT_MANIFEST = $null
 
 # --- Section 2: Pixi Bootstrap -----------------------------------------------
 if (-not (Get-Command pixi -ErrorAction SilentlyContinue)) {

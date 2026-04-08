@@ -58,7 +58,7 @@ $env:PROJECT_ROOT = $BASEDIR
 
 # Activate default pixi environment via shell-hook
 Push-Location $BASEDIR
-$shellHook = pixi shell-hook -s powershell 2>$null
+$shellHook = (pixi shell-hook -s powershell 2>$null) -join "`n"
 if ($shellHook) { Invoke-Expression $shellHook }
 Pop-Location
 

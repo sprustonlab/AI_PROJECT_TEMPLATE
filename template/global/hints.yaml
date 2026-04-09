@@ -47,3 +47,43 @@
 - id: tip_workflow_reload
   message: "Tip: Use /workflow reload to pick up manifest changes without restarting your session."
   lifecycle: show-once
+
+- id: tip_agent_create
+  message: "Tip: Use /agent <name> to create a new agent, or /agent <name> to switch to an existing one. Add a path to set its working directory."
+  lifecycle: show-once
+
+- id: tip_agent_reopen
+  message: "Tip: Use /agent reopen <name> to restore a previously closed agent from its saved session, resuming where it left off."
+  lifecycle: show-once
+
+- id: tip_model
+  message: "Tip: Use /model to switch the active agent's model (opus, sonnet, haiku) mid-session."
+  lifecycle: show-once
+
+- id: tip_resume
+  message: "Tip: Use /resume to browse and restore a previous session's chat history. You can also pass a session ID prefix."
+  lifecycle: show-once
+
+- id: tip_vim
+  message: "Tip: Use /vim to toggle vi mode for the input editor."
+  lifecycle: show-once
+
+- id: tip_reviews
+  message: "Tip: Use /reviews to see roborev code review results for your current branch."
+  lifecycle: show-once
+
+- id: tip_bang_shortcut
+  message: "Tip: Use !<cmd> as a shortcut for /shell <cmd>. For example, !ls or !git status. Empty ! opens an interactive shell."
+  lifecycle: show-once
+
+- id: tip_workflow_activate
+  message: "Tip: Type /<workflow-id> to activate any registered workflow directly (e.g., /project-team, /tutorial). Use /<workflow-id> stop to end it."
+  lifecycle: show-once
+
+- id: tip_diff_shortcut
+  message: "Tip: /d is a shortcut for /diff — quick way to review your changes."
+  lifecycle: show-once
+
+- id: tip_processes
+  message: "Tip: Use /processes to see all background processes running in the active agent."
+  lifecycle: show-once

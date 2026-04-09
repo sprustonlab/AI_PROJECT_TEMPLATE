@@ -9,7 +9,7 @@
 # --- Slash command discovery hints ---
 
 - id: tip_worktree
-  message: "Tip: Use /worktree <branch> to spin up a git worktree for parallel development. Finish with /worktree finish."
+  message: "Tip: Use /worktree <name> to create a git worktree with its own agent for parallel development. Use /worktree finish to merge back, /worktree discard to throw it away."
   lifecycle: show-once
 
 - id: tip_chicsession
@@ -25,19 +25,19 @@
   lifecycle: show-once
 
 - id: tip_reviewer
-  message: "Tip: Use /reviewer to spawn a review agent that critiques your current changes before committing."
+  message: "Tip: Use /reviewer to have your current agent review and critique your changes before committing. Add a focus area like /reviewer security."
   lifecycle: show-once
 
 - id: tip_plan_swarm
-  message: "Tip: Use /plan-swarm to brainstorm multiple implementation approaches in parallel before committing to one."
+  message: "Tip: Use /plan-swarm then describe your task. Three perspective agents (conservative, balanced, creative) will research, debate, and propose plans for you to choose from."
   lifecycle: show-once
 
 - id: tip_rewind
-  message: "Tip: Use /rewind to roll back to a previous checkpoint if you went down the wrong path."
+  message: "Tip: Use /rewind to undo file changes — Claude auto-checkpoints files as you work. Pick a snapshot to roll back to."
   lifecycle: show-once
 
 - id: tip_shell_interactive
-  message: "Tip: Use /shell -i to launch an interactive shell (vim, htop, psql, etc.) without leaving claudechic."
+  message: "Tip: Use /shell <cmd> to run commands inline, or /shell -i <cmd> for interactive tools. Common tools like vim, htop, psql are auto-detected. Shortcut: !ls."
   lifecycle: show-once
 
 - id: tip_clearui

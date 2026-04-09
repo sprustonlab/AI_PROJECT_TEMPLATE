@@ -80,7 +80,7 @@ Copier will ask you to configure your project. Here is every option:
 | **cluster_scheduler** | `lsf` | `use_cluster` is true | `lsf` (bsub/bjobs) or `slurm` (sbatch/squeue) |
 | **cluster_ssh_target** | *(empty)* | `use_cluster` is true | SSH login node (leave empty if scheduler is available locally) |
 | **codebase_link_mode** | `symlink` | `existing_codebase` is set | `symlink` (saves disk, changes reflect immediately) or `copy` (works everywhere) |
-| **example_rules** | `true` | `quick_start` is `custom` | Include example guardrail rules in `global/rules.yaml` |
+| **example_rules** | `true` | `quick_start` is `custom` | Include example global rules in `global/rules.yaml` |
 | **example_agent_roles** | `true` | `quick_start` is `custom` | Include specialist agent roles beyond the core 7 |
 | **example_workflows** | `true` | `quick_start` is `custom` | Include tutorial workflows |
 | **example_hints** | `true` | `quick_start` is `custom` | Include global hints (welcome message + workflow tips) |
@@ -240,43 +240,20 @@ because they reference `submodules/` paths that only exist in developer mode
 
 ---
 
-## Understanding the Rule Systems
+## Understanding the Rule System
 
-AI_PROJECT_TEMPLATE has three layers of rules. They are **not duplicates** —
-each layer operates at a different scope and is processed by a different engine.
+claudechic's guardrails engine evaluates rules on every tool call. Rules are
+defined in YAML manifests at two scopes:
 
-### Layer 1: Guardrail Rules (Always Active)
-
-**Processed by:** claudechic guardrails engine → Claude Code hooks (`.claude/settings.json`)
-**Scope:** Every Claude Code session, always
-
-These are the safety foundation. claudechic's guardrails engine evaluates them
-on every tool call, regardless of whether a workflow is active. Guardrail rules
-are defined internally by claudechic — they are always present and cannot be
-removed by project configuration.
-
-**Default guardrail rules:**
-
-| ID | Name | Enforcement | What It Does |
-|----|------|-------------|-------------|
-| R01 | deny-dangerous-ops | `deny` | Blocks `rm -rf /`, `git push --force`, `git reset --hard` |
-| R02 | pip-install-block | `deny` | Blocks direct `pip install` (use `pixi add` instead) |
-| R03 | conda-install-block | `deny` | Blocks direct `conda install` (use `pixi add` instead) |
-| R04 | subagent-push-block | `deny` | Only Coordinator can `git push` (team mode only) |
-| R05 | subagent-guardrail-config-block | `deny` | Only Coordinator can edit guardrail config (team mode only) |
-
-> R04 and R05 are always included (Project Team infrastructure always ships).
-
-### Layer 2: Global Rules (Always Active)
+### Global Rules (Always Active)
 
 **File:** `global/rules.yaml`
-**Processed by:** claudechic guardrails engine (runtime)
 **Scope:** Always active when claudechic is running
 
-These are project-level rules loaded by claudechic's ManifestLoader. They apply
-to every claudechic session, regardless of whether a workflow is active.
+These are project-level rules loaded by the ManifestLoader. They apply to every
+claudechic session, regardless of whether a workflow is active.
 
-**Default rules:**
+**Default rules** (shipped with `quick_start=defaults` or `everything`):
 
 | ID | Enforcement | What It Does |
 |----|-------------|-------------|
@@ -284,16 +261,12 @@ to every claudechic session, regardless of whether a workflow is active.
 | warn_sudo | `warn` | Warns when using `sudo` |
 | log_git_operations | `log` | Silently logs all git operations |
 
-### Layer 3: Workflow Rules (Phase-Scoped)
+### Workflow Rules (Scoped to Active Workflow)
 
-**File:** Inline in workflow YAML (`rules:` section)
-**Processed by:** claudechic workflow engine (runtime)
-**Scope:** Active only during specific workflow phases
+**File:** `rules:` section in workflow YAML (e.g., `workflows/project_team/project_team.yaml`)
+**Scope:** Active only when that workflow is running; can be scoped to specific phases or roles
 
-These rules are defined inside a workflow's YAML file and can be scoped to
-specific phases or roles.
-
-**Example from `project_team.yaml`:**
+**Rules in `project_team.yaml`:**
 
 | ID | Enforcement | Scope | What It Does |
 |----|-------------|-------|-------------|
@@ -301,30 +274,19 @@ specific phases or roles.
 | no_push_before_testing | `deny` | all phases except testing/signoff | Blocks `git push` until testing |
 | no_force_push | `deny` | all phases | Blocks force push entirely |
 
-### How the Layers Interact
+### How Rules Interact
 
-```
-Tool call happens (e.g., Bash with "pip install foo")
-    │
-    ├── Layer 1: Guardrail rules checked (always)
-    │   └── R02 matches → DENY (blocked before anything else)
-    │
-    ├── Layer 2: Global rules checked (if workflow active)
-    │   └── (no match in this example)
-    │
-    └── Layer 3: Workflow rules checked (if workflow active + phase matches)
-        └── (no match in this example)
-```
+Rules are additive across both scopes. A `deny` at any scope blocks the action.
+A `warn` at any scope shows a warning. Rules do not override each other.
 
-Rules do NOT override each other. A `deny` at any layer blocks the action.
-A `warn` at any layer shows a warning. They are additive.
+To add a custom rule, edit `global/rules.yaml` (always active) or add it to
+a workflow's YAML `rules:` section (workflow-scoped).
 
 ---
 
 ## Core Systems
 
-claudechic provides four core systems that work together. The rule layers above
-are part of the Guardrails/Rules system; the others are summarized here.
+claudechic provides several core systems that work together. The rule system above is part of the guardrails engine; the others are summarized here.
 
 ### Hints
 
@@ -501,10 +463,10 @@ Verify that claudechic is running (`pixi run claudechic`) — rules are
 evaluated at runtime by the claudechic engine. Check that
 `.claude/settings.json` exists and that your rule YAML is valid.
 
-### "Subagent" rules appear unexpectedly
+### Workflow rules appear unexpectedly
 
-R04/R05 are always included — they only fire when agents are spawned via the
-Project Team workflow. They have no effect on solo Claude Code sessions.
+Workflow-scoped rules (like `no_push_before_testing` or `no_direct_code_coordinator`)
+only fire when their workflow is active. They have no effect outside of that workflow.
 
 ### Agent can't find role file
 
@@ -527,7 +489,7 @@ is empty or missing, re-run `copier update` to add missing files. Core roles
 | **Workflow** | Phase-gated process defined by YAML in `workflows/` |
 | **Phase** | Named stage within a workflow; contains `advance_checks` and `hints` |
 | **Advance check** | Phase-gating condition in workflow YAML — all must pass (AND semantics) before a phase transition proceeds |
-| **Guardrail rule** | Always-active safety rule processed by claudechic's guardrails engine on every tool call |
+| **Guardrails engine** | claudechic's rule evaluation pipeline — processes all global and workflow rules on every tool call via Claude Code hooks |
 | **Global rule** | Rule in `global/rules.yaml` — always active when claudechic is running; user-editable project configuration |
 | **Workflow rule** | Rule in workflow YAML (e.g., `project_team.yaml`) — active only when that workflow is running; can be scoped to phases/roles |
 | **Context rule file** | `.claude/rules/*.md` file — Claude Code's native rules system; auto-loaded by glob when agents touch matching files |

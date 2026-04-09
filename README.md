@@ -19,19 +19,25 @@ cd my-project && pixi install
 my-project/
 ├── .claude/
 │   ├── commands/           # Claude Code skills (/project-team, /init_project)
+│   ├── rules/              # Context rule files (auto-loaded by glob for agent guidance)
 │   └── guardrails/         # Permission system (rules.yaml → generated hooks)
-├── workflows/
-│   └── project_team/       # Multi-agent roles (coordinator/, implementer/, skeptic/, etc.)
+├── workflows/              # Workflow YAML + role directories (identity.md, phase files)
+│   ├── project_team/       #   Multi-agent roles (coordinator/, implementer/, skeptic/, etc.)
+│   └── tutorial/           #   Tutorial workflow
+├── global/                 # Global configuration
+│   ├── rules.yaml          #   Runtime rules (active during workflows)
+│   └── hints.yaml          #   Hints configuration
 ├── commands/
 │   └── claudechic          # CLI wrapper (added to PATH by activate)
 ├── mcp_tools/              # MCP tool plugins (auto-discovered by claudechic)
 ├── repos/                  # Your codebases (symlinked/copied, added to PYTHONPATH)
-│   └── my_existing_repo/   # ← from existing_codebase option
 ├── submodules/             # (developer mode only)
-│   └── claudechic/         # Local editable clone of claudechic
+│   └── claudechic/         #   Core systems: hints, checks, guardrails, workflows engine
+├── envs/                   # Environment configurations
+├── scripts/                # Utility scripts
 ├── activate                # Source this to set up your environment
 ├── pixi.toml               # Package manager config
-└── copier.yml              # Template answers (for copier update)
+└── .copier-answers.yml     # Template answers (for copier update)
 ```
 
 ## Configuration Options

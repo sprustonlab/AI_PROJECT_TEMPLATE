@@ -167,7 +167,7 @@ my-project/
 │       └── learner/
 │
 ├── global/                      # Global configuration
-│   ├── rules.yaml               #   Global rules (active during workflows)
+│   ├── rules.yaml               #   Runtime rules (active during workflows)
 │   └── hints.yaml               #   Global hints (shown on workflow activation)
 │
 ├── .claude/
@@ -179,6 +179,13 @@ my-project/
 │   │   ├── role_guard.py        #   Role-based permission library
 │   │   ├── setup_ao_mode.sh     #   Activates team mode
 │   │   └── teardown_ao_mode.sh  #   Deactivates team mode
+│   ├── rules/                   #   Context rule files (agent guidance)
+│   │   ├── hints-system.md      #     Hints system rules
+│   │   ├── checks-system.md     #     Checks system rules
+│   │   ├── guardrails-system.md #     Guardrails system rules
+│   │   ├── workflows-system.md  #     Workflows system rules
+│   │   ├── manifest-yaml.md     #     Manifest YAML rules
+│   │   └── claudechic-overview.md #   Overview rules
 │   ├── commands/
 │   │   └── init_project.md      #   /init_project slash command
 │   └── skills/hints/

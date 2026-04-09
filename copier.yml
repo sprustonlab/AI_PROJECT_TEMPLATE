@@ -141,6 +141,9 @@ _exclude:
   - "**/.pytest_cache/**"
   - "**/*.pyc"
 
+  # claudechic developer rules (reference submodules/ paths only available in developer mode)
+  - "{% if claudechic_mode == 'standard' %}.claude/rules/{% endif %}"
+
   # Cluster: hardware capability toggle (not example content)
   - "{% if not use_cluster %}mcp_tools/_cluster.py{% endif %}"
   - "{% if not use_cluster or cluster_scheduler != 'lsf' %}mcp_tools/lsf.py{% endif %}"

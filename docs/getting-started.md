@@ -288,6 +288,52 @@ A `warn` at any layer shows a warning. They are additive.
 
 ---
 
+## Core Systems
+
+claudechic provides four core systems that work together. The rule layers above
+are part of the Guardrails/Rules system; the others are summarized here.
+
+### Hints
+
+Advisory toast notifications surfaced to agents during workflows. A 6-stage
+pipeline (activation → trigger → lifecycle → sort → budget → present) selects
+which hints to show. Each hint has a **trigger condition** — a `TriggerCondition`
+protocol implementation whose `check(state)` method decides whether the hint is
+relevant. Hints are defined in manifests (`global/hints.yaml` or inline in
+workflow YAML) and can also be generated from failed advance checks via the
+checks-to-hints adapter. State is persisted to `.claude/hints_state.json`.
+
+→ See `.claude/rules/hints-system.md` (context rule file) and `submodules/claudechic/claudechic/hints/` for details.
+
+### Checks
+
+A verification protocol used primarily as **advance checks** — the gate
+conditions that control phase transitions. The `Check` protocol defines
+`async def check(self) -> CheckResult`. Built-in types include
+`command-output-check`, `file-exists-check`, `file-content-check`, and
+`manual-confirm`. Advance checks use AND semantics: all must pass (sequential,
+short-circuit on first failure) before a phase transition proceeds. Failed
+checks are bridged into the hints pipeline via `check_failed_to_hint()`.
+
+→ See `.claude/rules/checks-system.md` (context rule file) and `submodules/claudechic/claudechic/checks/` for details.
+
+### Workflows, Phases & Chicsessions
+
+The orchestration layer. A **ManifestLoader** discovers and parses all manifest
+files (`global/*.yaml` + `workflows/*/*.yaml`), dispatching sections to
+registered parsers. The `WorkflowEngine` manages phase state and executes
+advance checks at phase boundaries. **Phases** are named stages containing
+`advance_checks` and `hints` declarations. Agent prompts are assembled from
+`identity.md` + `{phase}.md` files in each role directory.
+
+**Chicsessions** are named multi-agent session snapshots stored at
+`.chicsessions/{name}.json`. They capture `workflow_state` as an opaque dict,
+enabling save/restore of the full multi-agent context.
+
+→ See `.claude/rules/workflows-system.md` (context rule file) and `submodules/claudechic/claudechic/workflows/` for details.
+
+---
+
 ## Common Workflows
 
 ### Starting a Project Team Session
@@ -391,7 +437,7 @@ The `use_cluster` toggle is separate (hardware capability, not example content).
 | Core 7 agent roles | ✅ | ✅ | ✅ | ✅ |
 | Project Team workflow YAML | ✅ | ✅ | ✅ | ✅ |
 | Hints engine (`hints/`) | ✅ | ✅ | ✅ | ✅ |
-| Example guardrail rules (`global/rules.yaml`) | ✅ | ✅ | ❌ | per `example_rules` |
+| Example runtime rules (`global/rules.yaml`) | ✅ | ✅ | ❌ | per `example_rules` |
 | Specialist agent roles (8 extra) | ✅ | ✅ | ❌ | per `example_agent_roles` |
 | Onboarding hints (`global/hints.yaml`) | ✅ | ✅ | ❌ | per `example_hints` |
 | Tutorial workflows | ✅ | ❌ | ❌ | per `example_workflows` |
@@ -448,13 +494,18 @@ is empty or missing, re-run `copier update` to add missing files. Core roles
 | **Project Team** | Multi-agent workflow system (`workflows/project_team/`) |
 | **Agent role** | Markdown file defining one agent's responsibilities |
 | **Workflow** | Phase-gated process defined by YAML in `workflows/` |
-| **Phase** | Named stage within a workflow |
-| **Advance check** | Gate condition for phase transitions |
-| **Guardrails** | Permission/safety system — rules generate hooks |
-| **Global rule** | Rule in `global/rules.yaml` — active during workflows |
-| **Workflow rule** | Rule in workflow YAML `rules:` — active in specific phases |
-| **Hook (generated)** | Claude Code hook in `settings.json`, auto-generated from rules |
-| **Hints** | Contextual toast notifications |
+| **Phase** | Named stage within a workflow; contains `advance_checks` and `hints` |
+| **Advance check** | Phase-gating condition in workflow YAML — all must pass (AND semantics) before a phase transition proceeds |
+| **Guardrail rule** | Always-active safety rule in `.claude/guardrails/rules.yaml` — generates Claude Code hooks |
+| **Runtime rule** | Rule in `global/rules.yaml` or workflow YAML — active during workflows (covers both global and phase-scoped rules) |
+| **Context rule file** | `.claude/rules/*.md` file — Claude Code's native rules system; auto-loaded by glob when agents touch matching files |
+| **Hook (generated)** | Claude Code hook in `settings.json`, auto-generated from guardrail rules |
+| **Manifest** | Any YAML file parsed by ManifestLoader (`global/*.yaml`, `workflows/*/*.yaml`) — the user-facing configuration surface |
+| **ManifestLoader** | Universal parser that discovers manifest files and dispatches sections to registered `ManifestSection[T]` parsers |
+| **Hints** | Contextual toast notifications surfaced during workflows via a 6-stage pipeline |
+| **Trigger condition** | `TriggerCondition` protocol in the hints system — `check(state) -> bool` decides if a hint is relevant |
+| **Chicsession** | Named multi-agent session snapshot at `.chicsessions/{name}.json` — stores `workflow_state` for save/restore |
+| **Namespace** | Qualifier prefix for IDs (e.g., `global:`, `project-team:`). Bare names in YAML, qualified at runtime. |
 | **Enforcement levels** | `deny` (hard block), `warn` (ack required), `log` (silent audit) |
 
 ---

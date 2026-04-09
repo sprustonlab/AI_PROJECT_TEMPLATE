@@ -94,6 +94,10 @@ Run `/project-team` in claudechic to start the structured workflow:
 
 Each phase has a user checkpoint. See [`workflows/project_team/README.md`](workflows/project_team/README.md) for detailed documentation and tips.
 
+### Core Systems (via claudechic)
+Hints · Advance Checks · Rules · Phases · Workflows · Chicsessions
+→ See [docs/getting-started.md](docs/getting-started.md) for details.
+
 ### Existing Codebase Integration
 
 If you provide a path to an existing codebase during setup, it's linked (Linux/macOS) or copied (Windows) into `repos/`. The `activate` script adds `repos/*/` to PYTHONPATH so your packages are importable.

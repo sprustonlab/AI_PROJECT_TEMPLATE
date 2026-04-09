@@ -18,19 +18,20 @@ cd my-project && pixi install
 ```
 my-project/
 ├── .claude/
-│   ├── commands/           # Claude Code skills (/project-team, /init_project)
-│   └── rules/              # Context rule files (auto-loaded by glob for agent guidance)
-├── workflows/              # Workflow YAML + role directories (identity.md, phase files)
-│   ├── project_team/       #   Multi-agent roles (coordinator/, implementer/, skeptic/, etc.)
-│   └── tutorial/           #   Tutorial workflow
+│   ├── commands/           # Slash commands (/git_setup)
+│   └── rules/              # Agent context files (developer mode only -- see docs)
+├── workflows/              # Workflow definitions + agent role directories
+│   ├── project_team/       #   Multi-agent workflow (coordinator/, implementer/, skeptic/, ...)
+│   ├── tutorial/           #   Tutorial workflow
+│   └── ...                 #   Additional workflows (tutorial_extending, etc.)
 ├── global/                 # Global configuration
-│   ├── rules.yaml          #   Runtime rules (active during workflows)
-│   └── hints.yaml          #   Hints configuration
+│   ├── rules.yaml          #   Project rules (always active when claudechic is running)
+│   └── hints.yaml          #   Contextual tips shown to agents (feature discovery, workflow guidance)
 ├── commands/
-│   └── claudechic          # CLI wrapper (added to PATH by activate)
+│   └── claudechic          # Type this to get started
 ├── mcp_tools/              # MCP tool plugins (auto-discovered by claudechic)
 ├── repos/                  # Your codebases (symlinked/copied, added to PYTHONPATH)
-├── submodules/             # (developer mode only)
+├── submodules/             # Developer mode only — for editing claudechic source
 │   └── claudechic/         #   Core systems: hints, checks, guardrails, workflows engine
 ├── envs/                   # Environment configurations
 ├── scripts/                # Utility scripts
@@ -41,18 +42,17 @@ my-project/
 
 ## Configuration Options
 
-The installer asks these questions:
+The installer asks these questions (see [getting-started guide](docs/getting-started.md) for full details including quick start presets):
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| **Guardrails** | yes | Permission system for Claude Code tool calls |
-| **Project team** | yes | Multi-agent workflow (Coordinator, Implementer, Skeptic) |
-| **Pattern miner** | no | Scans session history for user corrections |
-| **Target platform** | auto | Which OS to solve dependencies for |
-| **Claudechic mode** | standard | Standard (git URL) or developer (local editable) |
-| **Cluster** | no | HPC job management (LSF or SLURM) |
-| **Git init** | yes | Initialize a git repo with initial commit |
-| **Existing codebase** | — | Path to integrate an existing project |
+| **Project name** (`project_name`) | *(required)* | Directory name and pixi environment name |
+| **Quick start** (`quick_start`) | `defaults` | How much example content to include (`everything` / `defaults` / `empty` / `custom`) |
+| **Target platform** (`target_platform`) | `auto` | Which OS to solve dependencies for |
+| **Claudechic mode** (`claudechic_mode`) | `standard` | Standard (git URL) or developer (local editable) |
+| **Cluster** (`use_cluster`) | `false` | HPC job management (LSF or SLURM) |
+| **Git init** (`init_git`) | `true` | Initialize a git repo with initial commit |
+| **Existing codebase** (`existing_codebase`) | *(empty)* | Path to integrate an existing project |
 
 ## Usage
 
@@ -62,7 +62,7 @@ source activate      # Sets up PATH, PYTHONPATH, shows available tools
 pixi run claudechic  # Launch the TUI
 ```
 
-In claudechic, run `/project-team` to start the multi-agent workflow.
+In claudechic, type `/project-team` to start the multi-agent workflow. (This is a claudechic workflow, not a Claude Code slash command.)
 
 ## Components
 
@@ -78,9 +78,13 @@ Our fork adds:
 
 ### Guardrails & Rules
 
-Rule-based permission system for Claude Code tool calls, processed at runtime by claudechic. Guardrail rules (always active) block dangerous operations like `rm -rf /` and `git push --force`. Runtime rules in `global/rules.yaml` and workflow YAML add workflow-scoped enforcement.
+Rule-based permission system for Claude Code tool calls, processed at runtime by claudechic. Guardrail rules (always active) block dangerous operations like `rm -rf /` and `git push --force`. Global rules in `global/rules.yaml` and workflow rules in workflow YAML add additional enforcement.
 
 See [docs/getting-started.md](docs/getting-started.md) for full documentation on rule layers, enforcement levels, and adding custom rules.
+
+### Agent Context Files (`.claude/rules/`)
+
+In developer mode (`claudechic_mode=developer`), the generated project includes `.claude/rules/*.md` files. These are **agent context files** -- Claude Code's native rules system that auto-loads guidance when agents touch files matching configured glob patterns. They document claudechic internals (hints, checks, guardrails, workflows, manifest YAML) and are distinct from the guardrails engine and rule systems described above. See [docs/getting-started.md](docs/getting-started.md) for details on each file.
 
 ### MCP Tools
 
@@ -90,7 +94,7 @@ See [`mcp_tools/README.md`](template/mcp_tools/README.md) for full documentation
 
 ### Multi-Agent Project Team
 
-Run `/project-team` in claudechic to start the structured workflow:
+Type `/project-team` in claudechic to start the structured workflow:
 
 1. **Vision** — describe what you want, agent clarifies and confirms
 2. **Specification** — leadership agents (Composability, Terminology, UserAlignment, Skeptic) draft a spec
@@ -100,8 +104,16 @@ Run `/project-team` in claudechic to start the structured workflow:
 Each phase has a user checkpoint. See [`workflows/project_team/README.md`](workflows/project_team/README.md) for detailed documentation and tips.
 
 ### Core Systems (via claudechic)
-Hints · Advance Checks · Rules · Phases · Workflows · Chicsessions
-→ See [docs/getting-started.md](docs/getting-started.md) for details.
+
+claudechic provides several interlocking systems beyond guardrails:
+
+- **Workflows** -- phase-gated processes that structure multi-agent collaboration
+- **Phases** -- named workflow stages with scoped rules, hints, and advance checks
+- **Hints** -- contextual toast notifications surfaced to agents during workflows
+- **Advance Checks** -- gate conditions that must pass before a phase transition proceeds
+- **Chicsessions** -- named multi-agent session snapshots for save/restore
+
+→ See [docs/getting-started.md](docs/getting-started.md) for full documentation.
 
 ### Existing Codebase Integration
 

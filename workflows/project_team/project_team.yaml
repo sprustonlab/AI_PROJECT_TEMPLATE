@@ -63,5 +63,5 @@ rules:
     trigger: PreToolUse/Bash
     enforcement: deny
     detect:
-      pattern: "git push.*--force|git push.*-f"
+      pattern: "git push\\s.*(--force-with-lease|--force\\b|-f\\b)"
     message: "Force push is never allowed"

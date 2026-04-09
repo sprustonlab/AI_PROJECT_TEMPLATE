@@ -61,7 +61,7 @@
   lifecycle: show-once
 
 - id: tip_resume
-  message: "Tip: Use /resume to browse and restore a previous session's chat history. You can also pass a session ID prefix."
+  message: "Tip: Use /resume to restore a previous single-agent session. For multi-agent workflows, use /chicsession restore instead."
   lifecycle: show-once
 
 - id: tip_vim

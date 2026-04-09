@@ -5,3 +5,45 @@
 - id: workflow_list_tip
   message: "Tip: Use /workflow list to see available workflows."
   lifecycle: show-once
+
+# --- Slash command discovery hints ---
+
+- id: tip_worktree
+  message: "Tip: Use /worktree <branch> to spin up a git worktree for parallel development. Finish with /worktree finish."
+  lifecycle: show-once
+
+- id: tip_chicsession
+  message: "Tip: Use /chicsession save <name> to snapshot your multi-agent session, and /chicsession restore <name> to resume it later."
+  lifecycle: show-once
+
+- id: tip_compactish
+  message: "Tip: Use /compactish to shrink your context when the session feels slow. Add -n for a dry run."
+  lifecycle: show-once
+
+- id: tip_diff
+  message: "Tip: Use /diff to review uncommitted changes. Optionally specify a target like /diff main."
+  lifecycle: show-once
+
+- id: tip_reviewer
+  message: "Tip: Use /reviewer to spawn a review agent that critiques your current changes before committing."
+  lifecycle: show-once
+
+- id: tip_plan_swarm
+  message: "Tip: Use /plan-swarm to brainstorm multiple implementation approaches in parallel before committing to one."
+  lifecycle: show-once
+
+- id: tip_rewind
+  message: "Tip: Use /rewind to roll back to a previous checkpoint if you went down the wrong path."
+  lifecycle: show-once
+
+- id: tip_shell_interactive
+  message: "Tip: Use /shell -i to launch an interactive shell (vim, htop, psql, etc.) without leaving claudechic."
+  lifecycle: show-once
+
+- id: tip_clearui
+  message: "Tip: Use /clearui to clean up the UI without losing conversation history. /clear resets everything."
+  lifecycle: show-once
+
+- id: tip_workflow_reload
+  message: "Tip: Use /workflow reload to pick up manifest changes without restarting your session."
+  lifecycle: show-once

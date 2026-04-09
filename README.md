@@ -19,8 +19,7 @@ cd my-project && pixi install
 my-project/
 ├── .claude/
 │   ├── commands/           # Claude Code skills (/project-team, /init_project)
-│   ├── rules/              # Context rule files (auto-loaded by glob for agent guidance)
-│   └── guardrails/         # Permission system (rules.yaml → generated hooks)
+│   └── rules/              # Context rule files (auto-loaded by glob for agent guidance)
 ├── workflows/              # Workflow YAML + role directories (identity.md, phase files)
 │   ├── project_team/       #   Multi-agent roles (coordinator/, implementer/, skeptic/, etc.)
 │   └── tutorial/           #   Tutorial workflow
@@ -77,11 +76,11 @@ Our fork adds:
 - **`/clearui`** — clears old messages when the session feels sluggish. You lose scroll history but responsiveness returns.
 - **Shared permission mode** — when you cycle through default / edit / plan / bypass with `Shift+Tab`, all agents and subagents share the same mode. Note: bypass mode only works when launched with `claudechic --yolo` (agents can run any command — use with caution).
 
-### Guardrails
+### Guardrails & Rules
 
-Rule-based permission system for Claude Code tool calls. Rules are defined in `.claude/guardrails/rules.yaml` and compiled into hook scripts. The default rule (R01) blocks dangerous operations like `rm -rf /` and `git push --force`.
+Rule-based permission system for Claude Code tool calls, processed at runtime by claudechic. Guardrail rules (always active) block dangerous operations like `rm -rf /` and `git push --force`. Runtime rules in `global/rules.yaml` and workflow YAML add workflow-scoped enforcement.
 
-See [`.claude/guardrails/README.md`](.claude/guardrails/README.md) for full documentation on adding rules, roles, enforcement levels, and the ack flow.
+See [docs/getting-started.md](docs/getting-started.md) for full documentation on rule layers, enforcement levels, and adding custom rules.
 
 ### MCP Tools
 

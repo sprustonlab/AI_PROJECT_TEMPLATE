@@ -10,9 +10,11 @@ import asyncio
 import json
 import logging
 import os
+import shlex
+import shutil
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +39,140 @@ def _load_config(tool_file: Path) -> dict:
         with open(config_path) as f:
             return yaml.safe_load(f) or {}
     return {}
+
+
+# ---------------------------------------------------------------------------
+# Path normalization helpers
+# ---------------------------------------------------------------------------
+
+
+def _normalize_local_path(p: str) -> str:
+    """Normalize a LOCAL path for prefix matching.
+
+    - Expand ~ and environment variables (safe: uses local env)
+    - Convert backslashes to forward slashes
+    - Strip trailing slashes (except bare "/")
+    """
+    expanded = os.path.expandvars(os.path.expanduser(p))
+    forward = expanded.replace("\\", "/")
+    return forward.rstrip("/") if forward != "/" else forward
+
+
+def _normalize_cluster_path(p: str) -> str:
+    """Normalize a CLUSTER path for prefix matching.
+
+    - Strip trailing slashes (except bare "/")
+    - NO env var expansion (local $HOME != cluster $HOME)
+    - NO tilde expansion (local ~ != cluster ~)
+    - NO backslash conversion (cluster paths are always POSIX)
+    """
+    return p.rstrip("/") if p != "/" else p
+
+
+# ---------------------------------------------------------------------------
+# PathMapper
+# ---------------------------------------------------------------------------
+
+
+class PathMapper:
+    """Bidirectional path translation between local and cluster filesystems.
+
+    Maintains two sorted rule lists — one sorted by local prefix length
+    (for to_cluster lookups) and one by cluster prefix length (for to_local
+    lookups). An empty rule list means all paths pass through unchanged.
+
+    All returned paths use forward slashes, even on Windows. Windows APIs
+    accept forward slashes natively.
+    """
+
+    def __init__(self, path_map: list[dict[str, str]] | None = None):
+        rules = []
+        for entry in (path_map or []):
+            local_val = entry.get("local", "")
+            cluster_val = entry.get("cluster", "")
+            if not local_val or not cluster_val:
+                raise ValueError(
+                    f"path_map entry must have non-empty 'local' and 'cluster' keys, "
+                    f"got: {entry!r}"
+                )
+            local = _normalize_local_path(local_val)
+            cluster = _normalize_cluster_path(cluster_val)
+            rules.append((local, cluster))
+        # Two sorted views — each direction matches against the correct prefix
+        self._rules_by_local: list[tuple[str, str]] = sorted(
+            rules, key=lambda r: len(r[0]), reverse=True,
+        )
+        self._rules_by_cluster: list[tuple[str, str]] = sorted(
+            rules, key=lambda r: len(r[1]), reverse=True,
+        )
+
+    def to_cluster(self, local_path: str) -> str:
+        """Translate a local path to a cluster path."""
+        normalized = _normalize_local_path(local_path)
+        for local_prefix, cluster_prefix in self._rules_by_local:
+            # Boundary-safe matching: prefix must align on "/" or be exact.
+            if normalized == local_prefix or normalized.startswith(local_prefix + "/"):
+                return cluster_prefix + normalized[len(local_prefix):]
+        return local_path  # passthrough
+
+    def to_local(self, cluster_path: str) -> str:
+        """Translate a cluster path to a local path.
+
+        Returns forward-slash paths on all platforms.
+        """
+        normalized = _normalize_cluster_path(cluster_path)
+        for local_prefix, cluster_prefix in self._rules_by_cluster:
+            if normalized == cluster_prefix or normalized.startswith(cluster_prefix + "/"):
+                return local_prefix + normalized[len(cluster_prefix):]
+        return cluster_path  # passthrough
+
+
+def _create_path_mapper(config: dict) -> PathMapper:
+    """Create a PathMapper from the config's path_map key."""
+    path_map = config.get("path_map")
+    if path_map is not None and not isinstance(path_map, list):
+        raise TypeError(
+            f"path_map must be a list of {{local, cluster}} dicts, "
+            f"got {type(path_map).__name__}: {path_map!r}"
+        )
+    log_access = config.get("log_access", "auto")
+    if log_access not in ("auto", "local", "ssh"):
+        raise ValueError(
+            f"log_access must be 'auto', 'local', or 'ssh', got: {log_access!r}"
+        )
+    return PathMapper(path_map)
+
+
+def _resolve_cwd(config: dict, path_mapper: PathMapper) -> str:
+    """Determine the effective cluster CWD for job submission.
+
+    Priority: config["remote_cwd"] > path_mapper.to_cluster(os.getcwd()) > os.getcwd()
+    """
+    remote_cwd = config.get("remote_cwd")
+    if remote_cwd:
+        return remote_cwd
+    return path_mapper.to_cluster(os.getcwd())
+
+
+# ---------------------------------------------------------------------------
+# Config readiness check
+# ---------------------------------------------------------------------------
+
+
+def _check_config_readiness(config: dict) -> str | None:
+    """Check if cluster config is ready for use.
+
+    Returns:
+        None if ready, or a string describing what's needed.
+    """
+    ssh_target = config.get("ssh_target", "")
+    has_local = shutil.which("bsub") is not None or shutil.which("sbatch") is not None
+
+    if not ssh_target and not has_local:
+        return "needs_setup"
+    if ssh_target and not config.get("path_map"):
+        return "incomplete"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -114,16 +250,24 @@ def _run_ssh(
 # ---------------------------------------------------------------------------
 
 
-def _resolve_log_path(log_path: str, execution_cwd: str | None) -> Path:
-    """Resolve a log file path, expanding $HOME and relative paths."""
-    expanded = os.path.expandvars(log_path)
-    p = Path(expanded)
-    if p.is_absolute():
-        return p
+def _resolve_log_path(
+    log_path: str,
+    execution_cwd: str | None,
+) -> str:
+    """Resolve a log file path on the cluster filesystem.
+
+    1. If absolute (starts with "/"), return as-is.
+    2. If relative, prepend execution_cwd.
+
+    Returns a cluster path string (not Path — may not be valid locally).
+    Uses startswith("/") instead of os.path.isabs() because cluster
+    paths are always POSIX and os.path.isabs() fails on Windows.
+    """
+    if log_path.startswith("/"):
+        return log_path
     if execution_cwd:
-        cwd_expanded = os.path.expandvars(execution_cwd)
-        return Path(cwd_expanded) / p
-    return p
+        return f"{execution_cwd}/{log_path}"
+    return log_path
 
 
 def _read_tail(path: Path, tail: int) -> str | None:
@@ -141,19 +285,145 @@ def _read_tail(path: Path, tail: int) -> str | None:
         return None
 
 
+# ---------------------------------------------------------------------------
+# LogReader strategy pattern
+# ---------------------------------------------------------------------------
+
+
+class LogReader(Protocol):
+    """Strategy for reading log file contents."""
+
+    def read_tail(self, cluster_path: str, tail: int) -> str | None:
+        """Read last `tail` lines of a log file (0 = full file).
+
+        Args:
+            cluster_path: The log file path on the cluster filesystem.
+            tail: Number of lines from the end (0 = all).
+
+        Returns:
+            File contents as a string, or None if unavailable.
+        """
+        ...
+
+
+class LocalLogReader:
+    """Read logs from local/mounted filesystem.
+
+    Translates cluster paths to local paths via PathMapper before reading.
+    """
+
+    def __init__(self, path_mapper: PathMapper | None = None):
+        self._path_mapper = path_mapper
+
+    def read_tail(self, cluster_path: str, tail: int) -> str | None:
+        local_path = cluster_path
+        if self._path_mapper:
+            local_path = self._path_mapper.to_local(cluster_path)
+        return _read_tail(Path(local_path), tail)
+
+
+class SSHLogReader:
+    """Read logs via SSH when no shared filesystem is available.
+
+    Uses the cluster path directly — no translation needed since the
+    SSH command runs on the cluster.
+    """
+
+    def __init__(self, ssh_target: str, profile: str | None = None):
+        self._ssh_target = ssh_target
+        self._profile = profile
+
+    def read_tail(self, cluster_path: str, tail: int) -> str | None:
+        if not self._ssh_target:
+            return None
+        safe_path = shlex.quote(cluster_path)
+        if tail > 0:
+            cmd = f"tail -n {tail} {safe_path}"
+        else:
+            cmd = f"cat {safe_path}"
+        stdout, stderr, rc = _run_ssh(
+            cmd, self._ssh_target, profile=self._profile, timeout=30,
+        )
+        if rc != 0:
+            log.debug(
+                "SSH log read failed (rc=%d) for %s: %s",
+                rc, cluster_path, stderr.strip(),
+            )
+            return None
+        return stdout
+
+
+class AutoLogReader:
+    """Try local filesystem first, fall back to SSH.
+
+    This is the default strategy (log_access: auto).
+    """
+
+    def __init__(self, local: LocalLogReader, ssh: SSHLogReader):
+        self._local = local
+        self._ssh = ssh
+
+    def read_tail(self, cluster_path: str, tail: int) -> str | None:
+        content = self._local.read_tail(cluster_path, tail)
+        if content is not None:
+            return content
+        log.debug(
+            "Local log read failed for %s, falling back to SSH", cluster_path,
+        )
+        return self._ssh.read_tail(cluster_path, tail)
+
+
+def _create_log_reader(
+    config: dict,
+    path_mapper: PathMapper | None = None,
+    profile: str | None = None,
+) -> LogReader:
+    """Create the appropriate LogReader based on config['log_access'].
+
+    Args:
+        config: The tool config dict.
+        path_mapper: For local path translation.
+        profile: Scheduler profile script (e.g., LSF profile path).
+
+    Modes:
+        "auto"  -- try local first, fall back to SSH (default)
+        "local" -- local filesystem only (NFS/SMB mount required)
+        "ssh"   -- always read via SSH (no shared filesystem)
+    """
+    mode = config.get("log_access", "auto")
+    ssh_target = config.get("ssh_target", "")
+
+    local = LocalLogReader(path_mapper)
+    ssh = SSHLogReader(ssh_target, profile)
+
+    if mode == "local":
+        return local
+    elif mode == "ssh":
+        return ssh
+    else:  # "auto"
+        return AutoLogReader(local, ssh)
+
+
 def _read_logs(
     job_id: str,
     get_job_status_fn,
     tail: int = 100,
+    log_reader: LogReader | None = None,
+    path_mapper: PathMapper | None = None,
 ) -> dict[str, Any]:
     """Read stdout/stderr log files for a cluster job.
 
-    Uses get_job_status_fn to extract log paths, then reads locally (NFS).
+    Args:
+        job_id: The cluster job ID.
+        get_job_status_fn: Function to get job details (returns dict).
+        tail: Number of lines from the end (0 = full log).
+        log_reader: Strategy for reading log contents.
+        path_mapper: For translating display paths in the response.
     """
     detail = get_job_status_fn(job_id)
-    stdout_log_path = detail.get("stdout_path")
-    stderr_log_path = detail.get("stderr_path")
-    execution_cwd = detail.get("execution_cwd")
+    stdout_log_path = detail.get("stdout_path")   # cluster path
+    stderr_log_path = detail.get("stderr_path")    # cluster path
+    execution_cwd = detail.get("execution_cwd")    # cluster path
 
     result: dict[str, Any] = {
         "job_id": job_id,
@@ -163,21 +433,28 @@ def _read_logs(
         "found": False,
     }
 
-    if stdout_log_path:
-        resolved = _resolve_log_path(stdout_log_path, execution_cwd)
-        content = _read_tail(resolved, tail)
-        if content is not None:
-            result["stdout"] = content
-            result["found"] = True
-            result["log_paths"]["stdout"] = str(resolved)
+    for stream in ("stdout", "stderr"):
+        raw_path = detail.get(f"{stream}_path")
+        if not raw_path:
+            continue
+        # Resolve relative paths (stays on cluster filesystem)
+        resolved = _resolve_log_path(raw_path, execution_cwd)
 
-    if stderr_log_path:
-        resolved = _resolve_log_path(stderr_log_path, execution_cwd)
-        content = _read_tail(resolved, tail)
+        if log_reader is not None:
+            # Reader handles transport (local+translation, SSH, or auto)
+            content = log_reader.read_tail(resolved, tail)
+        else:
+            # Legacy fallback: direct local read
+            content = _read_tail(Path(resolved), tail)
+
         if content is not None:
-            result["stderr"] = content
+            result[stream] = content
             result["found"] = True
-            result["log_paths"]["stderr"] = str(resolved)
+            # Return local path to the model if we have a mapper
+            display_path = (
+                path_mapper.to_local(resolved) if path_mapper else resolved
+            )
+            result["log_paths"][stream] = display_path
 
     return result
 
@@ -275,6 +552,19 @@ def _json_response(data: Any) -> dict[str, Any]:
     return _text_response(json.dumps(data, indent=2))
 
 
-def _error_response(text: str) -> dict[str, Any]:
+def _error_response(text: str, hint: str | None = None) -> dict[str, Any]:
     """Format an error response for MCP."""
-    return _text_response(text, is_error=True)
+    msg = text
+    if hint:
+        msg += f"\n\nHint: {hint}"
+    return _text_response(msg, is_error=True)
+
+
+def _error_with_hint(message: str, hint_type: str = "path") -> dict[str, Any]:
+    """Return an error response with a cluster_setup workflow hint."""
+    hints = {
+        "path": "Path may not be configured correctly. Run the cluster_setup workflow.",
+        "connection": "Cluster connection failed. Run the cluster_setup workflow.",
+        "first_use": "Cluster tools are not yet configured. Run the cluster_setup workflow.",
+    }
+    return _error_response(message, hint=hints.get(hint_type, hints["path"]))

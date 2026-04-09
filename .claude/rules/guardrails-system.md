@@ -11,7 +11,8 @@ LEAF MODULE: `rules.py` imports no other claudechic systems. `hooks.py` imports 
 ## Terminology
 
 - **Guardrail rule** — always-active safety rules in `.claude/guardrails/rules.yaml`.
-- **Runtime rule** — rules in `global/rules.yaml` or workflow YAML, active during workflows.
+- **Global rule** — rules in `global/rules.yaml`, always active when claudechic is running.
+- **Workflow rule** — rules in workflow YAML, active only when that workflow is running.
 - Both use the same `Rule` frozen dataclass and evaluation pipeline.
 
 ## Enforcement Levels

@@ -1,5 +1,7 @@
 # Getting Started with AI_PROJECT_TEMPLATE
 
+> **[Back to README](../README.md)**
+
 > This guide is for **humans** and **agents**. Sections marked with
 > **For Humans** or **For Agents** contain audience-specific details.
 > Everything else applies to both.
@@ -68,9 +70,21 @@ Copier will ask you to configure your project. Here is every option:
 | **target_platform** | `auto` | Platform to solve dependencies for (`linux-64`, `osx-arm64`, `win-64`, or `all`) |
 | **claudechic_mode** | `standard` | `standard` installs from git; `developer` clones locally for editing |
 | **use_cluster** | `false` | Enables HPC job management tools |
-| **cluster_scheduler** | `lsf` | `lsf` (bsub/bjobs) or `slurm` (sbatch/squeue) — only if cluster enabled |
 | **init_git** | `true` | Creates a git repo with initial commit |
 | **existing_codebase** | *(empty)* | Path to existing code to integrate into `repos/` |
+
+**Conditional options** -- these appear only when a parent option enables them:
+
+| Prompt | Default | Condition | What It Does |
+|--------|---------|-----------|-------------|
+| **cluster_scheduler** | `lsf` | `use_cluster` is true | `lsf` (bsub/bjobs) or `slurm` (sbatch/squeue) |
+| **cluster_ssh_target** | *(empty)* | `use_cluster` is true | SSH login node (leave empty if scheduler is available locally) |
+| **codebase_link_mode** | `symlink` | `existing_codebase` is set | `symlink` (saves disk, changes reflect immediately) or `copy` (works everywhere) |
+| **example_rules** | `true` | `quick_start` is `custom` | Include example guardrail rules in `global/rules.yaml` |
+| **example_agent_roles** | `true` | `quick_start` is `custom` | Include specialist agent roles beyond the core 7 |
+| **example_workflows** | `true` | `quick_start` is `custom` | Include tutorial workflows |
+| **example_hints** | `true` | `quick_start` is `custom` | Include global hints (welcome message + workflow tips) |
+| **example_patterns** | `false` | `quick_start` is `custom` | Include the pattern miner (session history analysis) |
 
 The **quick_start** preset controls how much example content ships with your project.
 Infrastructure (guardrails, workflows, hints engine, Project Team) is always included.
@@ -123,8 +137,8 @@ pixi run claudechic    # Start the claudechic TUI
 > # Check Claude Code settings exist
 > test -f .claude/settings.json && echo "settings: OK"
 >
-> # Check runtime rules are configured
-> test -f global/rules.yaml && echo "runtime rules: OK"
+> # Check global rules are configured
+> test -f global/rules.yaml && echo "global rules: OK"
 >
 > # Check Project Team agent roles exist
 > ls workflows/project_team/*/identity.md    # Should list coordinator, implementer, etc.
@@ -169,7 +183,7 @@ my-project/
 │       └── learner/
 │
 ├── global/                      # Global configuration
-│   ├── rules.yaml               #   Runtime rules (active during workflows)
+│   ├── rules.yaml               #   Project rules (always active when claudechic is running)
 │   └── hints.yaml               #   Global hints (shown on workflow activation)
 │
 ├── .claude/
@@ -182,7 +196,7 @@ my-project/
 │   │   ├── manifest-yaml.md     #     Manifest YAML context
 │   │   └── claudechic-overview.md #   Overview context
 │   └── commands/
-│       └── init_project.md      #   /init_project slash command
+│       └── git_setup.md         #   /git_setup slash command
 │
 ├── commands/                    # CLI commands (added to PATH by activate)
 ├── scripts/                     # Utility scripts
@@ -195,9 +209,34 @@ my-project/
 > - Agent roles: `workflows/project_team/<role>/identity.md`
 > - Workflow YAML: `workflows/<workflow_name>/<workflow_name>.yaml`
 > - Phase files: `workflows/<workflow_name>/<role>/<phase>.md`
-> - Runtime rules: `global/rules.yaml`
+> - Global rules: `global/rules.yaml`
 > - Context rule files: `.claude/rules/*.md`
 > - Project state: `.project_team/<project_name>/STATUS.md`
+
+### Agent Context Files (`.claude/rules/`)
+
+In developer mode (`claudechic_mode=developer`), the generated project includes
+`.claude/rules/*.md` files. These are **agent context files** -- Claude Code's
+native rules system that auto-loads guidance when agents touch files matching
+configured glob patterns. They document claudechic internals and are distinct
+from the guardrails engine and rule systems described above.
+
+| File | What It Documents |
+|------|------------------|
+| `hints-system.md` | Hints pipeline: activation, trigger, lifecycle, sort, budget, present |
+| `checks-system.md` | Check protocol, advance checks, AND semantics, check-to-hint adapter |
+| `guardrails-system.md` | Guardrail rule evaluation, hook integration |
+| `workflows-system.md` | ManifestLoader, WorkflowEngine, phases, chicsessions |
+| `manifest-yaml.md` | YAML manifest format, sections, namespace qualification |
+| `claudechic-overview.md` | High-level system overview |
+
+These files are **not present** in standard mode (`claudechic_mode=standard`)
+because they reference `submodules/` paths that only exist in developer mode
+(see `copier.yml` `_exclude` logic).
+
+> **For Agents:** These context files guide your behavior when you interact
+> with claudechic internals. You don't need to read them manually -- Claude Code
+> loads them automatically when relevant files are accessed.
 
 ---
 
@@ -228,14 +267,14 @@ removed by project configuration.
 
 > R04 and R05 are always included (Project Team infrastructure always ships).
 
-### Layer 2: Global Rules (Active During Workflows)
+### Layer 2: Global Rules (Always Active)
 
 **File:** `global/rules.yaml`
-**Processed by:** claudechic workflow engine (runtime)
-**Scope:** Active whenever any workflow is running
+**Processed by:** claudechic guardrails engine (runtime)
+**Scope:** Always active when claudechic is running
 
-These are runtime rules loaded by claudechic's ManifestLoader. They apply
-during all workflow sessions.
+These are project-level rules loaded by claudechic's ManifestLoader. They apply
+to every claudechic session, regardless of whether a workflow is active.
 
 **Default rules:**
 
@@ -383,9 +422,9 @@ The tutorial workflow teaches you the basics in 4 phases:
 Each phase has advance checks — you create marker files
 (`tutorial_basics_done.txt`, etc.) and call `advance_phase` to progress.
 
-### Adding Runtime Rules
+### Adding Global and Workflow Rules
 
-Runtime rules are defined in YAML manifests. To add a global rule (active
+Global and workflow rules are defined in YAML manifests. To add a global rule (active
 during all workflows), edit `global/rules.yaml`:
 
 ```yaml
@@ -431,7 +470,7 @@ The `use_cluster` toggle is separate (hardware capability, not example content).
 | Core 7 agent roles | ✅ | ✅ | ✅ | ✅ |
 | Project Team workflow YAML | ✅ | ✅ | ✅ | ✅ |
 | Hints engine (`hints/`) | ✅ | ✅ | ✅ | ✅ |
-| Example runtime rules (`global/rules.yaml`) | ✅ | ✅ | ❌ | per `example_rules` |
+| Example global rules (`global/rules.yaml`) | ✅ | ✅ | ❌ | per `example_rules` |
 | Specialist agent roles (8 extra) | ✅ | ✅ | ❌ | per `example_agent_roles` |
 | Onboarding hints (`global/hints.yaml`) | ✅ | ✅ | ❌ | per `example_hints` |
 | Tutorial workflows | ✅ | ❌ | ❌ | per `example_workflows` |
@@ -489,7 +528,8 @@ is empty or missing, re-run `copier update` to add missing files. Core roles
 | **Phase** | Named stage within a workflow; contains `advance_checks` and `hints` |
 | **Advance check** | Phase-gating condition in workflow YAML — all must pass (AND semantics) before a phase transition proceeds |
 | **Guardrail rule** | Always-active safety rule processed by claudechic's guardrails engine on every tool call |
-| **Runtime rule** | Rule in `global/rules.yaml` or workflow YAML — active during workflows (covers both global and phase-scoped rules) |
+| **Global rule** | Rule in `global/rules.yaml` — always active when claudechic is running; user-editable project configuration |
+| **Workflow rule** | Rule in workflow YAML (e.g., `project_team.yaml`) — active only when that workflow is running; can be scoped to phases/roles |
 | **Context rule file** | `.claude/rules/*.md` file — Claude Code's native rules system; auto-loaded by glob when agents touch matching files |
 | **Hook (generated)** | Claude Code hook in `settings.json`, managed by claudechic |
 | **Manifest** | Any YAML file parsed by ManifestLoader (`global/*.yaml`, `workflows/*/*.yaml`) — the user-facing configuration surface |
@@ -506,6 +546,6 @@ is empty or missing, re-run `copier update` to add missing files. Core roles
 
 - **Run the tutorial:** Type `/tutorial` in Claude Code to learn by doing
 - **Start a project:** Type `/project-team` and describe your goal
-- **Customize rules:** Edit `global/rules.yaml` to add runtime rules
+- **Customize rules:** Edit `global/rules.yaml` to add global rules
 - **Add MCP tools:** Drop Python files into `mcp_tools/` for custom tools
 - **Explore workflows:** Read `workflows/project_team/project_team.yaml` to understand phase definitions

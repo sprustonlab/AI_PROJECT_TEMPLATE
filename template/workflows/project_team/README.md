@@ -2,6 +2,8 @@
 
 A structured multi-agent workflow for building software projects with Claude Code. Launch it by running `/project-team` in claudechic.
 
+> **Part of AI_PROJECT_TEMPLATE** · Full setup guide: see `docs/getting-started.md` in the project root
+
 **See [coordinator/identity.md](coordinator/identity.md) for the full orchestration logic.**
 
 ## Workflow
@@ -74,6 +76,7 @@ Tests are written and run. Leadership does a final review and signs off.
 | **Memory Layout** | `memory_layout/identity.md` | Data structure and memory optimization. |
 | **Lab Notebook** | `lab_notebook/identity.md` | Documents experiments and decisions. |
 | **Project Integrator** | `project_integrator/identity.md` | Integration with existing project infrastructure. |
+| **Git Setup** | `git_setup/identity.md` | Creates GitHub repos, initializes git, saves user prompts. |
 
 ---
 

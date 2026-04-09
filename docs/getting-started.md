@@ -120,9 +120,11 @@ pixi run claudechic    # Start the claudechic TUI
 
 > **For Agents:** Verify the generated project programmatically:
 > ```bash
-> # Check guardrails are configured
-> test -f .claude/settings.json && echo "hooks: OK"
-> test -f .claude/guardrails/rules.yaml && echo "rules: OK"
+> # Check Claude Code settings exist
+> test -f .claude/settings.json && echo "settings: OK"
+>
+> # Check runtime rules are configured
+> test -f global/rules.yaml && echo "runtime rules: OK"
 >
 > # Check Project Team agent roles exist
 > ls workflows/project_team/*/identity.md    # Should list coordinator, implementer, etc.
@@ -171,27 +173,17 @@ my-project/
 │   └── hints.yaml               #   Global hints (shown on workflow activation)
 │
 ├── .claude/
-│   ├── settings.json            #   Generated hooks (auto-generated, do not edit)
-│   ├── guardrails/
-│   │   ├── rules.yaml           #   Guardrail rules (always active)
-│   │   ├── generate_hooks.py    #   Regenerates hooks from rules
-│   │   ├── hooks/               #   Generated hook scripts
-│   │   ├── role_guard.py        #   Role-based permission library
-│   │   ├── setup_ao_mode.sh     #   Activates team mode
-│   │   └── teardown_ao_mode.sh  #   Deactivates team mode
+│   ├── settings.json            #   Claude Code settings (managed by claudechic)
 │   ├── rules/                   #   Context rule files (agent guidance)
-│   │   ├── hints-system.md      #     Hints system rules
-│   │   ├── checks-system.md     #     Checks system rules
-│   │   ├── guardrails-system.md #     Guardrails system rules
-│   │   ├── workflows-system.md  #     Workflows system rules
-│   │   ├── manifest-yaml.md     #     Manifest YAML rules
-│   │   └── claudechic-overview.md #   Overview rules
-│   ├── commands/
-│   │   └── init_project.md      #   /init_project slash command
-│   └── skills/hints/
-│       └── SKILL.md             #   Hints skill definition
+│   │   ├── hints-system.md      #     Hints system context
+│   │   ├── checks-system.md     #     Checks system context
+│   │   ├── guardrails-system.md #     Guardrails system context
+│   │   ├── workflows-system.md  #     Workflows system context
+│   │   ├── manifest-yaml.md     #     Manifest YAML context
+│   │   └── claudechic-overview.md #   Overview context
+│   └── commands/
+│       └── init_project.md      #   /init_project slash command
 │
-├── hints/                       # Hint engine (Python)
 ├── commands/                    # CLI commands (added to PATH by activate)
 ├── scripts/                     # Utility scripts
 ├── repos/                       # Your integrated codebases
@@ -203,9 +195,8 @@ my-project/
 > - Agent roles: `workflows/project_team/<role>/identity.md`
 > - Workflow YAML: `workflows/<workflow_name>/<workflow_name>.yaml`
 > - Phase files: `workflows/<workflow_name>/<role>/<phase>.md`
-> - Guardrail rules: `.claude/guardrails/rules.yaml`
-> - Global rules: `global/rules.yaml`
-> - Generated hooks: `.claude/guardrails/hooks/`
+> - Runtime rules: `global/rules.yaml`
+> - Context rule files: `.claude/rules/*.md`
 > - Project state: `.project_team/<project_name>/STATUS.md`
 
 ---
@@ -217,14 +208,15 @@ each layer operates at a different scope and is processed by a different engine.
 
 ### Layer 1: Guardrail Rules (Always Active)
 
-**File:** `.claude/guardrails/rules.yaml`
-**Processed by:** `generate_hooks.py` → Claude Code hooks (`.claude/settings.json`)
+**Processed by:** claudechic guardrails engine → Claude Code hooks (`.claude/settings.json`)
 **Scope:** Every Claude Code session, always
 
-These are the safety foundation. They generate Claude Code hooks that fire on
-every tool call, regardless of whether a workflow is active.
+These are the safety foundation. claudechic's guardrails engine evaluates them
+on every tool call, regardless of whether a workflow is active. Guardrail rules
+are defined internally by claudechic — they are always present and cannot be
+removed by project configuration.
 
-**Default rules:**
+**Default guardrail rules:**
 
 | ID | Name | Enforcement | What It Does |
 |----|------|-------------|-------------|
@@ -236,19 +228,14 @@ every tool call, regardless of whether a workflow is active.
 
 > R04 and R05 are always included (Project Team infrastructure always ships).
 
-**To add a new guardrail rule:**
-1. Edit `.claude/guardrails/rules.yaml`
-2. Run `python3 .claude/guardrails/generate_hooks.py`
-3. Hooks are regenerated in `.claude/guardrails/hooks/`
-
 ### Layer 2: Global Rules (Active During Workflows)
 
 **File:** `global/rules.yaml`
 **Processed by:** claudechic workflow engine (runtime)
 **Scope:** Active whenever any workflow is running
 
-These rules are loaded by claudechic's ManifestLoader and apply during all
-workflow sessions. They use a simpler format than guardrail rules.
+These are runtime rules loaded by claudechic's ManifestLoader. They apply
+during all workflow sessions.
 
 **Default rules:**
 
@@ -280,7 +267,7 @@ specific phases or roles.
 ```
 Tool call happens (e.g., Bash with "pip install foo")
     │
-    ├── Layer 1: Guardrail hooks fire (always)
+    ├── Layer 1: Guardrail rules checked (always)
     │   └── R02 matches → DENY (blocked before anything else)
     │
     ├── Layer 2: Global rules checked (if workflow active)
@@ -396,25 +383,25 @@ The tutorial workflow teaches you the basics in 4 phases:
 Each phase has advance checks — you create marker files
 (`tutorial_basics_done.txt`, etc.) and call `advance_phase` to progress.
 
-### Editing Guardrail Rules
+### Adding Runtime Rules
 
-1. Open `.claude/guardrails/rules.yaml`
-2. Add or modify a rule entry:
-   ```yaml
-   - id: R06
-     name: my-custom-rule
-     trigger: PreToolUse/Bash
-     enforcement: warn
-     detect:
-       type: regex_match
-       pattern: 'some-pattern'
-     message: "[R06] Explanation of why this was blocked."
-   ```
-3. Regenerate hooks:
-   ```bash
-   python3 .claude/guardrails/generate_hooks.py
-   ```
-4. The hook scripts in `.claude/guardrails/hooks/` are updated automatically
+Runtime rules are defined in YAML manifests. To add a global rule (active
+during all workflows), edit `global/rules.yaml`:
+
+```yaml
+rules:
+  - id: my-custom-rule
+    trigger: PreToolUse/Bash
+    enforcement: warn
+    detect:
+      type: regex_match
+      pattern: 'some-pattern'
+    message: "Explanation of why this was flagged."
+```
+
+To add a workflow-scoped rule, add it to the `rules:` section of the
+workflow's YAML file (e.g., `workflows/project_team/project_team.yaml`).
+Workflow rules can be scoped to specific `phases` or `roles`.
 
 ### Using Developer Mode (claudechic)
 
@@ -469,13 +456,11 @@ pixi run claudechic
 If that fails, check that `pixi.toml` has `[dependencies]` and
 `[pypi-dependencies]` sections (not `[feature.claudechic.*]`).
 
-### Guardrail hooks not firing
+### Rules not being enforced
 
-Hooks may be stale. Regenerate them:
-```bash
-python3 .claude/guardrails/generate_hooks.py
-```
-Check that `.claude/settings.json` exists and references the hook scripts.
+Verify that claudechic is running (`pixi run claudechic`) — rules are
+evaluated at runtime by the claudechic engine. Check that
+`.claude/settings.json` exists and that your rule YAML is valid.
 
 ### "Subagent" rules appear unexpectedly
 
@@ -503,10 +488,10 @@ is empty or missing, re-run `copier update` to add missing files. Core roles
 | **Workflow** | Phase-gated process defined by YAML in `workflows/` |
 | **Phase** | Named stage within a workflow; contains `advance_checks` and `hints` |
 | **Advance check** | Phase-gating condition in workflow YAML — all must pass (AND semantics) before a phase transition proceeds |
-| **Guardrail rule** | Always-active safety rule in `.claude/guardrails/rules.yaml` — generates Claude Code hooks |
+| **Guardrail rule** | Always-active safety rule processed by claudechic's guardrails engine on every tool call |
 | **Runtime rule** | Rule in `global/rules.yaml` or workflow YAML — active during workflows (covers both global and phase-scoped rules) |
 | **Context rule file** | `.claude/rules/*.md` file — Claude Code's native rules system; auto-loaded by glob when agents touch matching files |
-| **Hook (generated)** | Claude Code hook in `settings.json`, auto-generated from guardrail rules |
+| **Hook (generated)** | Claude Code hook in `settings.json`, managed by claudechic |
 | **Manifest** | Any YAML file parsed by ManifestLoader (`global/*.yaml`, `workflows/*/*.yaml`) — the user-facing configuration surface |
 | **ManifestLoader** | Universal parser that discovers manifest files and dispatches sections to registered `ManifestSection[T]` parsers |
 | **Hints** | Contextual toast notifications surfaced during workflows via a 6-stage pipeline |
@@ -521,6 +506,6 @@ is empty or missing, re-run `copier update` to add missing files. Core roles
 
 - **Run the tutorial:** Type `/tutorial` in Claude Code to learn by doing
 - **Start a project:** Type `/project-team` and describe your goal
-- **Customize guardrails:** Edit `.claude/guardrails/rules.yaml` and regenerate hooks
+- **Customize rules:** Edit `global/rules.yaml` to add runtime rules
 - **Add MCP tools:** Drop Python files into `mcp_tools/` for custom tools
 - **Explore workflows:** Read `workflows/project_team/project_team.yaml` to understand phase definitions

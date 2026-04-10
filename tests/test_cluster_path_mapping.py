@@ -236,7 +236,7 @@ class TestLogReadingWorks:
     def test_local_reader_success(self, tmp_path):
         """LocalLogReader reads files via local mount."""
         log_file = tmp_path / "out.log"
-        log_file.write_text("line1\nline2\nline3\n")
+        log_file.write_text("line1\nline2\nline3\n", encoding="utf-8")
         # Map cluster path to local temp dir
         mapper = PathMapper([
             {"local": str(tmp_path), "cluster": "/cluster/logs"},
@@ -278,7 +278,7 @@ class TestLogReadingWorks:
     def test_auto_reader_local_success(self, tmp_path):
         """AutoLogReader uses local when available."""
         log_file = tmp_path / "out.log"
-        log_file.write_text("local content\n")
+        log_file.write_text("local content\n", encoding="utf-8")
         mapper = PathMapper([
             {"local": str(tmp_path), "cluster": "/cluster/logs"},
         ])
@@ -755,7 +755,7 @@ class TestOnboardingApplyPhase:
         validation_passed = True
 
         if not dry_run and validation_passed:
-            with open(config_path, "w") as f:
+            with open(config_path, "w", encoding="utf-8") as f:
                 yaml.safe_dump(proposed, f)
             status = "written"
         elif not dry_run:
@@ -765,7 +765,7 @@ class TestOnboardingApplyPhase:
 
         assert status == "written"
         assert config_path.exists()
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             written = yaml.safe_load(f)
         assert written["ssh_target"] == "login.example.com"
         assert written["path_map"] == [SMB_MAC]
@@ -1038,21 +1038,21 @@ class TestErrorWithHintWiring:
 
     def test_error_with_hint_not_imported_in_lsf(self):
         """_error_with_hint dead import was removed from lsf.py."""
-        lsf_source = Path(TEMPLATE_MCP / "lsf.py").read_text()
+        lsf_source = Path(TEMPLATE_MCP / "lsf.py").read_text(encoding="utf-8")
         assert "_error_with_hint" not in lsf_source, (
             "_error_with_hint should not appear in lsf.py (dead import removed)"
         )
 
     def test_error_with_hint_not_imported_in_slurm(self):
         """_error_with_hint dead import was removed from slurm.py."""
-        slurm_source = Path(TEMPLATE_MCP / "slurm.py").read_text()
+        slurm_source = Path(TEMPLATE_MCP / "slurm.py").read_text(encoding="utf-8")
         assert "_error_with_hint" not in slurm_source, (
             "_error_with_hint should not appear in slurm.py (dead import removed)"
         )
 
     def test_error_with_hint_has_todo_comment(self):
         """_error_with_hint in _cluster.py has a TODO for future wiring."""
-        cluster_source = Path(TEMPLATE_MCP / "_cluster.py").read_text()
+        cluster_source = Path(TEMPLATE_MCP / "_cluster.py").read_text(encoding="utf-8")
         # Function still exists in _cluster.py with a TODO comment
         assert "def _error_with_hint" in cluster_source
         assert "TODO" in cluster_source.split("def _error_with_hint")[0].splitlines()[-1]
@@ -1074,7 +1074,7 @@ class TestWorkflowFileStructure:
 
     def test_workflow_contains_all_phases(self):
         """Workflow file references all 7 phases from the spec."""
-        content = self.WORKFLOW_PATH.read_text()
+        content = self.WORKFLOW_PATH.read_text(encoding="utf-8")
         expected_phases = [
             "detect", "ssh_auth", "ssh_mux",
             "scheduler", "paths", "validate", "apply",
@@ -1086,12 +1086,12 @@ class TestWorkflowFileStructure:
 
     def test_workflow_has_diagnose_entry_point(self):
         """Workflow has the 'diagnose' meta-phase entry point."""
-        content = self.WORKFLOW_PATH.read_text()
+        content = self.WORKFLOW_PATH.read_text(encoding="utf-8")
         assert "diagnose" in content.lower()
 
     def test_workflow_has_advancement_checks(self):
         """Workflow mentions status/output checks for phase advancement."""
-        content = self.WORKFLOW_PATH.read_text()
+        content = self.WORKFLOW_PATH.read_text(encoding="utf-8")
         # Each phase should have an Output section describing structured results
         assert "Output" in content or "output" in content
         # Validation phase should mention "passed" / "failed" gating
@@ -1100,7 +1100,7 @@ class TestWorkflowFileStructure:
 
     def test_workflow_phase_count(self):
         """Workflow has exactly 7 numbered phases (plus diagnose meta-phase)."""
-        content = self.WORKFLOW_PATH.read_text()
+        content = self.WORKFLOW_PATH.read_text(encoding="utf-8")
         # Count ### Phase N headings
         import re as _re
         phase_headings = _re.findall(r"###\s+Phase\s+\d+", content)
@@ -1110,59 +1110,7 @@ class TestWorkflowFileStructure:
         )
 
 
-class TestDuplicateTestLogicReport:
-    """Check for duplicate logic between test_cluster_path_mapping.py and test_cluster_tools.py.
-
-    This test class documents the overlap analysis — it does not fail on
-    duplicates but asserts the overlap is known and acceptable.
-    """
-
-    def test_shared_helpers_documented(self):
-        """Both test files define _get_tool_name and _import_module helpers.
-
-        This is acceptable because each file must be independently runnable.
-        The helpers are small (< 10 lines) and diverge slightly (e.g.,
-        test_cluster_tools.py also defines _call_tool for async).
-        """
-        # Verify both modules have the helper — proves they're independent
-        import tests.test_cluster_tools as tct_mod
-        assert hasattr(tct_mod, "_get_tool_name")
-        assert hasattr(tct_mod, "_import_module")
-        # This test file also has them at module level
-        assert callable(_get_tool_name)
-        assert callable(_import_module)
-
-    def test_no_overlapping_test_classes(self):
-        """No test class name appears in both files."""
-        import tests.test_cluster_tools as tct_mod
-        tct_classes = {
-            name for name in dir(tct_mod) if name.startswith("Test")
-        }
-        # Collect this file's test classes
-        this_mod_classes = {
-            name for name in dir(sys.modules[__name__])
-            if name.startswith("Test")
-        } if __name__ in sys.modules else set()
-
-        # If we can't introspect ourselves, check the other file's classes
-        # don't collide with known names in this file
-        known_this_file = {
-            "TestPathTranslatesLocalToCluster",
-            "TestPathTranslatesClusterToLocal",
-            "TestCWDResolvesCorrectly",
-            "TestLogReadingWorks",
-            "TestSubmitUsesCorrectPaths",
-            "TestStatusReturnsLocalPaths",
-            "TestConfigLoadsCorrectly",
-            "TestShellInjectionPrevented",
-            "TestDefaultsPassthrough",
-            "TestModelSeesCorrectDescriptions",
-            "TestOnboardingDetectPhase",
-            "TestOnboardingValidatePhase",
-            "TestOnboardingApplyPhase",
-            "TestResolveLogPath",
-            "TestLogReaderFactory",
-            "TestErrorWithHint",
-        }
-        overlap = tct_classes & known_this_file
-        assert not overlap, f"Duplicate test classes: {overlap}"
+# Note: TestDuplicateTestLogicReport was removed — meta-tests about test
+# organization don't test code behavior, and the `import tests.test_cluster_tools`
+# fails in CI where tests/ is not a package. Overlap analysis documented in
+# commit 640294d.

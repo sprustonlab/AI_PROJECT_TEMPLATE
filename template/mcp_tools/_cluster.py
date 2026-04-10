@@ -49,12 +49,15 @@ def _load_config(tool_file: Path) -> dict:
 def _normalize_local_path(p: str) -> str:
     """Normalize a LOCAL path for prefix matching.
 
-    - Convert backslashes to forward slashes (FIRST — so ~ and $VAR work on Windows)
+    - Convert backslashes to forward slashes (before AND after expansion,
+      because expanduser/expandvars may reintroduce backslashes on Windows)
     - Expand ~ and environment variables (safe: uses local env)
     - Strip trailing slashes (except bare "/")
     """
     forward = p.replace("\\", "/")
     expanded = os.path.expandvars(os.path.expanduser(forward))
+    # Second pass: expanduser/expandvars can reintroduce backslashes on Windows
+    expanded = expanded.replace("\\", "/")
     return expanded.rstrip("/") if expanded != "/" else expanded
 
 

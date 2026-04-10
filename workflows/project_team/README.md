@@ -2,7 +2,7 @@
 
 A structured multi-agent workflow for building software projects with Claude Code. Launch it by running `/project-team` in claudechic.
 
-> **Part of [AI_PROJECT_TEMPLATE](../../README.md)** · Full setup guide: [docs/getting-started.md](../../docs/getting-started.md)
+> **Part of AI_PROJECT_TEMPLATE** · Full setup guide: see `docs/getting-started.md` in the project root
 
 **See [coordinator/identity.md](coordinator/identity.md) for the full orchestration logic.**
 

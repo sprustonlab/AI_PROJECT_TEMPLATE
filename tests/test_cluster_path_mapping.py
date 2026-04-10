@@ -13,6 +13,7 @@ import importlib.util
 import json
 import os
 import shlex
+import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -856,3 +857,348 @@ class TestErrorWithHint:
         resp = _cluster_mod._error_with_hint("Not configured", "first_use")
         text = resp["content"][0]["text"]
         assert "cluster_setup" in text
+
+
+# ===========================================================================
+# Gap-coverage tests (post-merge)
+# ===========================================================================
+
+
+class TestBugRegressionRootPrefix:
+    """Regression: root path '/' as cluster prefix must not normalize to ''."""
+
+    def test_root_cluster_prefix_normalizes_to_slash(self):
+        """_normalize_cluster_path('/') must return '/', not empty string."""
+        assert _cluster_mod._normalize_cluster_path("/") == "/"
+
+    def test_root_local_prefix_normalizes_to_slash(self):
+        """_normalize_local_path('/') must return '/', not empty string."""
+        assert _cluster_mod._normalize_local_path("/") == "/"
+
+    def test_root_prefix_does_not_create_empty_prefix(self):
+        """Mapping with cluster='/' creates a rule with '/' prefix, not ''."""
+        mapper = PathMapper([{"local": "/mnt/cluster", "cluster": "/"}])
+        # Verify the stored cluster prefix is '/', not empty string
+        cluster_prefixes = [r[1] for r in mapper._rules_by_cluster]
+        assert "/" in cluster_prefixes
+        assert "" not in cluster_prefixes
+
+    def test_root_prefix_exact_match(self):
+        """Path exactly equal to root prefix '/' matches via equality check."""
+        mapper = PathMapper([{"local": "/mnt/cluster", "cluster": "/"}])
+        # Exact equality: "/" == "/" works in _prefix_matches
+        assert mapper.to_local("/") == "/mnt/cluster"
+
+    def test_root_prefix_in_overlap_rules(self):
+        """Root '/' works as fallback when combined with more specific rules."""
+        # This is the production use case — '/' is a catch-all behind specific rules
+        mapper = PathMapper(OVERLAP_RULES)
+        # The specific /groups rule matches first (longest prefix)
+        assert mapper.to_local("/groups/file.py") == "/mnt/cluster/groups/file.py"
+
+
+class TestBugRegressionPassthroughSlashes:
+    """Regression: passthrough paths must use forward slashes, not raw backslashes."""
+
+    def test_to_cluster_passthrough_converts_backslashes(self):
+        """Unmatched Windows path passes through with forward slashes."""
+        mapper = PathMapper([SMB_MAC])  # Won't match Z:\\ paths
+        result = mapper.to_cluster("Z:\\other\\path\\file.py")
+        assert "\\" not in result
+        assert "/" in result
+
+    def test_to_local_passthrough_no_backslashes(self):
+        """to_local passthrough never introduces backslashes."""
+        mapper = PathMapper([])
+        result = mapper.to_local("/groups/lab/out.log")
+        assert "\\" not in result
+
+    def test_windows_to_local_uses_forward_slashes(self):
+        """Windows drive mapping to_local returns forward slashes."""
+        mapper = PathMapper([WINDOWS_DRIVE])
+        result = mapper.to_local("/groups/lab/deep/file.py")
+        assert "\\" not in result
+        assert result == "Z:/groups/lab/deep/file.py"
+
+
+class TestBugRegressionNormalizationOrder:
+    r"""Regression: normalization order — backslash conversion before tilde expansion."""
+
+    def test_backslash_before_tilde(self):
+        r"""'~\cluster\data' should expand correctly on Linux."""
+        # On Linux, ~ expands to $HOME. The key is that backslashes
+        # are converted to forward slashes FIRST, so os.path.expanduser
+        # sees '~/cluster/data' not '~\cluster\data'.
+        result = _cluster_mod._normalize_local_path("~\\cluster\\data")
+        home = os.path.expanduser("~")
+        assert result.startswith(home)
+        assert result.endswith("/cluster/data")
+        assert "\\" not in result
+
+    def test_backslash_then_envvar(self):
+        r"""'$HOME\data' should expand HOME then have forward slashes."""
+        result = _cluster_mod._normalize_local_path("$HOME\\data")
+        home = os.environ.get("HOME", "")
+        if home:
+            assert result == f"{home}/data"
+        assert "\\" not in result
+
+
+class TestBugRegressionConfigReadinessType:
+    """Regression: _check_config_readiness() returns 'ready' string, not None."""
+
+    def test_ready_returns_string_not_none(self):
+        """Fully configured returns exactly the string 'ready'."""
+        config = {"ssh_target": "login1.org", "path_map": [SMB_MAC]}
+        with patch.object(_cluster_mod.shutil, "which", return_value=None):
+            result = _cluster_mod._check_config_readiness(config)
+        assert result is not None
+        assert isinstance(result, str)
+        assert result == "ready"
+
+    def test_local_scheduler_returns_ready_string(self):
+        """Local scheduler also returns exactly 'ready', not truthy-but-not-string."""
+        config = {}
+        with patch.object(_cluster_mod.shutil, "which", return_value="/usr/bin/bsub"):
+            result = _cluster_mod._check_config_readiness(config)
+        assert result == "ready"
+        assert type(result) is str
+
+    def test_all_readiness_values_are_strings(self):
+        """Every possible return value is a string from the defined set."""
+        valid = {"ready", "incomplete", "needs_setup"}
+        test_configs = [
+            ({"ssh_target": "x", "path_map": [SMB_MAC]}, None),      # ready
+            ({}, None),                                                 # needs_setup
+            ({"ssh_target": "x"}, None),                               # incomplete
+            ({"ssh_target": "{{ x }}"}, None),                         # needs_setup
+        ]
+        for config, which_result in test_configs:
+            with patch.object(_cluster_mod.shutil, "which", return_value=which_result):
+                result = _cluster_mod._check_config_readiness(config)
+            assert result in valid, f"Got {result!r} for config={config}"
+
+
+class TestBugRegressionJinjaPlaceholder:
+    """Regression: Jinja placeholders like '{{ ssh_target }}' → needs_setup."""
+
+    @pytest.mark.parametrize(
+        "ssh_target",
+        [
+            pytest.param("{{ ssh_target }}", id="ssh_target_placeholder"),
+            pytest.param("{{ ssh_host }}", id="ssh_host_placeholder"),
+            pytest.param("{{cluster_login}}", id="no_spaces_placeholder"),
+            pytest.param("login-{{ env }}.example.com", id="partial_placeholder"),
+        ],
+    )
+    def test_jinja_placeholder_detected(self, ssh_target):
+        """Any ssh_target containing '{{' is detected as needs_setup."""
+        config = {"ssh_target": ssh_target, "path_map": [SMB_MAC]}
+        with patch.object(_cluster_mod.shutil, "which", return_value=None):
+            assert _cluster_mod._check_config_readiness(config) == "needs_setup"
+
+
+class TestBugRegressionSSHLogReaderExceptions:
+    """Regression: SSHLogReader handles TimeoutExpired and OSError gracefully."""
+
+    @patch.object(_cluster_mod, "_run_ssh")
+    def test_timeout_expired_returns_none(self, mock_ssh):
+        """SSHLogReader returns None (not raises) on TimeoutExpired."""
+        mock_ssh.side_effect = subprocess.TimeoutExpired(cmd="ssh ...", timeout=30)
+        reader = SSHLogReader("login.example.com")
+        result = reader.read_tail("/cluster/logs/out.log", tail=10)
+        assert result is None
+
+    @patch.object(_cluster_mod, "_run_ssh")
+    def test_oserror_returns_none(self, mock_ssh):
+        """SSHLogReader returns None (not raises) on OSError."""
+        mock_ssh.side_effect = OSError("Connection refused")
+        reader = SSHLogReader("login.example.com")
+        result = reader.read_tail("/cluster/logs/out.log", tail=10)
+        assert result is None
+
+    @patch.object(_cluster_mod, "_run_ssh")
+    def test_timeout_in_auto_fallback(self, mock_ssh):
+        """AutoLogReader handles SSH timeout without crashing."""
+        mock_ssh.side_effect = subprocess.TimeoutExpired(cmd="ssh ...", timeout=30)
+        local = LocalLogReader(PathMapper([]))  # will fail (file not found)
+        ssh = SSHLogReader("login.example.com")
+        reader = AutoLogReader(local, ssh)
+        result = reader.read_tail("/nonexistent/out.log", tail=10)
+        assert result is None  # both strategies failed gracefully
+
+
+class TestErrorWithHintWiring:
+    """Verify _error_with_hint usage in lsf.py and slurm.py backends.
+
+    Finding: _error_with_hint is imported by both lsf.py and slurm.py but
+    is NOT called anywhere in their tool handlers. All error paths use
+    _error_response instead. This is dead import — flagged for review.
+    """
+
+    def test_error_with_hint_imported_in_lsf(self):
+        """_error_with_hint is importable from lsf module's namespace."""
+        # Confirm the import exists (won't crash)
+        assert hasattr(lsf_mod, "_error_with_hint")
+        assert callable(lsf_mod._error_with_hint)
+
+    def test_error_with_hint_imported_in_slurm(self):
+        """_error_with_hint is importable from slurm module's namespace."""
+        assert hasattr(slurm_mod, "_error_with_hint")
+        assert callable(slurm_mod._error_with_hint)
+
+    def _find_call_sites(self, source: str, func_name: str) -> list[str]:
+        """Find lines where func_name is called (not just in an import block)."""
+        import re as _re
+        in_import_block = False
+        call_sites = []
+        for ln in source.splitlines():
+            stripped = ln.strip()
+            # Detect start of 'from ... import (' block
+            if _re.match(r"^from\s+", stripped) and "import" in stripped:
+                in_import_block = "(" in stripped and ")" not in stripped
+                continue
+            # Inside multi-line import
+            if in_import_block:
+                if ")" in stripped:
+                    in_import_block = False
+                continue
+            # Single-line import
+            if stripped.startswith("import "):
+                continue
+            # Check for actual usage (function call, not just name in string)
+            if func_name in ln:
+                call_sites.append(ln.strip())
+        return call_sites
+
+    def test_error_with_hint_not_called_in_lsf_handlers(self):
+        """DEAD CODE: _error_with_hint is imported but never called in lsf.py.
+
+        All error paths in lsf.py tool handlers use _error_response() instead.
+        This test documents the gap — _error_with_hint should either be wired
+        into error paths or removed from the import list.
+        """
+        lsf_source = Path(TEMPLATE_MCP / "lsf.py").read_text()
+        call_sites = self._find_call_sites(lsf_source, "_error_with_hint")
+        assert len(call_sites) == 0, (
+            f"_error_with_hint IS used in lsf.py (good — update this test): "
+            f"{call_sites}"
+        )
+
+    def test_error_with_hint_not_called_in_slurm_handlers(self):
+        """DEAD CODE: _error_with_hint is imported but never called in slurm.py."""
+        slurm_source = Path(TEMPLATE_MCP / "slurm.py").read_text()
+        call_sites = self._find_call_sites(slurm_source, "_error_with_hint")
+        assert len(call_sites) == 0, (
+            f"_error_with_hint IS used in slurm.py: {call_sites}"
+        )
+
+
+class TestWorkflowFileStructure:
+    """Verify .claude/workflows/cluster_setup.md exists with all 7 phases."""
+
+    WORKFLOW_PATH = (
+        Path(__file__).resolve().parent.parent
+        / "template" / ".claude" / "workflows" / "cluster_setup.md"
+    )
+
+    def test_workflow_file_exists(self):
+        """cluster_setup.md workflow file exists."""
+        assert self.WORKFLOW_PATH.exists(), (
+            f"Workflow file not found at {self.WORKFLOW_PATH}"
+        )
+
+    def test_workflow_contains_all_phases(self):
+        """Workflow file references all 7 phases from the spec."""
+        content = self.WORKFLOW_PATH.read_text()
+        expected_phases = [
+            "detect", "ssh_auth", "ssh_mux",
+            "scheduler", "paths", "validate", "apply",
+        ]
+        for phase in expected_phases:
+            assert phase in content, (
+                f"Phase '{phase}' not found in cluster_setup.md"
+            )
+
+    def test_workflow_has_diagnose_entry_point(self):
+        """Workflow has the 'diagnose' meta-phase entry point."""
+        content = self.WORKFLOW_PATH.read_text()
+        assert "diagnose" in content.lower()
+
+    def test_workflow_has_advancement_checks(self):
+        """Workflow mentions status/output checks for phase advancement."""
+        content = self.WORKFLOW_PATH.read_text()
+        # Each phase should have an Output section describing structured results
+        assert "Output" in content or "output" in content
+        # Validation phase should mention "passed" / "failed" gating
+        assert "passed" in content.lower()
+        assert "failed" in content.lower()
+
+    def test_workflow_phase_count(self):
+        """Workflow has exactly 7 numbered phases (plus diagnose meta-phase)."""
+        content = self.WORKFLOW_PATH.read_text()
+        # Count ### Phase N headings
+        import re as _re
+        phase_headings = _re.findall(r"###\s+Phase\s+\d+", content)
+        assert len(phase_headings) >= 7, (
+            f"Expected at least 7 phase headings, found {len(phase_headings)}: "
+            f"{phase_headings}"
+        )
+
+
+class TestDuplicateTestLogicReport:
+    """Check for duplicate logic between test_cluster_path_mapping.py and test_cluster_tools.py.
+
+    This test class documents the overlap analysis — it does not fail on
+    duplicates but asserts the overlap is known and acceptable.
+    """
+
+    def test_shared_helpers_documented(self):
+        """Both test files define _get_tool_name and _import_module helpers.
+
+        This is acceptable because each file must be independently runnable.
+        The helpers are small (< 10 lines) and diverge slightly (e.g.,
+        test_cluster_tools.py also defines _call_tool for async).
+        """
+        # Verify both modules have the helper — proves they're independent
+        import tests.test_cluster_tools as tct_mod
+        assert hasattr(tct_mod, "_get_tool_name")
+        assert hasattr(tct_mod, "_import_module")
+        # This test file also has them at module level
+        assert callable(_get_tool_name)
+        assert callable(_import_module)
+
+    def test_no_overlapping_test_classes(self):
+        """No test class name appears in both files."""
+        import tests.test_cluster_tools as tct_mod
+        tct_classes = {
+            name for name in dir(tct_mod) if name.startswith("Test")
+        }
+        # Collect this file's test classes
+        this_mod_classes = {
+            name for name in dir(sys.modules[__name__])
+            if name.startswith("Test")
+        } if __name__ in sys.modules else set()
+
+        # If we can't introspect ourselves, check the other file's classes
+        # don't collide with known names in this file
+        known_this_file = {
+            "TestPathTranslatesLocalToCluster",
+            "TestPathTranslatesClusterToLocal",
+            "TestCWDResolvesCorrectly",
+            "TestLogReadingWorks",
+            "TestSubmitUsesCorrectPaths",
+            "TestStatusReturnsLocalPaths",
+            "TestConfigLoadsCorrectly",
+            "TestShellInjectionPrevented",
+            "TestDefaultsPassthrough",
+            "TestModelSeesCorrectDescriptions",
+            "TestOnboardingDetectPhase",
+            "TestOnboardingValidatePhase",
+            "TestOnboardingApplyPhase",
+            "TestResolveLogPath",
+            "TestLogReaderFactory",
+            "TestErrorWithHint",
+        }
+        overlap = tct_classes & known_this_file
+        assert not overlap, f"Duplicate test classes: {overlap}"

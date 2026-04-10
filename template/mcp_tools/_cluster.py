@@ -49,13 +49,13 @@ def _load_config(tool_file: Path) -> dict:
 def _normalize_local_path(p: str) -> str:
     """Normalize a LOCAL path for prefix matching.
 
+    - Convert backslashes to forward slashes (FIRST — so ~ and $VAR work on Windows)
     - Expand ~ and environment variables (safe: uses local env)
-    - Convert backslashes to forward slashes
     - Strip trailing slashes (except bare "/")
     """
-    expanded = os.path.expandvars(os.path.expanduser(p))
-    forward = expanded.replace("\\", "/")
-    return forward.rstrip("/") if forward != "/" else forward
+    forward = p.replace("\\", "/")
+    expanded = os.path.expandvars(os.path.expanduser(forward))
+    return expanded.rstrip("/") if expanded != "/" else expanded
 
 
 def _normalize_cluster_path(p: str) -> str:
@@ -106,14 +106,27 @@ class PathMapper:
             rules, key=lambda r: len(r[1]), reverse=True,
         )
 
+    # -- helpers --
+
+    @staticmethod
+    def _prefix_matches(path: str, prefix: str) -> bool:
+        """Check if *path* starts with *prefix* on a ``/`` boundary."""
+        if path == prefix:
+            return True
+        return path.startswith(prefix + "/")
+
+    @property
+    def has_rules(self) -> bool:
+        """Return True if any path mapping rules are configured."""
+        return bool(self._rules_by_local)
+
     def to_cluster(self, local_path: str) -> str:
         """Translate a local path to a cluster path."""
         normalized = _normalize_local_path(local_path)
         for local_prefix, cluster_prefix in self._rules_by_local:
-            # Boundary-safe matching: prefix must align on "/" or be exact.
-            if normalized == local_prefix or normalized.startswith(local_prefix + "/"):
+            if self._prefix_matches(normalized, local_prefix):
                 return cluster_prefix + normalized[len(local_prefix):]
-        return local_path  # passthrough
+        return normalized  # passthrough (backslashes already converted)
 
     def to_local(self, cluster_path: str) -> str:
         """Translate a cluster path to a local path.
@@ -122,9 +135,9 @@ class PathMapper:
         """
         normalized = _normalize_cluster_path(cluster_path)
         for local_prefix, cluster_prefix in self._rules_by_cluster:
-            if normalized == cluster_prefix or normalized.startswith(cluster_prefix + "/"):
+            if self._prefix_matches(normalized, cluster_prefix):
                 return local_prefix + normalized[len(cluster_prefix):]
-        return cluster_path  # passthrough
+        return normalized  # passthrough (trailing slashes stripped)
 
 
 def _create_path_mapper(config: dict) -> PathMapper:
@@ -143,6 +156,20 @@ def _create_path_mapper(config: dict) -> PathMapper:
     return PathMapper(path_map)
 
 
+def _translate_status_paths(
+    detail: dict[str, Any], path_mapper: PathMapper,
+) -> dict[str, Any]:
+    """Translate cluster paths in a job status dict to local paths.
+
+    Mutates *detail* in-place and returns it for convenience.
+    """
+    for key in ("stdout_path", "stderr_path", "execution_cwd"):
+        val = detail.get(key)
+        if val and isinstance(val, str):
+            detail[key] = path_mapper.to_local(val)
+    return detail
+
+
 def _resolve_cwd(config: dict, path_mapper: PathMapper) -> str:
     """Determine the effective cluster CWD for job submission.
 
@@ -159,20 +186,23 @@ def _resolve_cwd(config: dict, path_mapper: PathMapper) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _check_config_readiness(config: dict) -> str | None:
+def _check_config_readiness(config: dict) -> str:
     """Check if cluster config is ready for use.
 
     Returns:
-        None if ready, or a string describing what's needed.
+        ``"ready"``, ``"incomplete"``, or ``"needs_setup"``.
     """
     ssh_target = config.get("ssh_target", "")
     has_local = shutil.which("bsub") is not None or shutil.which("sbatch") is not None
 
     if not ssh_target and not has_local:
         return "needs_setup"
+    # Jinja placeholder means the template hasn't been filled in yet
+    if ssh_target and "{{" in ssh_target:
+        return "needs_setup"
     if ssh_target and not config.get("path_map"):
         return "incomplete"
-    return None
+    return "ready"
 
 
 # ---------------------------------------------------------------------------
@@ -341,9 +371,12 @@ class SSHLogReader:
             cmd = f"tail -n {tail} {safe_path}"
         else:
             cmd = f"cat {safe_path}"
-        stdout, stderr, rc = _run_ssh(
-            cmd, self._ssh_target, profile=self._profile, timeout=30,
-        )
+        try:
+            stdout, stderr, rc = _run_ssh(
+                cmd, self._ssh_target, profile=self._profile, timeout=30,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return None
         if rc != 0:
             log.debug(
                 "SSH log read failed (rc=%d) for %s: %s",

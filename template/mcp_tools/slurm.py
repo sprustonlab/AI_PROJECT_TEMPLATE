@@ -31,6 +31,7 @@ from mcp_tools._cluster import (
     _run_ssh,
     _run_watch,
     _text_response,
+    _translate_status_paths,
 )
 
 #: Terminal SLURM job statuses.
@@ -278,7 +279,7 @@ def get_tools(**kwargs) -> list:
         try:
             jobs = await asyncio.to_thread(_list_jobs, config)
             readiness = _check_config_readiness(config)
-            if readiness:
+            if readiness != "ready":
                 data = {"jobs": jobs, "setup_needed": "run cluster_setup workflow"}
                 return _json_response(data)
             return _json_response(jobs)
@@ -300,10 +301,10 @@ def get_tools(**kwargs) -> list:
         try:
             path_mapper = _create_path_mapper(config)
             detail = await asyncio.to_thread(_get_job_status, job_id, config)
-            # Translate cluster paths to local paths for display
-            for key in ("stdout_path", "stderr_path", "execution_cwd"):
-                if detail.get(key):
-                    detail[key] = path_mapper.to_local(detail[key])
+            _translate_status_paths(detail, path_mapper)
+            readiness = _check_config_readiness(config)
+            if readiness != "ready":
+                detail["setup_needed"] = "run cluster_setup workflow"
             return _json_response(detail)
         except Exception as e:
             return _error_response(str(e))
@@ -412,7 +413,7 @@ def get_tools(**kwargs) -> list:
                 path_mapper=path_mapper,
             )
             readiness = _check_config_readiness(config)
-            if readiness:
+            if readiness != "ready":
                 result["setup_needed"] = "run cluster_setup workflow"
             return _json_response(result)
         except Exception as e:

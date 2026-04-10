@@ -639,7 +639,7 @@ class TestOnboardingDetectPhase:
         [
             pytest.param(
                 {"ssh_target": "login1.org", "path_map": [SMB_MAC]},
-                False, None, id="fully_configured",
+                False, "ready", id="fully_configured",
             ),
             pytest.param(
                 {}, False, "needs_setup", id="no_target_no_local",
@@ -649,7 +649,11 @@ class TestOnboardingDetectPhase:
                 id="target_no_path_map",
             ),
             pytest.param(
-                {}, True, None, id="local_scheduler_found",
+                {}, True, "ready", id="local_scheduler_found",
+            ),
+            pytest.param(
+                {"ssh_target": "{{ ssh_host }}"}, False, "needs_setup",
+                id="jinja_placeholder",
             ),
         ],
     )

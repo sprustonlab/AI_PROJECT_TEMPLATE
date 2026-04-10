@@ -110,7 +110,11 @@ class PathMapper:
 
     @staticmethod
     def _prefix_matches(path: str, prefix: str) -> bool:
-        """Check if *path* starts with *prefix* on a ``/`` boundary."""
+        """Check if *path* starts with *prefix* on a ``/`` boundary.
+
+        Note: root "/" as prefix only matches exact "/" path, not all
+        absolute paths. This is intentional — root mapping is an edge case.
+        """
         if path == prefix:
             return True
         return path.startswith(prefix + "/")
@@ -593,6 +597,7 @@ def _error_response(text: str, hint: str | None = None) -> dict[str, Any]:
     return _text_response(msg, is_error=True)
 
 
+# TODO: Wire into backend exception handlers for setup workflow guidance (see spec §6)
 def _error_with_hint(message: str, hint_type: str = "path") -> dict[str, Any]:
     """Return an error response with a cluster_setup workflow hint."""
     hints = {

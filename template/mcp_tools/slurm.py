@@ -23,7 +23,6 @@ from mcp_tools._cluster import (
     _create_path_mapper,
     _create_safe_task,
     _error_response,
-    _error_with_hint,
     _json_response,
     _load_config,
     _read_logs,

@@ -1036,62 +1036,26 @@ class TestErrorWithHintWiring:
     _error_response instead. This is dead import — flagged for review.
     """
 
-    def test_error_with_hint_imported_in_lsf(self):
-        """_error_with_hint is importable from lsf module's namespace."""
-        # Confirm the import exists (won't crash)
-        assert hasattr(lsf_mod, "_error_with_hint")
-        assert callable(lsf_mod._error_with_hint)
-
-    def test_error_with_hint_imported_in_slurm(self):
-        """_error_with_hint is importable from slurm module's namespace."""
-        assert hasattr(slurm_mod, "_error_with_hint")
-        assert callable(slurm_mod._error_with_hint)
-
-    def _find_call_sites(self, source: str, func_name: str) -> list[str]:
-        """Find lines where func_name is called (not just in an import block)."""
-        import re as _re
-        in_import_block = False
-        call_sites = []
-        for ln in source.splitlines():
-            stripped = ln.strip()
-            # Detect start of 'from ... import (' block
-            if _re.match(r"^from\s+", stripped) and "import" in stripped:
-                in_import_block = "(" in stripped and ")" not in stripped
-                continue
-            # Inside multi-line import
-            if in_import_block:
-                if ")" in stripped:
-                    in_import_block = False
-                continue
-            # Single-line import
-            if stripped.startswith("import "):
-                continue
-            # Check for actual usage (function call, not just name in string)
-            if func_name in ln:
-                call_sites.append(ln.strip())
-        return call_sites
-
-    def test_error_with_hint_not_called_in_lsf_handlers(self):
-        """DEAD CODE: _error_with_hint is imported but never called in lsf.py.
-
-        All error paths in lsf.py tool handlers use _error_response() instead.
-        This test documents the gap — _error_with_hint should either be wired
-        into error paths or removed from the import list.
-        """
+    def test_error_with_hint_not_imported_in_lsf(self):
+        """_error_with_hint dead import was removed from lsf.py."""
         lsf_source = Path(TEMPLATE_MCP / "lsf.py").read_text()
-        call_sites = self._find_call_sites(lsf_source, "_error_with_hint")
-        assert len(call_sites) == 0, (
-            f"_error_with_hint IS used in lsf.py (good — update this test): "
-            f"{call_sites}"
+        assert "_error_with_hint" not in lsf_source, (
+            "_error_with_hint should not appear in lsf.py (dead import removed)"
         )
 
-    def test_error_with_hint_not_called_in_slurm_handlers(self):
-        """DEAD CODE: _error_with_hint is imported but never called in slurm.py."""
+    def test_error_with_hint_not_imported_in_slurm(self):
+        """_error_with_hint dead import was removed from slurm.py."""
         slurm_source = Path(TEMPLATE_MCP / "slurm.py").read_text()
-        call_sites = self._find_call_sites(slurm_source, "_error_with_hint")
-        assert len(call_sites) == 0, (
-            f"_error_with_hint IS used in slurm.py: {call_sites}"
+        assert "_error_with_hint" not in slurm_source, (
+            "_error_with_hint should not appear in slurm.py (dead import removed)"
         )
+
+    def test_error_with_hint_has_todo_comment(self):
+        """_error_with_hint in _cluster.py has a TODO for future wiring."""
+        cluster_source = Path(TEMPLATE_MCP / "_cluster.py").read_text()
+        # Function still exists in _cluster.py with a TODO comment
+        assert "def _error_with_hint" in cluster_source
+        assert "TODO" in cluster_source.split("def _error_with_hint")[0].splitlines()[-1]
 
 
 class TestWorkflowFileStructure:

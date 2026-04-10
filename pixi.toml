@@ -16,6 +16,7 @@ copier = ">=9,<10"
 pytest-asyncio = "*"
 pytest-timeout = "*"
 pytest-xdist = "*"
+filelock = "*"
 pexpect = "*"
 
 # ── Optional environments (added by user or Copier) ───────────

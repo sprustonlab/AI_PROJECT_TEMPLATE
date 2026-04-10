@@ -7,6 +7,10 @@ Verifies:
 - quick_start presets: everything, defaults, empty, custom
 
 Requires: copier (pip install copier). Tests are skipped if copier is not installed.
+
+Performance: Module-scoped fixtures share copier generations across tests with
+identical configs, using FileLock for xdist safety.  This reduces ~13 copier
+generations down to 7.
 """
 
 from __future__ import annotations
@@ -17,6 +21,10 @@ import sys
 
 import pytest
 from pathlib import Path
+
+# Import the shared helper from conftest
+from conftest import shared_copier_generation
+
 
 def _copier_available():
     try:
@@ -33,7 +41,108 @@ pytestmark = [
         reason="copier not installed",
     ),
     pytest.mark.copier,
+    pytest.mark.integration,
+    pytest.mark.timeout(120),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Module-scoped shared fixtures (one copier generation per unique config)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def standard_defaults_project(tmp_path_factory):
+    """Group A: standard mode, defaults preset, no cluster.
+
+    Shared by: test_standard_mode_has_git_url, test_no_cluster,
+    test_pyyaml_always_present, test_always_excluded_dirs,
+    test_defaults_mode, test_copier_answers_file_generated.
+    """
+    return shared_copier_generation(tmp_path_factory, "copier_std_defaults", {
+        "project_name": "std_defaults",
+        "claudechic_mode": "standard",
+        "quick_start": "defaults",
+        "use_cluster": False,
+    })
+
+
+@pytest.fixture(scope="module")
+def lsf_cluster_project(tmp_path_factory):
+    """Group B: LSF cluster config.
+
+    Shared by: test_lsf_scheduler, test_lsf_yaml_has_ssh_target.
+    """
+    return shared_copier_generation(tmp_path_factory, "copier_lsf_cluster", {
+        "project_name": "lsf_project",
+        "claudechic_mode": "standard",
+        "quick_start": "defaults",
+        "use_cluster": True,
+        "cluster_scheduler": "lsf",
+        "cluster_ssh_target": "mylogin.janelia.org",
+    })
+
+
+@pytest.fixture(scope="module")
+def slurm_cluster_project(tmp_path_factory):
+    """Group B: SLURM cluster config."""
+    return shared_copier_generation(tmp_path_factory, "copier_slurm_cluster", {
+        "project_name": "slurm_project",
+        "claudechic_mode": "standard",
+        "quick_start": "defaults",
+        "use_cluster": True,
+        "cluster_scheduler": "slurm",
+        "cluster_ssh_target": "",
+    })
+
+
+@pytest.fixture(scope="module")
+def everything_project(tmp_path_factory):
+    """Group C: everything preset."""
+    return shared_copier_generation(tmp_path_factory, "copier_everything", {
+        "project_name": "everything_test",
+        "claudechic_mode": "standard",
+        "quick_start": "everything",
+        "use_cluster": False,
+    })
+
+
+@pytest.fixture(scope="module")
+def empty_project(tmp_path_factory):
+    """Group C: empty preset."""
+    return shared_copier_generation(tmp_path_factory, "copier_empty", {
+        "project_name": "empty_test",
+        "claudechic_mode": "standard",
+        "quick_start": "empty",
+        "use_cluster": False,
+    })
+
+
+@pytest.fixture(scope="module")
+def custom_project(tmp_path_factory):
+    """Group C: custom preset with selective options."""
+    return shared_copier_generation(tmp_path_factory, "copier_custom", {
+        "project_name": "custom_test",
+        "claudechic_mode": "standard",
+        "quick_start": "custom",
+        "example_rules": True,
+        "example_agent_roles": True,
+        "example_workflows": False,
+        "example_hints": False,
+        "example_patterns": False,
+        "use_cluster": False,
+    })
+
+
+@pytest.fixture(scope="module")
+def developer_project(tmp_path_factory):
+    """Group D: developer mode."""
+    return shared_copier_generation(tmp_path_factory, "copier_developer", {
+        "project_name": "dev_project",
+        "claudechic_mode": "developer",
+        "quick_start": "defaults",
+        "use_cluster": False,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -44,28 +153,18 @@ pytestmark = [
 class TestClaudechicMode:
     """Test standard vs developer mode in pixi.toml."""
 
-    def test_standard_mode_has_git_url(self, copier_output):
-        """Standard mode → pixi.toml has git URL dependency."""
-        dest = copier_output({
-            "project_name": "std_project",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": False,
-        })
+    def test_standard_mode_has_git_url(self, standard_defaults_project):
+        """Standard mode -> pixi.toml has git URL dependency."""
+        dest = standard_defaults_project
         pixi_toml = dest / "pixi.toml"
         assert pixi_toml.exists(), "pixi.toml not generated"
         content = pixi_toml.read_text(encoding="utf-8")
         assert 'git = "https://github.com/sprustonlab/claudechic"' in content
         assert "editable" not in content
 
-    def test_developer_mode_has_editable_path(self, copier_output):
-        """Developer mode → pixi.toml has editable path dependency."""
-        dest = copier_output({
-            "project_name": "dev_project",
-            "claudechic_mode": "developer",
-            "quick_start": "defaults",
-            "use_cluster": False,
-        })
+    def test_developer_mode_has_editable_path(self, developer_project):
+        """Developer mode -> pixi.toml has editable path dependency."""
+        dest = developer_project
         pixi_toml = dest / "pixi.toml"
         assert pixi_toml.exists(), "pixi.toml not generated"
         content = pixi_toml.read_text(encoding="utf-8")
@@ -82,49 +181,27 @@ class TestClaudechicMode:
 class TestClusterScheduler:
     """Test conditional cluster file inclusion."""
 
-    def test_lsf_scheduler(self, copier_output):
-        """use_cluster=true + lsf → lsf.py present, slurm.py absent."""
-        dest = copier_output({
-            "project_name": "lsf_project",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": True,
-            "cluster_scheduler": "lsf",
-            "cluster_ssh_target": "login1.example.com",
-        })
-        mcp = dest / "mcp_tools"
+    def test_lsf_scheduler(self, lsf_cluster_project):
+        """use_cluster=true + lsf -> lsf.py present, slurm.py absent."""
+        mcp = lsf_cluster_project / "mcp_tools"
         assert (mcp / "lsf.py").exists(), "lsf.py should be present"
         assert (mcp / "lsf.yaml").exists(), "lsf.yaml should be present"
         assert (mcp / "_cluster.py").exists(), "_cluster.py should be present"
         assert not (mcp / "slurm.py").exists(), "slurm.py should NOT be present"
         assert not (mcp / "slurm.yaml").exists(), "slurm.yaml should NOT be present"
 
-    def test_slurm_scheduler(self, copier_output):
-        """use_cluster=true + slurm → slurm.py present, lsf.py absent."""
-        dest = copier_output({
-            "project_name": "slurm_project",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": True,
-            "cluster_scheduler": "slurm",
-            "cluster_ssh_target": "",
-        })
-        mcp = dest / "mcp_tools"
+    def test_slurm_scheduler(self, slurm_cluster_project):
+        """use_cluster=true + slurm -> slurm.py present, lsf.py absent."""
+        mcp = slurm_cluster_project / "mcp_tools"
         assert (mcp / "slurm.py").exists(), "slurm.py should be present"
         assert (mcp / "slurm.yaml").exists(), "slurm.yaml should be present"
         assert (mcp / "_cluster.py").exists(), "_cluster.py should be present"
         assert not (mcp / "lsf.py").exists(), "lsf.py should NOT be present"
         assert not (mcp / "lsf.yaml").exists(), "lsf.yaml should NOT be present"
 
-    def test_no_cluster(self, copier_output):
-        """use_cluster=false → no cluster files in mcp_tools/."""
-        dest = copier_output({
-            "project_name": "no_cluster",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": False,
-        })
-        mcp = dest / "mcp_tools"
+    def test_no_cluster(self, standard_defaults_project):
+        """use_cluster=false -> no cluster files in mcp_tools/."""
+        mcp = standard_defaults_project / "mcp_tools"
         # mcp_tools/ directory may or may not exist, but cluster files must be absent
         if mcp.exists():
             assert not (mcp / "lsf.py").exists()
@@ -133,28 +210,14 @@ class TestClusterScheduler:
             assert not (mcp / "lsf.yaml").exists()
             assert not (mcp / "slurm.yaml").exists()
 
-    def test_lsf_yaml_has_ssh_target(self, copier_output):
+    def test_lsf_yaml_has_ssh_target(self, lsf_cluster_project):
         """LSF YAML config should contain the provided ssh_target."""
-        dest = copier_output({
-            "project_name": "lsf_ssh",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": True,
-            "cluster_scheduler": "lsf",
-            "cluster_ssh_target": "mylogin.janelia.org",
-        })
-        yaml_content = (dest / "mcp_tools" / "lsf.yaml").read_text(encoding="utf-8")
+        yaml_content = (lsf_cluster_project / "mcp_tools" / "lsf.yaml").read_text(encoding="utf-8")
         assert "mylogin.janelia.org" in yaml_content
 
-    def test_pyyaml_always_present(self, copier_output):
+    def test_pyyaml_always_present(self, standard_defaults_project):
         """pixi.toml always includes pyyaml (needed by guardrails)."""
-        dest = copier_output({
-            "project_name": "yaml_dep",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": False,
-        })
-        content = (dest / "pixi.toml").read_text(encoding="utf-8")
+        content = (standard_defaults_project / "pixi.toml").read_text(encoding="utf-8")
         assert "pyyaml" in content.lower()
 
 
@@ -166,14 +229,9 @@ class TestClusterScheduler:
 class TestExclude:
     """Verify _exclude rules prevent certain dirs from appearing in output."""
 
-    def test_always_excluded_dirs(self, copier_output):
+    def test_always_excluded_dirs(self, standard_defaults_project):
         """docs/, .project_team/, submodules/, tests/ never in generated project."""
-        dest = copier_output({
-            "project_name": "excl_test",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": False,
-        })
+        dest = standard_defaults_project
         assert not (dest / "docs").exists(), "docs/ should be excluded"
         assert not (dest / ".project_team").exists(), ".project_team/ should be excluded"
         assert not (dest / "submodules").exists(), "submodules/ should be excluded"
@@ -207,14 +265,9 @@ class TestQuickStartPresets:
         "tutorial_toy_project",
     ]
 
-    def test_everything_mode(self, copier_output):
-        """quick_start=everything → ALL content: specialists, tutorials, global, patterns."""
-        dest = copier_output({
-            "project_name": "everything_test",
-            "claudechic_mode": "standard",
-            "quick_start": "everything",
-            "use_cluster": False,
-        })
+    def test_everything_mode(self, everything_project):
+        """quick_start=everything -> ALL content: specialists, tutorials, global, patterns."""
+        dest = everything_project
 
         # Core infrastructure always present
         assert (dest / "pixi.toml").exists()
@@ -252,14 +305,9 @@ class TestQuickStartPresets:
         # project_team workflow YAML always present
         assert (dest / "workflows" / "project_team" / "project_team.yaml").exists()
 
-    def test_defaults_mode(self, copier_output):
-        """quick_start=defaults → core + specialists + global, NO tutorials, NO patterns."""
-        dest = copier_output({
-            "project_name": "defaults_test",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": False,
-        })
+    def test_defaults_mode(self, standard_defaults_project):
+        """quick_start=defaults -> core + specialists + global, NO tutorials, NO patterns."""
+        dest = standard_defaults_project
 
         # Core roles present
         for role in self.CORE_ROLES:
@@ -292,14 +340,9 @@ class TestQuickStartPresets:
             "mine-patterns should NOT be present in defaults mode"
         )
 
-    def test_empty_mode(self, copier_output):
-        """quick_start=empty → infrastructure + core roles ONLY. No specialists, no examples."""
-        dest = copier_output({
-            "project_name": "empty_test",
-            "claudechic_mode": "standard",
-            "quick_start": "empty",
-            "use_cluster": False,
-        })
+    def test_empty_mode(self, empty_project):
+        """quick_start=empty -> infrastructure + core roles ONLY. No specialists, no examples."""
+        dest = empty_project
 
         # Infrastructure always present
         assert (dest / "pixi.toml").exists()
@@ -338,19 +381,9 @@ class TestQuickStartPresets:
         # Pattern miner NOT present
         assert not (dest / "scripts" / "mine_patterns.py").exists()
 
-    def test_custom_selective(self, copier_output):
+    def test_custom_selective(self, custom_project):
         """custom with example_workflows=False but example_agent_roles=True works."""
-        dest = copier_output({
-            "project_name": "custom_test",
-            "claudechic_mode": "standard",
-            "quick_start": "custom",
-            "example_rules": True,
-            "example_agent_roles": True,
-            "example_workflows": False,
-            "example_hints": False,
-            "example_patterns": False,
-            "use_cluster": False,
-        })
+        dest = custom_project
 
         # Core roles always present
         for role in self.CORE_ROLES:
@@ -510,14 +543,9 @@ class TestProjectContainment:
 class TestAnswersFile:
     """Verify .copier-answers.yml generation."""
 
-    def test_copier_answers_file_generated(self, copier_output):
+    def test_copier_answers_file_generated(self, standard_defaults_project):
         """Generated project contains .copier-answers.yml with correct values."""
-        dest = copier_output({
-            "project_name": "answers_test",
-            "claudechic_mode": "standard",
-            "quick_start": "defaults",
-            "use_cluster": False,
-        })
+        dest = standard_defaults_project
         answers_file = dest / ".copier-answers.yml"
         assert answers_file.is_file(), ".copier-answers.yml should be generated"
 
@@ -525,5 +553,5 @@ class TestAnswersFile:
 
         data = yaml.safe_load(answers_file.read_text(encoding="utf-8"))
         assert isinstance(data, dict), ".copier-answers.yml should be a YAML dict"
-        assert data.get("project_name") == "answers_test"
+        assert data.get("project_name") == "std_defaults"
         assert data.get("quick_start") == "defaults"

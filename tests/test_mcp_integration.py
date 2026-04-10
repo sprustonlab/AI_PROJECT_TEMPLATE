@@ -104,10 +104,19 @@ class MockApp:
 
 @pytest.fixture
 def mock_app():
-    """Create MockApp and register it with the MCP module."""
+    """Create MockApp and register it with the MCP module.
+
+    Isolates per-test: saves/restores the global app reference so xdist
+    workers (separate processes) and sequential tests don't leak state.
+    """
+    import claudechic.mcp as mcp_mod
+
+    prev_app = getattr(mcp_mod, "_app", None)
     app = MockApp()
     set_app(app)  # type: ignore
-    return app
+    yield app
+    # Restore previous state to avoid inter-test leakage
+    set_app(prev_app)  # type: ignore
 
 
 # ---------------------------------------------------------------------------

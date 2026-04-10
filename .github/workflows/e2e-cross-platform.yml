@@ -60,13 +60,12 @@ jobs:
           -v --tb=long
           --timeout=300
           -m ""
-          --junit-xml=e2e-results.xml
+          --junitxml=.test_results/ci_e2e.xml
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-results-${{ matrix.os }}
-          path: |
-            e2e-results.xml
+          path: .test_results/ci_e2e.xml
           retention-days: 30

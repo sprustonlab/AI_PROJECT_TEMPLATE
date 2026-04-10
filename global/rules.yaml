@@ -18,3 +18,13 @@
   detect:
     pattern: "^git\\s"
   message: "Git operation logged for audit trail."
+
+- id: no_bare_pytest
+  trigger: PreToolUse/Bash
+  enforcement: deny
+  detect:
+    pattern: "(?:^|[;&|]\\s*)(?:pixi\\s+run\\s+)?(?:python\\s+-m\\s+)?pytest\\b(?!.*(?:\\.py\\b|-k\\s|--junitxml|\\.test_results/|\\btee\\b|--co\\b|--collect-only|--fixtures))"
+  message: |
+    Bare pytest blocked. Full-suite runs must save timestamped results.
+    Use: TS=$(date -u +%Y-%m-%d_%H%M%S) && pytest --junitxml=.test_results/${TS}.xml --tb=short 2>&1 | tee .test_results/${TS}.log
+    Or target a specific test: pytest tests/test_foo.py

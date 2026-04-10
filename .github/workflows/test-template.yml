@@ -4,8 +4,8 @@
 # CI runs pytest via pixi — all test logic lives in Python, not shell scripts.
 #
 # Jobs:
-#   fast: Runs "pytest" (default = not slow) on 3 OSes (every push/PR)
-#   slow: Runs "pytest -m ''" on 3 OSes (manual dispatch only)
+#   fast: Runs fast unit tests with xdist (every push/PR) — target <2 min
+#   slow: Runs slow E2E tests (manual dispatch only)
 # =============================================================================
 
 name: Tests
@@ -52,7 +52,20 @@ jobs:
       - uses: prefix-dev/setup-pixi@v0.8.8
 
       - name: Run fast tests
-        run: pixi run pytest -v --tb=short
+        run: >
+          pixi run pytest
+          -n auto --dist loadscope
+          -m 'not slow and not integration'
+          --junitxml=.test_results/ci_fast.xml
+          --tb=short -v
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-results-${{ matrix.os }}
+          path: .test_results/ci_fast.xml
+          retention-days: 30
 
   # ─── Slow tests: pixi install, network, E2E ─────────────────
   slow:
@@ -79,6 +92,18 @@ jobs:
 
       - uses: prefix-dev/setup-pixi@v0.8.8
 
-      - name: Run all tests (including slow)
-        run: pixi run pytest -m "" -v --tb=short --timeout=300
+      - name: Run slow tests
+        run: >
+          pixi run pytest
+          -m 'slow or integration'
+          --junitxml=.test_results/ci_slow.xml
+          --tb=short -v --timeout=300
         timeout-minutes: 10
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slow-results-${{ matrix.os }}
+          path: .test_results/ci_slow.xml
+          retention-days: 30

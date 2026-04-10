@@ -28,9 +28,6 @@ PAIRED_FILES = [
     "commands/claudechic",
     "commands/mine-patterns",
 
-    # Claude commands
-    ".claude/commands/init_project.md",
-
     # Global config
     "global/rules.yaml",
 

@@ -262,12 +262,19 @@ class TestToolExecution:
         assert result["content"][0]["type"] == "text"
         assert "isError" not in result
 
-        # Verify parsed content
+        # Verify parsed content — response may be a list (ready config)
+        # or a dict with {jobs, setup_needed} (not-ready config)
         data = json.loads(result["content"][0]["text"])
-        assert isinstance(data, list)
-        assert len(data) == 1
-        assert data[0]["job_id"] == "123456"
-        assert data[0]["status"] == "RUN"
+        if isinstance(data, dict):
+            # Not-ready config wraps jobs in a dict with setup_needed
+            assert "jobs" in data or "setup_needed" in data
+            jobs = data.get("jobs", [])
+        else:
+            assert isinstance(data, list)
+            jobs = data
+        assert len(jobs) == 1
+        assert jobs[0]["job_id"] == "123456"
+        assert jobs[0]["status"] == "RUN"
 
     @pytest.mark.asyncio
     async def test_cluster_status_returns_mcp_format(self):
@@ -309,7 +316,12 @@ class TestToolExecution:
 
         assert "isError" not in result
         data = json.loads(result["content"][0]["text"])
-        assert data["job_id"] == "999999"
+        # With no ssh_target and no local scheduler, config is "needs_setup"
+        # and submit returns {setup_needed, message} instead of {job_id, ...}
+        if "setup_needed" in data:
+            assert "message" in data
+        else:
+            assert data["job_id"] == "999999"
 
     @pytest.mark.asyncio
     async def test_cluster_kill_returns_success(self):

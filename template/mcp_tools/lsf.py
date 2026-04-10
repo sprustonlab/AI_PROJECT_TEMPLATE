@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import shlex
 import shutil
 from pathlib import Path
 from typing import Any
@@ -18,14 +19,19 @@ from typing import Any
 from claude_agent_sdk import tool
 
 from mcp_tools._cluster import (
+    _check_config_readiness,
+    _create_log_reader,
+    _create_path_mapper,
     _create_safe_task,
     _error_response,
     _json_response,
     _load_config,
     _read_logs,
+    _resolve_cwd,
     _run_ssh,
     _run_watch,
     _text_response,
+    _translate_status_paths,
 )
 
 #: Always injected into every submitted command so Python output is
@@ -213,16 +219,29 @@ def _submit_job(
     walltime: str,
     command: str,
     config: dict,
+    path_mapper=None,
     job_name: str = "",
     gpus: int = 0,
     stdout_path: str = "",
     stderr_path: str = "",
 ) -> dict[str, Any]:
     """Build bsub invocation, submit, and return {job_id, message}."""
-    # Auto-create log dirs
-    for log_path in [stdout_path, stderr_path]:
-        if log_path:
-            Path(log_path).parent.mkdir(parents=True, exist_ok=True)
+    if path_mapper is None:
+        from mcp_tools._cluster import PathMapper
+        path_mapper = PathMapper()
+
+    # Translate log paths from local to cluster
+    if stdout_path:
+        stdout_path = path_mapper.to_cluster(stdout_path)
+    if stderr_path:
+        stderr_path = path_mapper.to_cluster(stderr_path)
+
+    # Auto-create log dirs on local filesystem (skip if ssh-only)
+    log_access = config.get("log_access", "auto")
+    for lp in [stdout_path, stderr_path]:
+        if lp and log_access != "ssh":
+            local_dir = Path(path_mapper.to_local(lp)).parent
+            local_dir.mkdir(parents=True, exist_ok=True)
 
     # Inject conda-run helpers for live output
     if "conda run" in command and "--no-capture-output" not in command:
@@ -243,15 +262,15 @@ def _submit_job(
         else:
             full_command = command
 
-    # Inject working directory
-    if not re.match(r"^\s*cd\s+", full_command):
-        full_command = f"cd {os.getcwd()} && {full_command}"
+    # Resolve CWD via path mapper (uses -cwd flag, not cd injection)
+    cwd = _resolve_cwd(config, path_mapper)
 
     # Build bsub invocation
     parts: list[str] = ["bsub"]
     parts += ["-q", queue]
     parts += ["-n", str(cpus)]
     parts += ["-W", walltime]
+    parts += ["-cwd", shlex.quote(cwd)]
     if gpus > 0:
         parts += ["-gpu", f"'num={gpus}:mode=exclusive_process'"]
     if job_name:
@@ -306,7 +325,6 @@ def get_tools(**kwargs) -> list:
     caller_name = kwargs.get("caller_name")
     send_notification = kwargs.get("send_notification")
     find_agent = kwargs.get("find_agent")
-    config = _get_config()
 
     @tool(
         "cluster_jobs",
@@ -314,21 +332,36 @@ def get_tools(**kwargs) -> list:
         {},
     )
     async def cluster_jobs(args: dict[str, Any]) -> dict[str, Any]:
+        config = _get_config()
         try:
             jobs = await asyncio.to_thread(_list_jobs, config)
+            readiness = _check_config_readiness(config)
+            if readiness != "ready":
+                data = {"jobs": jobs, "setup_needed": "run cluster_setup workflow"}
+                return _json_response(data)
             return _json_response(jobs)
         except Exception as e:
             return _error_response(str(e))
 
     @tool(
         "cluster_status",
-        "Get detailed status for a specific LSF cluster job.",
+        (
+            "Get detailed status for a specific LSF cluster job. "
+            "Paths in the response (stdout_path, stderr_path, execution_cwd) "
+            "are translated to local paths."
+        ),
         {"job_id": str},
     )
     async def cluster_status(args: dict[str, Any]) -> dict[str, Any]:
+        config = _get_config()
         job_id = args["job_id"]
         try:
+            path_mapper = _create_path_mapper(config)
             detail = await asyncio.to_thread(_get_job_status, job_id, config)
+            _translate_status_paths(detail, path_mapper)
+            readiness = _check_config_readiness(config)
+            if readiness != "ready":
+                detail["setup_needed"] = "run cluster_setup workflow"
             return _json_response(detail)
         except Exception as e:
             return _error_response(str(e))
@@ -337,8 +370,17 @@ def get_tools(**kwargs) -> list:
         "cluster_submit",
         (
             "Submit a job to the LSF cluster. "
-            "PYTHONUNBUFFERED=1 is always prepended. "
-            "--no-capture-output is automatically injected into 'conda run'."
+            "Paths in log path arguments (stdout_path, stderr_path) are "
+            "automatically translated between local and cluster filesystems "
+            "if path_map is configured. Working directory defaults to the "
+            "translated current directory (or remote_cwd if set). "
+            "NOTE: Paths inside your command string are NOT automatically "
+            "translated -- use relative paths or cluster-side absolute paths "
+            "in the command. "
+            "IMPORTANT: If the response contains setup_needed='needs_setup', "
+            "STOP and automatically run cluster_setup phase='diagnose' before "
+            "retrying. If 'incomplete', ask the user if they want to run "
+            "cluster_setup first."
         ),
         {
             "queue": str,
@@ -352,7 +394,16 @@ def get_tools(**kwargs) -> list:
         },
     )
     async def cluster_submit(args: dict[str, Any]) -> dict[str, Any]:
+        config = _get_config()
         try:
+            path_mapper = _create_path_mapper(config)
+            readiness = _check_config_readiness(config)
+            if readiness == "needs_setup":
+                return _json_response({
+                    "setup_needed": "run cluster_setup workflow",
+                    "message": "Cluster tools are not yet configured.",
+                })
+
             result = await asyncio.to_thread(
                 _submit_job,
                 queue=args["queue"],
@@ -360,11 +411,14 @@ def get_tools(**kwargs) -> list:
                 walltime=args["walltime"],
                 command=args["command"],
                 config=config,
+                path_mapper=path_mapper,
                 job_name=args.get("job_name", ""),
                 gpus=args.get("gpus", 0),
                 stdout_path=args.get("stdout_path", ""),
                 stderr_path=args.get("stderr_path", ""),
             )
+            if readiness == "incomplete":
+                result["setup_needed"] = "run cluster_setup workflow"
             return _json_response(result)
         except Exception as e:
             return _error_response(str(e))
@@ -375,6 +429,7 @@ def get_tools(**kwargs) -> list:
         {"job_id": str},
     )
     async def cluster_kill(args: dict[str, Any]) -> dict[str, Any]:
+        config = _get_config()
         job_id = args["job_id"]
         try:
             result = await asyncio.to_thread(_kill_job, job_id, config)
@@ -386,27 +441,45 @@ def get_tools(**kwargs) -> list:
         "cluster_logs",
         (
             "Read stdout/stderr log files for an LSF cluster job. "
-            "Returns the last `tail` lines (default 100; 0 = full log)."
+            "Log paths are automatically translated from cluster paths to "
+            "local paths via path_map. Logs can be read from mounted "
+            "filesystems or via SSH depending on log_access config "
+            "(default: auto -- tries local first, falls back to SSH). "
+            "Returns the last `tail` lines (default 100; 0 = full log). "
+            "IMPORTANT: If the response contains setup_needed, handle it "
+            "the same as cluster_submit (auto-run setup for 'needs_setup', "
+            "ask for 'incomplete')."
         ),
         {"job_id": str, "tail": int},
     )
     async def cluster_logs(args: dict[str, Any]) -> dict[str, Any]:
+        config = _get_config()
         job_id = args["job_id"]
         tail = args.get("tail", 100)
         try:
+            path_mapper = _create_path_mapper(config)
+            log_reader = _create_log_reader(
+                config, path_mapper,
+                profile=config.get("lsf_profile"),
+            )
             result = await asyncio.to_thread(
                 _read_logs,
                 job_id,
                 lambda jid: _get_job_status(jid, config),
                 tail,
+                log_reader=log_reader,
+                path_mapper=path_mapper,
             )
+            readiness = _check_config_readiness(config)
+            if readiness != "ready":
+                result["setup_needed"] = "run cluster_setup workflow"
             return _json_response(result)
         except Exception as e:
             return _error_response(str(e))
 
     # cluster_watch needs notification wiring — graceful degradation
     cluster_watch = _make_cluster_watch(
-        config, caller_name, send_notification, find_agent
+        caller_name, send_notification, find_agent
     )
 
     return [
@@ -419,7 +492,7 @@ def get_tools(**kwargs) -> list:
     ]
 
 
-def _make_cluster_watch(config, caller_name, send_notification, find_agent):
+def _make_cluster_watch(caller_name, send_notification, find_agent):
     """Create cluster_watch tool with notification wiring."""
 
     @tool(
@@ -432,6 +505,7 @@ def _make_cluster_watch(config, caller_name, send_notification, find_agent):
         {"job_id": str},
     )
     async def cluster_watch(args: dict[str, Any]) -> dict[str, Any]:
+        config = _get_config()
         job_id = args["job_id"]
 
         if send_notification is None or find_agent is None:

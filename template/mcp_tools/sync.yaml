@@ -1,0 +1,28 @@
+# Cluster sync configuration
+# Used by the cluster_sync MCP tool to rsync project code to the cluster.
+
+# Remote directory where the project will be synced.
+# Leave empty to auto-resolve from ssh_target + project name.
+remote_project_path: ""
+
+# Paths/patterns to exclude from sync (in addition to .gitignore).
+# Uses rsync --exclude syntax.
+extra_excludes:
+  - ".pixi/"
+  - ".conda/"
+  - ".git/"
+  - "__pycache__/"
+  - "*.pyc"
+  - ".DS_Store"
+  - "submodules/"
+  - ".claude/"
+  - "*.egg-info/"
+  - "node_modules/"
+
+# If true, delete remote files not present locally (rsync --delete).
+# Safe default: false (only adds/updates, never removes remote files).
+delete_extra: false
+
+# Dry-run by default on first sync (shows what would be transferred).
+# Set to false after verifying the sync target is correct.
+dry_run_first: true

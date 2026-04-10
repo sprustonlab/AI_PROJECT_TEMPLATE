@@ -4,8 +4,13 @@
 # CI runs pytest via pixi — all test logic lives in Python, not shell scripts.
 #
 # Jobs:
-#   fast: Runs "pytest" (default = not slow) on 3 OSes (every push/PR)
-#   slow: Runs "pytest -m ''" on 3 OSes (manual dispatch only)
+#   fast: Runs fast unit tests with xdist (every push/PR) — target <2 min
+#   full: Runs ALL tests across 3 OSes (manual dispatch only)
+#
+# 3-Layer Timeout Strategy (full job):
+#   Layer 1 (Job):  30 min  — hard ceiling, prevents runaway CI
+#   Layer 2 (Step): 20 min  — catches hanging pytest process
+#   Layer 3 (Test): 300s    — catches individual test hangs
 # =============================================================================
 
 name: Tests
@@ -15,10 +20,14 @@ on:
     branches: [main, composable-onboarding]
   workflow_dispatch:
     inputs:
-      run_slow:
+      run_full:
         type: boolean
         default: true
-        description: "Run slow E2E tests"
+        description: "Run full test suite (all tiers)"
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   GIT_AUTHOR_NAME: "CI"
@@ -52,13 +61,27 @@ jobs:
       - uses: prefix-dev/setup-pixi@v0.8.8
 
       - name: Run fast tests
-        run: pixi run pytest -v --tb=short
+        run: >
+          pixi run pytest
+          -n auto --dist loadscope
+          -m 'not slow and not integration'
+          --junitxml=.test_results/ci_fast.xml
+          --tb=short -v
 
-  # ─── Slow tests: pixi install, network, E2E ─────────────────
-  slow:
-    name: E2E Tests (${{ matrix.os }})
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-results-${{ matrix.os }}
+          path: .test_results/ci_fast.xml
+          retention-days: 30
+
+  # ─── Full tests: all tiers, 3 OSes, manual dispatch ─────────
+  full:
+    name: Full Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    if: github.event_name == 'workflow_dispatch' && inputs.run_slow
+    if: github.event_name == 'workflow_dispatch' && inputs.run_full
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -78,7 +101,23 @@ jobs:
           git config --global credential.helper ""
 
       - uses: prefix-dev/setup-pixi@v0.8.8
+        with:
+          cache: true
 
-      - name: Run all tests (including slow)
-        run: pixi run pytest -m "" -v --tb=short --timeout=300
-        timeout-minutes: 10
+      - name: Run full tests
+        timeout-minutes: 20
+        run: >
+          pixi run pytest
+          -n auto --dist loadscope
+          -m ""
+          --timeout=300
+          --junitxml=.test_results/ci_full.xml
+          --tb=short -v
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-results-${{ matrix.os }}
+          path: .test_results/ci_full.xml
+          retention-days: 30

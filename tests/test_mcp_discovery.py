@@ -3,24 +3,23 @@
 Tests the discovery mechanism in claudechic/mcp.py that scans mcp_tools/,
 loads eligible .py files, and calls get_tools() on each.
 
-We extract discover_mcp_tools by parsing its source rather than importing the
-whole claudechic package (which has heavy SDK dependencies).
+We import discover_mcp_tools by loading claudechic.mcp with its heavy
+dependencies (claude_agent_sdk, claudechic.*) stubbed out via mock modules.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import logging
-import re
 import sys
-import textwrap
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import MagicMock
 
 import pytest
 
 # ---------------------------------------------------------------------------
-# Extract discover_mcp_tools from claudechic/mcp.py source
+# Import discover_mcp_tools from claudechic/mcp.py with stubbed deps
 # ---------------------------------------------------------------------------
 _CLAUDECHIC_MCP = (
     Path(__file__).resolve().parent.parent
@@ -28,40 +27,71 @@ _CLAUDECHIC_MCP = (
 )
 
 
-def _extract_discover_fn():
-    """Extract and compile discover_mcp_tools from mcp.py source text.
+def _import_discover_fn():
+    """Import discover_mcp_tools from mcp.py with heavy dependencies stubbed.
 
-    This avoids importing the full claudechic package which requires the
-    real claude_agent_sdk and other heavyweight dependencies.
+    Stubs claude_agent_sdk and claudechic.* so we can import the module
+    without needing the real SDK or full claudechic package installed.
     """
-    source = _CLAUDECHIC_MCP.read_text(encoding="utf-8")
+    # Stub heavy dependencies that mcp.py imports at module level
+    stubs_needed = [
+        "claude_agent_sdk",
+        "claudechic",
+        "claudechic.analytics",
+        "claudechic.config",
+        "claudechic.features",
+        "claudechic.features.worktree",
+        "claudechic.features.worktree.git",
+        "claudechic.tasks",
+    ]
+    saved = {}
+    for name in stubs_needed:
+        saved[name] = sys.modules.get(name)
+        if name not in sys.modules:
+            stub = ModuleType(name)
+            # claude_agent_sdk needs 'tool' and 'create_sdk_mcp_server'
+            if name == "claude_agent_sdk":
+                stub.tool = lambda *a, **kw: (lambda fn: fn)
+                stub.create_sdk_mcp_server = MagicMock()
+            # claudechic.config needs CONFIG dict
+            if name == "claudechic.config":
+                stub.CONFIG = {}
+            # claudechic.analytics needs 'capture'
+            if name == "claudechic.analytics":
+                stub.capture = MagicMock()
+            # claudechic.tasks needs 'create_safe_task'
+            if name == "claudechic.tasks":
+                stub.create_safe_task = MagicMock()
+            # claudechic.features.worktree.git needs many symbols
+            if name == "claudechic.features.worktree.git":
+                for attr in [
+                    "FinishPhase", "FinishState", "ResolutionAction",
+                    "clean_gitignored_files", "determine_resolution_action",
+                    "diagnose_worktree", "fast_forward_merge", "finish_cleanup",
+                    "get_cleanup_fix_prompt", "get_finish_info",
+                    "get_finish_prompt", "start_worktree",
+                ]:
+                    setattr(stub, attr, MagicMock())
+            sys.modules[name] = stub
 
-    # Extract the function source code
-    # Find the function starting at "def discover_mcp_tools"
-    # and ending at the next top-level def or end of file
-    pattern = r"^(def discover_mcp_tools\(.*?\n(?:(?:    .*)?\n)*)"
-    match = re.search(pattern, source, re.MULTILINE)
-    assert match, "Could not find discover_mcp_tools in mcp.py"
-    fn_source = match.group(1)
-
-    # Build a minimal module with just the function + its dependencies
-    module_code = textwrap.dedent("""\
-        import importlib.util
-        import logging
-        import sys
-        from pathlib import Path
-
-        log = logging.getLogger(__name__)
-
-    """) + fn_source
-
-    # Compile and exec into a namespace
-    namespace: dict = {}
-    exec(compile(module_code, str(_CLAUDECHIC_MCP), "exec"), namespace)
-    return namespace["discover_mcp_tools"]
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "claudechic.mcp", _CLAUDECHIC_MCP
+        )
+        assert spec and spec.loader, f"Could not load spec for {_CLAUDECHIC_MCP}"
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.discover_mcp_tools
+    finally:
+        # Restore original sys.modules state
+        for name in stubs_needed:
+            if saved[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved[name]
 
 
-discover_mcp_tools = _extract_discover_fn()
+discover_mcp_tools = _import_discover_fn()
 
 
 # ---------------------------------------------------------------------------

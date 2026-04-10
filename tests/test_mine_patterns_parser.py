@@ -12,10 +12,6 @@ from pathlib import Path
 
 import pytest
 
-# Ensure scripts/ is importable
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from mine_patterns import (
     DEFAULT_AGENT_ROLES,
     KNOWN_VERSIONS,
@@ -29,7 +25,7 @@ from mine_patterns import (
     _jaccard_similarity,
 )
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "mine_patterns"
 
 
 # ---------------------------------------------------------------------------

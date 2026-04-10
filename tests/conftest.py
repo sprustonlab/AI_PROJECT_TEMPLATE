@@ -14,6 +14,7 @@ from typing import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from filelock import FileLock
 
 # Root of the template repo
 TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
@@ -36,12 +37,61 @@ def mcp_tools_dir(tmp_path):
     return d
 
 
+def shared_copier_generation(tmp_path_factory, name: str, data: dict) -> Path:
+    """Run copier once per unique name, shared across xdist workers via FileLock.
+
+    Uses the same pattern as e2e_project: FileLock + shared basetemp parent.
+    Call from module-scoped fixtures to avoid redundant copier generations.
+    """
+    from copier import run_copy
+
+    root_tmp = tmp_path_factory.getbasetemp().parent
+    dest = root_tmp / name
+    lock = root_tmp / f"{name}.lock"
+    marker = root_tmp / f"{name}.ready"
+
+    with FileLock(str(lock)):
+        if not marker.exists():
+            env = os.environ.copy()
+            env["GIT_AUTHOR_NAME"] = "Test"
+            env["GIT_AUTHOR_EMAIL"] = "test@test.com"
+            env["GIT_COMMITTER_NAME"] = "Test"
+            env["GIT_COMMITTER_EMAIL"] = "test@test.com"
+
+            dest.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                ["git", "init"],
+                cwd=dest, capture_output=True, check=True, env=env,
+            )
+            subprocess.run(
+                ["git", "commit", "--allow-empty", "-m", "init"],
+                cwd=dest, capture_output=True, check=True, env=env,
+            )
+
+            run_copy(
+                str(TEMPLATE_ROOT),
+                dest,
+                data=data,
+                defaults=True,
+                unsafe=True,
+                vcs_ref="HEAD",
+            )
+
+            marker.touch()
+
+    return dest
+
+
 @pytest.fixture
 def copier_output(tmp_path):
     """Factory fixture for running copier copy with given data.
 
     Uses copier's Python API directly for correct type handling
     (booleans, choice values).
+
+    NOTE: Prefer module-scoped fixtures using shared_copier_generation()
+    when multiple tests share the same config.  This fixture remains for
+    tests that need a unique, isolated generation (e.g. containment tests).
     """
 
     def _run(data: dict, dest_name: str = "test_project"):
@@ -96,50 +146,20 @@ def e2e_project(tmp_path_factory) -> Generator[Path, None, None]:
     """Copier copy with 'everything' preset into a clean temp directory.
 
     Module-scoped so the generated project is shared across all test steps.
-    Handles git init, copier run_copy, and cleanup.
+    Uses shared_copier_generation() for FileLock + xdist safety.
     """
-    from copier import run_copy
-
-    tmp = tmp_path_factory.mktemp("e2e_cross_platform")
-    dest = tmp / "e2e_cross_platform"
-
-    env = os.environ.copy()
-    env["GIT_AUTHOR_NAME"] = "Test"
-    env["GIT_AUTHOR_EMAIL"] = "test@test.com"
-    env["GIT_COMMITTER_NAME"] = "Test"
-    env["GIT_COMMITTER_EMAIL"] = "test@test.com"
-
-    # Initialize a git repo in dest first (copier requires it)
-    dest.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        ["git", "init"],
-        cwd=dest, capture_output=True, check=True, env=env,
-    )
-    subprocess.run(
-        ["git", "commit", "--allow-empty", "-m", "init"],
-        cwd=dest, capture_output=True, check=True, env=env,
-    )
-
-    run_copy(
-        str(TEMPLATE_ROOT),
-        dest,
-        data={
-            "project_name": "e2e_cross_platform",
-            "claudechic_mode": "standard",
-            "quick_start": "everything",
-            "use_cluster": False,
-            "use_guardrails": True,
-            "use_project_team": True,
-        },
-        defaults=True,
-        unsafe=True,
-        vcs_ref="HEAD",
-    )
+    dest = shared_copier_generation(tmp_path_factory, "e2e_cross_platform", {
+        "project_name": "e2e_cross_platform",
+        "claudechic_mode": "standard",
+        "quick_start": "everything",
+        "use_cluster": False,
+        "use_guardrails": True,
+        "use_project_team": True,
+    })
 
     yield dest
 
-    # Cleanup
-    shutil.rmtree(tmp, ignore_errors=True)
+    # No per-worker cleanup — shared resource, pytest cleans basetemp
 
 
 @pytest.fixture

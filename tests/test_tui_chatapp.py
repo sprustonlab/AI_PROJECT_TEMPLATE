@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-pytestmark = [pytest.mark.tui, pytest.mark.timeout(60)]
+pytestmark = [pytest.mark.tui, pytest.mark.integration, pytest.mark.timeout(60)]
 
 # ---------------------------------------------------------------------------
 # SDK mock fixture (mirrors claudechic/tests/conftest.py)

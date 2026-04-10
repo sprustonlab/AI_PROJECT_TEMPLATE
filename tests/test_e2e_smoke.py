@@ -38,6 +38,7 @@ pytestmark = [
     pytest.mark.slow,
     pytest.mark.network,
     pytest.mark.unix_only,
+    pytest.mark.timeout(300),
 ]
 
 TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
@@ -65,54 +66,63 @@ def _pexpect_available():
 
 
 @pytest.fixture(scope="module")
-def generated_project():
+def generated_project(tmp_path_factory):
     """Generate a project with copier (LSF cluster, standard mode).
 
-    This is module-scoped so pixi install only runs once for all tests.
+    Module-scoped so pixi install only runs once for all tests.
+    Uses FileLock + shared basetemp so xdist workers can safely share.
     """
     if not _copier_available():
         pytest.skip("copier not installed")
 
     from copier import run_copy
+    from filelock import FileLock
 
-    tmp = tempfile.mkdtemp(prefix="e2e_smoke_")
-    dest = Path(tmp) / "smoke_project"
+    # Use the shared basetemp parent so all xdist workers see the same path
+    root_tmp = tmp_path_factory.getbasetemp().parent
+    dest = root_tmp / "smoke_project"
+    lock = root_tmp / "smoke_project.lock"
+    marker = root_tmp / "smoke_project.ready"
 
-    env = os.environ.copy()
-    env["GIT_AUTHOR_NAME"] = "Test"
-    env["GIT_AUTHOR_EMAIL"] = "test@test.com"
-    env["GIT_COMMITTER_NAME"] = "Test"
-    env["GIT_COMMITTER_EMAIL"] = "test@test.com"
+    with FileLock(str(lock)):
+        if not marker.exists():
+            env = os.environ.copy()
+            env["GIT_AUTHOR_NAME"] = "Test"
+            env["GIT_AUTHOR_EMAIL"] = "test@test.com"
+            env["GIT_COMMITTER_NAME"] = "Test"
+            env["GIT_COMMITTER_EMAIL"] = "test@test.com"
 
-    dest.mkdir(parents=True)
-    subprocess.run(
-        ["git", "init"], cwd=dest, capture_output=True, check=True, env=env,
-    )
-    subprocess.run(
-        ["git", "commit", "--allow-empty", "-m", "init"],
-        cwd=dest, capture_output=True, check=True, env=env,
-    )
+            dest.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                ["git", "init"], cwd=dest, capture_output=True, check=True, env=env,
+            )
+            subprocess.run(
+                ["git", "commit", "--allow-empty", "-m", "init"],
+                cwd=dest, capture_output=True, check=True, env=env,
+            )
 
-    run_copy(
-        str(TEMPLATE_ROOT),
-        dest,
-        data={
-            "project_name": "smoke_test",
-            "claudechic_mode": "standard",
-            "use_cluster": True,
-            "cluster_scheduler": "lsf",
-            "cluster_ssh_target": "",
-            "use_guardrails": True,
-            "use_project_team": True,
-        },
-        defaults=True,
-        unsafe=True,
-    )
+            run_copy(
+                str(TEMPLATE_ROOT),
+                dest,
+                data={
+                    "project_name": "smoke_test",
+                    "claudechic_mode": "standard",
+                    "use_cluster": True,
+                    "cluster_scheduler": "lsf",
+                    "cluster_ssh_target": "",
+                    "use_guardrails": True,
+                    "use_project_team": True,
+                },
+                defaults=True,
+                unsafe=True,
+                vcs_ref="HEAD",
+            )
+
+            marker.touch()
 
     yield dest
 
-    # Cleanup
-    shutil.rmtree(tmp, ignore_errors=True)
+    # No per-worker cleanup — shared resource, pytest cleans basetemp
 
 
 # ---------------------------------------------------------------------------

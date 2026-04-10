@@ -925,12 +925,12 @@ class TestBugRegressionNormalizationOrder:
     r"""Regression: normalization order — backslash conversion before tilde expansion."""
 
     def test_backslash_before_tilde(self):
-        r"""'~\cluster\data' should expand correctly on Linux."""
-        # On Linux, ~ expands to $HOME. The key is that backslashes
-        # are converted to forward slashes FIRST, so os.path.expanduser
-        # sees '~/cluster/data' not '~\cluster\data'.
+        r"""'~\cluster\data' should expand correctly on all platforms."""
+        # Backslashes are converted to forward slashes, then ~ is expanded.
+        # On Windows, expanduser may reintroduce backslashes, but our
+        # normalizer does a second forward-slash pass afterwards.
         result = _cluster_mod._normalize_local_path("~\\cluster\\data")
-        home = os.path.expanduser("~")
+        home = os.path.expanduser("~").replace("\\", "/")
         assert result.startswith(home)
         assert result.endswith("/cluster/data")
         assert "\\" not in result

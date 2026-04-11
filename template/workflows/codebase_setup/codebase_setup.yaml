@@ -1,0 +1,36 @@
+workflow_id: codebase-setup
+main_role: codebase_setup_helper
+
+phases:
+  - id: locate
+    file: locate
+    hints:
+      - message: "Locating the existing codebase to integrate..."
+        lifecycle: show-once
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Codebase path confirmed and validated?"
+
+  - id: integrate
+    file: integrate
+    hints:
+      - message: "Integrating codebase into repos/ directory..."
+        lifecycle: show-once
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Codebase integrated into repos/?"
+
+  - id: environment
+    file: environment
+    hints:
+      - message: "Scanning codebase for dependencies and configuring environment..."
+        lifecycle: show-once
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Environment configured and dependencies resolved?"
+
+  - id: verify
+    file: verify
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Imports work and codebase is functional?"

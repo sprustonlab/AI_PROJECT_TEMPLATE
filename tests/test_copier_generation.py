@@ -78,8 +78,6 @@ def lsf_cluster_project(tmp_path_factory):
         "claudechic_mode": "standard",
         "quick_start": "defaults",
         "use_cluster": True,
-        "cluster_scheduler": "lsf",
-        "cluster_ssh_target": "mylogin.janelia.org",
     })
 
 
@@ -91,8 +89,6 @@ def slurm_cluster_project(tmp_path_factory):
         "claudechic_mode": "standard",
         "quick_start": "defaults",
         "use_cluster": True,
-        "cluster_scheduler": "slurm",
-        "cluster_ssh_target": "",
     })
 
 
@@ -181,23 +177,13 @@ class TestClaudechicMode:
 class TestClusterScheduler:
     """Test conditional cluster file inclusion."""
 
-    def test_lsf_scheduler(self, lsf_cluster_project):
-        """use_cluster=true + lsf -> lsf.py present, slurm.py absent."""
+    def test_cluster_files_present(self, lsf_cluster_project):
+        """use_cluster=true -> all cluster files present (both backends + unified config)."""
         mcp = lsf_cluster_project / "mcp_tools"
         assert (mcp / "lsf.py").exists(), "lsf.py should be present"
-        assert (mcp / "lsf.yaml").exists(), "lsf.yaml should be present"
-        assert (mcp / "_cluster.py").exists(), "_cluster.py should be present"
-        assert not (mcp / "slurm.py").exists(), "slurm.py should NOT be present"
-        assert not (mcp / "slurm.yaml").exists(), "slurm.yaml should NOT be present"
-
-    def test_slurm_scheduler(self, slurm_cluster_project):
-        """use_cluster=true + slurm -> slurm.py present, lsf.py absent."""
-        mcp = slurm_cluster_project / "mcp_tools"
         assert (mcp / "slurm.py").exists(), "slurm.py should be present"
-        assert (mcp / "slurm.yaml").exists(), "slurm.yaml should be present"
+        assert (mcp / "cluster.yaml").exists(), "cluster.yaml should be present"
         assert (mcp / "_cluster.py").exists(), "_cluster.py should be present"
-        assert not (mcp / "lsf.py").exists(), "lsf.py should NOT be present"
-        assert not (mcp / "lsf.yaml").exists(), "lsf.yaml should NOT be present"
 
     def test_no_cluster(self, standard_defaults_project):
         """use_cluster=false -> no cluster files in mcp_tools/."""
@@ -207,13 +193,13 @@ class TestClusterScheduler:
             assert not (mcp / "lsf.py").exists()
             assert not (mcp / "slurm.py").exists()
             assert not (mcp / "_cluster.py").exists()
-            assert not (mcp / "lsf.yaml").exists()
-            assert not (mcp / "slurm.yaml").exists()
+            assert not (mcp / "cluster.yaml").exists()
 
-    def test_lsf_yaml_has_ssh_target(self, lsf_cluster_project):
-        """LSF YAML config should contain the provided ssh_target."""
-        yaml_content = (lsf_cluster_project / "mcp_tools" / "lsf.yaml").read_text(encoding="utf-8")
-        assert "mylogin.janelia.org" in yaml_content
+    def test_cluster_yaml_has_empty_backend(self, lsf_cluster_project):
+        """cluster.yaml should have empty backend (populated by cluster-setup workflow)."""
+        yaml_content = (lsf_cluster_project / "mcp_tools" / "cluster.yaml").read_text(encoding="utf-8")
+        assert 'backend: ""' in yaml_content
+        assert 'ssh_target: ""' in yaml_content
 
     def test_pyyaml_always_present(self, standard_defaults_project):
         """pixi.toml always includes pyyaml (needed by guardrails)."""

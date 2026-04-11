@@ -27,8 +27,8 @@ log = logging.getLogger(__name__)
 def _load_config(tool_file: Path) -> dict:
     """Read config from a YAML sibling of the given tool file.
 
-    Example: _load_config(Path("mcp_tools/lsf.py"))
-             reads mcp_tools/lsf.yaml
+    Example: _load_config(Path("mcp_tools/cluster.py"))
+             reads mcp_tools/cluster.yaml
     """
     try:
         import yaml

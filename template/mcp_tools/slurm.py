@@ -45,7 +45,7 @@ _TERMINAL_STATUSES = frozenset({
 
 
 def _get_config() -> dict:
-    return _load_config(Path(__file__))
+    return _load_config(Path(__file__).parent / "cluster.py")
 
 
 def _get_ssh_target(config: dict) -> str:
@@ -264,6 +264,10 @@ def _kill_job(job_id: str, config: dict) -> dict[str, Any]:
 
 def get_tools(**kwargs) -> list:
     """Return SLURM cluster MCP tools for registration."""
+    config = _get_config()
+    if config.get("backend") != "slurm":
+        return []
+
     caller_name = kwargs.get("caller_name")
     send_notification = kwargs.get("send_notification")
     find_agent = kwargs.get("find_agent")

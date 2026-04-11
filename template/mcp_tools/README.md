@@ -20,8 +20,9 @@ Each tool can have a sibling YAML config file with the same name:
 
 ```
 mcp_tools/
-|---- lsf.py          # Tool implementation
-|---- lsf.yaml        # Config for lsf.py (SSH target, defaults, etc.)
+|---- lsf.py          # LSF backend
+|---- slurm.py        # SLURM backend
+|---- cluster.yaml    # Cluster config (backend, SSH target, etc.)
 |---- _cluster.py     # Shared helper (underscore = not discovered)
 |---- README.md
 ```
@@ -30,7 +31,7 @@ Load config in your tool with:
 
 ```python
 from mcp_tools._cluster import _load_config
-config = _load_config(Path(__file__))  # Reads lsf.yaml
+config = _load_config(Path(__file__))  # Reads cluster.yaml
 ```
 
 ## Cluster Backends
@@ -62,13 +63,19 @@ Both backends share common infrastructure via the underscore-prefixed `_cluster.
 
 ### Configuration
 
-Each backend has a YAML config file (`lsf.yaml` or `slurm.yaml`) with:
+Both backends share a single config file (`cluster.yaml`) with:
 
 ```yaml
-ssh_target: "login1.example.com"   # Login node (empty = local scheduler)
+backend: ""              # lsf | slurm -- detected by cluster-setup workflow
+ssh_target: ""           # Login node (empty = local scheduler)
+lsf_profile: ""          # LSF-specific (e.g., /misc/lsf/conf/profile.lsf)
+watch_poll_interval: 30
+remote_cwd: ""
+path_map: []
+log_access: auto
 ```
 
-The SSH target is set during project creation via the copier questionnaire.
+The SSH target and backend are configured by the cluster-setup workflow.
 
 ### SSH Setup
 

@@ -20,7 +20,6 @@ import platform
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -108,8 +107,6 @@ def generated_project(tmp_path_factory):
                     "project_name": "smoke_test",
                     "claudechic_mode": "standard",
                     "use_cluster": True,
-                    "cluster_scheduler": "lsf",
-                    "cluster_ssh_target": "",
                     "use_guardrails": True,
                     "use_project_team": True,
                 },
@@ -139,15 +136,12 @@ class TestCopierGeneration:
     def test_activate_script_exists(self, generated_project):
         assert (generated_project / "activate").exists()
 
-    def test_lsf_tools_present(self, generated_project):
+    def test_cluster_tools_present(self, generated_project):
         mcp = generated_project / "mcp_tools"
         assert (mcp / "lsf.py").exists()
-        assert (mcp / "lsf.yaml").exists()
+        assert (mcp / "slurm.py").exists()
+        assert (mcp / "cluster.yaml").exists()
         assert (mcp / "_cluster.py").exists()
-
-    def test_no_slurm_tools(self, generated_project):
-        mcp = generated_project / "mcp_tools"
-        assert not (mcp / "slurm.py").exists()
 
     def test_excluded_dirs_absent(self, generated_project):
         assert not (generated_project / "tests").exists()
@@ -259,97 +253,24 @@ class TestMCPServerCreation:
 # ---------------------------------------------------------------------------
 
 
-class TestExistingCodebaseImport:
-    """Verify that an existing codebase integrated via repos/ is importable after activate."""
+class TestCopierAnswersIntentFlags:
+    """Verify that intent-only flags are recorded correctly in .copier-answers.yml."""
 
-    @pytest.mark.timeout(300)
-    @pytest.mark.skipif(
-        os.environ.get("CI_SKIP_PIXI_INSTALL") == "1",
-        reason="CI_SKIP_PIXI_INSTALL set",
-    )
-    def test_import_existing_codebase_after_activate(self):
-        """Full E2E: copier + existing_codebase → source activate → import works."""
-        if not _copier_available():
-            pytest.skip("copier not installed")
+    def test_use_cluster_recorded(self, generated_project):
+        """use_cluster=True is recorded in .copier-answers.yml."""
+        import yaml
+        answers = generated_project / ".copier-answers.yml"
+        assert answers.exists(), ".copier-answers.yml should exist"
+        data = yaml.safe_load(answers.read_text(encoding="utf-8"))
+        assert data.get("use_cluster") is True
 
-        from copier import run_copy
-
-        tmp = tempfile.mkdtemp(prefix="e2e_codebase_")
-        try:
-            # 1. Create a fake codebase with a Python package
-            fake_repo = Path(tmp) / "my_lib"
-            fake_repo.mkdir()
-            pkg_dir = fake_repo / "my_lib"
-            pkg_dir.mkdir()
-            (pkg_dir / "__init__.py").write_text("VERSION = '0.42'\n", encoding="utf-8")
-            (pkg_dir / "core.py").write_text("def greet():\n    return 'hello from my_lib'\n", encoding="utf-8")
-
-            # 2. Generate project with existing_codebase pointing to fake repo
-            dest = Path(tmp) / "test_project"
-
-            env = os.environ.copy()
-            env["GIT_AUTHOR_NAME"] = "Test"
-            env["GIT_AUTHOR_EMAIL"] = "test@test.com"
-            env["GIT_COMMITTER_NAME"] = "Test"
-            env["GIT_COMMITTER_EMAIL"] = "test@test.com"
-
-            dest.mkdir(parents=True)
-            subprocess.run(
-                ["git", "init"], cwd=dest, capture_output=True, check=True, env=env,
-            )
-            subprocess.run(
-                ["git", "commit", "--allow-empty", "-m", "init"],
-                cwd=dest, capture_output=True, check=True, env=env,
-            )
-
-            run_copy(
-                str(TEMPLATE_ROOT),
-                dest,
-                data={
-                    "project_name": "codebase_import_test",
-                    "claudechic_mode": "standard",
-                    "use_cluster": False,
-                    "use_guardrails": False,
-                    "use_project_team": False,
-                    "init_git": False,
-                    "existing_codebase": str(fake_repo),
-                    "codebase_link_mode": "copy",
-                },
-                defaults=True,
-                unsafe=True,
-            )
-
-            # 3. Verify the codebase landed in repos/
-            assert (dest / "repos" / "my_lib" / "my_lib" / "__init__.py").exists()
-
-            # 4. Source activate and try to import
-            # We simulate what activate does: add repos/*/ to PYTHONPATH
-            # then run python to import the package.
-            # Write the test script to a file to avoid shell quoting issues.
-            test_script = dest / "_test_import.py"
-            test_script.write_text(
-                "from my_lib import VERSION\n"
-                "from my_lib.core import greet\n"
-                "print('version=' + VERSION + ' greeting=' + greet())\n",
-                encoding="utf-8",
-            )
-            result = subprocess.run(
-                ["bash", "-c",
-                 f'source "{dest}/activate" && python3 "{test_script}"'],
-                cwd=dest,
-                capture_output=True,
-                text=True,
-                timeout=60,
-                env=env,
-            )
-            assert result.returncode == 0, (
-                f"Import failed after activate:\nSTDOUT: {result.stdout[:500]}\nSTDERR: {result.stderr[:500]}"
-            )
-            assert "version=0.42" in result.stdout
-            assert "greeting=hello from my_lib" in result.stdout
-
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+    def test_use_existing_codebase_recorded(self, generated_project):
+        """use_existing_codebase default (false) is recorded in .copier-answers.yml."""
+        import yaml
+        answers = generated_project / ".copier-answers.yml"
+        data = yaml.safe_load(answers.read_text(encoding="utf-8"))
+        assert "use_existing_codebase" in data
+        assert data["use_existing_codebase"] is False
 
 
 # ---------------------------------------------------------------------------

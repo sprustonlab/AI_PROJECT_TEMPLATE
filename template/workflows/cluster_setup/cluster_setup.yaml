@@ -5,7 +5,7 @@ phases:
   - id: detect
     file: detect
     hints:
-      - message: "Phase 1/7: SSH Target Detection. Verify connectivity to the cluster login node."
+      - message: "Phase 1/6: SSH Target Detection & Auth. Find the login node, verify passwordless SSH."
         lifecycle: show-once
     advance_checks:
       - type: file-content-check
@@ -14,26 +14,19 @@ phases:
         on_failure:
           message: "ssh_target must be set in mcp_tools/cluster.yaml before advancing."
           severity: warning
-      - type: manual-confirm
-        prompt: "SSH target confirmed and reachable?"
-
-  - id: ssh_auth
-    file: ssh_auth
-    hints:
-      - message: "Phase 2/7: Passwordless SSH. BatchMode must succeed without password prompts."
-        lifecycle: show-once
-    advance_checks:
       - type: command-output-check
         command: "ssh -o BatchMode=yes -o ConnectTimeout=5 $(awk '/^ssh_target:/{print $2}' mcp_tools/cluster.yaml) echo ok 2>&1"
         pattern: "^ok$"
         on_failure:
           message: "SSH BatchMode failed. Set up SSH keys: ssh-keygen -t ed25519 && ssh-copy-id <target>"
           severity: warning
+      - type: manual-confirm
+        prompt: "SSH target confirmed and passwordless SSH working?"
 
   - id: ssh_mux
     file: ssh_mux
     hints:
-      - message: "Phase 3/7: SSH Multiplexing. Connection pooling via ~/.ssh/sockets/ speeds up repeated commands."
+      - message: "Phase 2/6: SSH Multiplexing. Connection pooling via ~/.ssh/sockets/ speeds up repeated commands."
         lifecycle: show-once
     advance_checks:
       - type: command-output-check
@@ -46,7 +39,7 @@ phases:
   - id: scheduler
     file: scheduler
     hints:
-      - message: "Phase 4/7: Scheduler Detection. Confirm LSF or SLURM is available on the cluster."
+      - message: "Phase 3/6: Scheduler Detection. Confirm LSF or SLURM is available on the cluster."
         lifecycle: show-once
     advance_checks:
       - type: command-output-check
@@ -61,7 +54,7 @@ phases:
   - id: paths
     file: paths
     hints:
-      - message: "Phase 5/7: Path Mapping. Map network drives and local filesystem paths to cluster paths so jobs run in the right directory."
+      - message: "Phase 4/6: Path Mapping. Map network drives and local filesystem paths to cluster paths so jobs run in the right directory."
         lifecycle: show-once
     advance_checks:
       - type: manual-confirm
@@ -70,7 +63,7 @@ phases:
   - id: validate
     file: validate
     hints:
-      - message: "Phase 6/7: Validation. Test the full config end-to-end before writing."
+      - message: "Phase 5/6: Validation. Test the full config end-to-end before writing."
         lifecycle: show-once
       - message: "A test job will be submitted, waited on, and its log checked for clean exit."
         lifecycle: show-once
@@ -99,7 +92,7 @@ phases:
   - id: apply
     file: apply
     hints:
-      - message: "Phase 7/7: Apply. Write the validated configuration to mcp_tools/cluster.yaml."
+      - message: "Phase 6/6: Apply. Write the validated configuration to mcp_tools/cluster.yaml."
         lifecycle: show-once
     advance_checks:
       - type: manual-confirm
@@ -112,12 +105,4 @@ rules:
     detect:
       pattern: "ssh-keygen|ssh-copy-id"
     message: "SSH key operation detected. Ensure the user is aware and approves."
-    phases: [ssh_auth]
-
-  - id: no_cluster_submit_during_setup
-    trigger: PreToolUse/Bash
-    enforcement: warn
-    detect:
-      pattern: "bsub|sbatch"
-    message: "Avoid submitting jobs until cluster setup is complete."
-    exclude_phases: [validate, apply]
+    phases: [detect]

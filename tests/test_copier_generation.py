@@ -240,7 +240,7 @@ class TestQuickStartPresets:
 
     # Specialist roles (only with everything/defaults/custom+example_agent_roles)
     SPECIALIST_ROLES = [
-        "researcher", "lab_notebook", "ui_designer", "git_setup",
+        "researcher", "lab_notebook", "ui_designer",
         "binary_portability", "memory_layout", "project_integrator",
         "sync_coordinator",
     ]

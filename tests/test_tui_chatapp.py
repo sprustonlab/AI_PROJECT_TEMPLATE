@@ -182,7 +182,7 @@ class TestMCPToolRegistration:
         mcp_dir.mkdir()
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
-        (mcp_dir / "lsf.yaml").write_text("ssh_target: \"\"\nwatch_poll_interval: 5\n", encoding="utf-8")
+        (mcp_dir / "cluster.yaml").write_text("backend: lsf\nssh_target: \"\"\nwatch_poll_interval: 5\n", encoding="utf-8")
 
         with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):
             tools = discover_mcp_tools(

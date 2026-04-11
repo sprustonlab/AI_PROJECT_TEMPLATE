@@ -412,6 +412,8 @@ class TestOnboardingWithCopierProjects:
             # Copy the copier answers file (minimal footprint)
             answers_src = lsf_cluster_project / ".copier-answers.yml"
             (tmp_path / ".copier-answers.yml").write_bytes(answers_src.read_bytes())
+            # Create workflow manifests so _workflow_exists() passes
+            _create_workflow_manifests(tmp_path)
 
             # Before dismiss: should show facets
             with patch("claudechic.onboarding.shutil.which", return_value=None), \

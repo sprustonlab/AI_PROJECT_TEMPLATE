@@ -232,6 +232,14 @@ class TestMCPServerCreation:
         if not mcp_dir.exists():
             pytest.skip("mcp_tools/ not generated")
 
+        # Set backend so get_tools() backend gate passes
+        import yaml
+        cluster_yaml = mcp_dir / "cluster.yaml"
+        if cluster_yaml.exists():
+            data = yaml.safe_load(cluster_yaml.read_text(encoding="utf-8")) or {}
+            data["backend"] = "lsf"
+            cluster_yaml.write_text(yaml.dump(data), encoding="utf-8")
+
         from unittest.mock import MagicMock, patch
 
         with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):

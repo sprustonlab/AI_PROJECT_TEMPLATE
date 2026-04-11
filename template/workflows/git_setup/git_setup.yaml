@@ -1,0 +1,60 @@
+workflow_id: git-setup
+main_role: git_setup_helper
+
+phases:
+  - id: init
+    file: init
+    hints:
+      - message: "Checking git initialization status..."
+        lifecycle: show-once
+    advance_checks:
+      - type: command-output-check
+        command: "git rev-parse --git-dir 2>/dev/null || echo no_git"
+        pattern: "\\.git"
+        on_failure:
+          message: "No git repository found. Run 'git init && git add -A && git commit -m \"Initial project\"' to initialize."
+          severity: warning
+      - type: manual-confirm
+        prompt: "Git repository initialized?"
+
+  - id: remote
+    file: remote
+    hints:
+      - message: "Configuring git remote. Will offer to create a GitHub repo if needed."
+        lifecycle: show-once
+    advance_checks:
+      - type: command-output-check
+        command: "git remote get-url origin 2>/dev/null || echo no_remote"
+        pattern: "^(?!no_remote)"
+        on_failure:
+          message: "No git remote configured. Use 'gh repo create' or 'git remote add origin <url>' to set one up."
+          severity: warning
+      - type: manual-confirm
+        prompt: "Git remote configured?"
+
+  - id: push
+    file: push
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Initial commit pushed to remote?"
+
+  - id: hooks
+    file: hooks
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Repository settings configured (or skipped)?"
+
+rules:
+  - id: no_force_push
+    trigger: PreToolUse/Bash
+    enforcement: deny
+    detect:
+      pattern: "git push\\s.*(--force-with-lease|--force\\b|-f\\b)"
+    message: "Force push is destructive and not allowed during git setup."
+
+  - id: warn_reset_hard
+    trigger: PreToolUse/Bash
+    enforcement: warn
+    detect:
+      pattern: "git reset\\s.*--hard"
+    message: "Hard reset discards uncommitted changes. Are you sure?"

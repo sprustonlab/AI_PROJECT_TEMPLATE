@@ -71,15 +71,12 @@ Copier will ask you to configure your project. Here is every option:
 | **claudechic_mode** | `standard` | `standard` installs from git; `developer` clones locally for editing |
 | **use_cluster** | `false` | Enables HPC job management tools |
 | **init_git** | `true` | Creates a git repo with initial commit |
-| **existing_codebase** | *(empty)* | Path to existing code to integrate into `repos/` |
+| **use_existing_codebase** | `false` | Record intent to integrate an existing codebase (the codebase-setup workflow guides you through it) |
 
 **Conditional options** -- these appear only when a parent option enables them:
 
 | Prompt | Default | Condition | What It Does |
 |--------|---------|-----------|-------------|
-| **cluster_scheduler** | `lsf` | `use_cluster` is true | `lsf` (bsub/bjobs) or `slurm` (sbatch/squeue) |
-| **cluster_ssh_target** | *(empty)* | `use_cluster` is true | SSH login node (leave empty if scheduler is available locally) |
-| **codebase_link_mode** | `symlink` | `existing_codebase` is set | `symlink` (saves disk, changes reflect immediately) or `copy` (works everywhere) |
 | **example_rules** | `true` | `quick_start` is `custom` | Include example global rules in `global/rules.yaml` |
 | **example_agent_roles** | `true` | `quick_start` is `custom` | Include specialist agent roles beyond the core 7 |
 | **example_workflows** | `true` | `quick_start` is `custom` | Include tutorial workflows |
@@ -109,7 +106,7 @@ Infrastructure (guardrails, workflows, hints engine, Project Team) is always inc
 >   --data claudechic_mode=standard \
 >   --data use_cluster=false \
 >   --data init_git=true \
->   --data existing_codebase="" \
+>   --data use_existing_codebase=false \
 >   https://github.com/sprustonlab/AI_PROJECT_TEMPLATE my-project
 > ```
 

@@ -8,9 +8,8 @@ phases:
       - message: "Checking git initialization status..."
         lifecycle: show-once
     advance_checks:
-      - type: command-output-check
-        command: "git rev-parse --git-dir 2>/dev/null || echo no_git"
-        pattern: "\\.git"
+      - type: file-exists-check
+        path: ".git"
         on_failure:
           message: "No git repository found. Run 'git init && git add -A && git commit -m \"Initial project\"' to initialize."
           severity: warning
@@ -24,8 +23,8 @@ phases:
         lifecycle: show-once
     advance_checks:
       - type: command-output-check
-        command: "git remote get-url origin 2>/dev/null || echo no_remote"
-        pattern: "^(?!no_remote)"
+        command: "git remote get-url origin"
+        pattern: "."
         on_failure:
           message: "No git remote configured. Use 'gh repo create' or 'git remote add origin <url>' to set one up."
           severity: warning

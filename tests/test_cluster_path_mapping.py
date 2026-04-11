@@ -596,7 +596,7 @@ class TestDefaultsPassthrough:
 class TestModelSeesCorrectDescriptions:
     """Tool descriptions inform the model about path mapping and setup."""
 
-    @patch.object(lsf_mod, "_get_config", return_value={"ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(lsf_mod, "_get_config", return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5})
     def test_lsf_descriptions(self, mock_config):
         tools = lsf_mod.get_tools()
         tool_map = {_get_tool_name(t): t for t in tools}
@@ -614,7 +614,7 @@ class TestModelSeesCorrectDescriptions:
         status_desc = _get_tool_description(tool_map["cluster_status"]).lower()
         assert "local paths" in status_desc
 
-    @patch.object(slurm_mod, "_get_config", return_value={"ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(slurm_mod, "_get_config", return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5})
     def test_slurm_descriptions(self, mock_config):
         tools = slurm_mod.get_tools()
         tool_map = {_get_tool_name(t): t for t in tools}
@@ -1059,54 +1059,52 @@ class TestErrorWithHintWiring:
 
 
 class TestWorkflowFileStructure:
-    """Verify .claude/workflows/cluster_setup.md exists with all 7 phases."""
+    """Verify workflows/cluster_setup/cluster_setup.yaml exists with all phases."""
 
     WORKFLOW_PATH = (
         Path(__file__).resolve().parent.parent
-        / "template" / ".claude" / "workflows" / "cluster_setup.md"
+        / "template" / "workflows" / "cluster_setup" / "cluster_setup.yaml"
     )
 
     def test_workflow_file_exists(self):
-        """cluster_setup.md workflow file exists."""
+        """cluster_setup.yaml workflow file exists."""
         assert self.WORKFLOW_PATH.exists(), (
             f"Workflow file not found at {self.WORKFLOW_PATH}"
         )
 
     def test_workflow_contains_all_phases(self):
-        """Workflow file references all 7 phases from the spec."""
-        content = self.WORKFLOW_PATH.read_text(encoding="utf-8")
+        """Workflow YAML contains all 6 phases from the spec."""
+        import yaml as _yaml
+        data = _yaml.safe_load(self.WORKFLOW_PATH.read_text(encoding="utf-8"))
+        phase_ids = [p["id"] for p in data.get("phases", [])]
         expected_phases = [
-            "detect", "ssh_auth", "ssh_mux",
-            "scheduler", "paths", "validate", "apply",
+            "detect", "ssh_mux", "scheduler", "paths", "validate", "apply",
         ]
         for phase in expected_phases:
-            assert phase in content, (
-                f"Phase '{phase}' not found in cluster_setup.md"
+            assert phase in phase_ids, (
+                f"Phase '{phase}' not found in cluster_setup.yaml phases: {phase_ids}"
             )
 
-    def test_workflow_has_diagnose_entry_point(self):
-        """Workflow has the 'diagnose' meta-phase entry point."""
-        content = self.WORKFLOW_PATH.read_text(encoding="utf-8")
-        assert "diagnose" in content.lower()
-
     def test_workflow_has_advancement_checks(self):
-        """Workflow mentions status/output checks for phase advancement."""
-        content = self.WORKFLOW_PATH.read_text(encoding="utf-8")
-        # Each phase should have an Output section describing structured results
-        assert "Output" in content or "output" in content
-        # Validation phase should mention "passed" / "failed" gating
-        assert "passed" in content.lower()
-        assert "failed" in content.lower()
+        """Workflow phases have advance_checks for phase gating."""
+        import yaml as _yaml
+        data = _yaml.safe_load(self.WORKFLOW_PATH.read_text(encoding="utf-8"))
+        phases_with_checks = [
+            p["id"] for p in data.get("phases", [])
+            if p.get("advance_checks")
+        ]
+        assert len(phases_with_checks) >= 1, (
+            "Expected at least one phase with advance_checks"
+        )
 
     def test_workflow_phase_count(self):
-        """Workflow has exactly 7 numbered phases (plus diagnose meta-phase)."""
-        content = self.WORKFLOW_PATH.read_text(encoding="utf-8")
-        # Count ### Phase N headings
-        import re as _re
-        phase_headings = _re.findall(r"###\s+Phase\s+\d+", content)
-        assert len(phase_headings) >= 7, (
-            f"Expected at least 7 phase headings, found {len(phase_headings)}: "
-            f"{phase_headings}"
+        """Workflow has exactly 6 phases."""
+        import yaml as _yaml
+        data = _yaml.safe_load(self.WORKFLOW_PATH.read_text(encoding="utf-8"))
+        phases = data.get("phases", [])
+        assert len(phases) == 6, (
+            f"Expected 6 phases, found {len(phases)}: "
+            f"{[p.get('id') for p in phases]}"
         )
 
 

@@ -67,6 +67,17 @@ def _git_init_with_remote(project_root: Path, remote_url: str = "git@github.com:
     )
 
 
+def _create_workflow_manifests(project_root: Path) -> None:
+    """Create minimal workflow YAML manifests so _workflow_exists() passes."""
+    for name in ("cluster_setup", "git_setup", "codebase_setup"):
+        d = project_root / "workflows" / name
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"{name}.yaml").write_text(
+            f"workflow_id: {name.replace('_', '-')}\nphases: []\n",
+            encoding="utf-8",
+        )
+
+
 def _three_unconfigured_facets() -> list[FacetStatus]:
     """Return 3 unconfigured facets for widget tests."""
     return [
@@ -198,6 +209,7 @@ class TestCheckOnboardingRealFilesystem:
             "use_cluster": True,
             "use_existing_codebase": True,
         })
+        _create_workflow_manifests(tmp_path)
         # No git, no cluster.yaml, no repos/ -> all unconfigured
         with patch("claudechic.onboarding.shutil.which", return_value=None):
             facets = check_onboarding(tmp_path)
@@ -212,6 +224,7 @@ class TestCheckOnboardingRealFilesystem:
             "use_cluster": True,
             "use_existing_codebase": True,
         })
+        _create_workflow_manifests(tmp_path)
         _git_init_with_remote(tmp_path)
 
         with patch("claudechic.onboarding.shutil.which", return_value=None):
@@ -229,6 +242,7 @@ class TestCheckOnboardingRealFilesystem:
             "use_cluster": True,
             "use_existing_codebase": True,
         })
+        _create_workflow_manifests(tmp_path)
         _git_init_with_remote(tmp_path)
         (tmp_path / "repos" / "mypackage").mkdir(parents=True)
 
@@ -247,6 +261,7 @@ class TestCheckOnboardingRealFilesystem:
             "use_cluster": False,
             "use_existing_codebase": True,
         })
+        _create_workflow_manifests(tmp_path)
 
         facets = check_onboarding(tmp_path)
         assert facets is not None
@@ -261,6 +276,7 @@ class TestCheckOnboardingRealFilesystem:
             "use_cluster": False,
             "use_existing_codebase": False,
         })
+        _create_workflow_manifests(tmp_path)
 
         facets = check_onboarding(tmp_path)
         assert facets is not None
@@ -445,6 +461,7 @@ class TestDismissMarker:
     def test_dismissed_skips_welcome(self, tmp_path):
         """check_onboarding returns None after dismiss."""
         _write_copier_answers(tmp_path, {"use_cluster": True, "use_existing_codebase": True})
+        _create_workflow_manifests(tmp_path)
 
         store = HintStateStore(tmp_path)
         write_dismiss_marker(store)
@@ -594,7 +611,7 @@ class TestWelcomeScreenInApp:
                 ws.focus()
                 await pilot.pause()
 
-                ws.action_skip()
+                ws._select_option(ws._skip_idx)
                 await pilot.pause()
                 await pilot.pause()
 
@@ -622,7 +639,7 @@ class TestWelcomeScreenInApp:
                 ws.focus()
                 await pilot.pause()
 
-                ws.action_dismiss()
+                ws._select_option(ws._dismiss_idx)
                 await pilot.pause()
                 await pilot.pause()
 
@@ -650,23 +667,23 @@ class TestWelcomeScreenInApp:
                 ws.focus()
                 await pilot.pause()
 
-                assert ws._cursor == 0
+                assert ws.selected_idx == 0
 
                 await pilot.press("down")
                 await pilot.pause()
-                assert ws._cursor == 1
+                assert ws.selected_idx == 1
 
                 await pilot.press("down")
                 await pilot.pause()
-                assert ws._cursor == 2
+                assert ws.selected_idx == 2
 
                 await pilot.press("down")
                 await pilot.pause()
-                assert ws._cursor == 2  # clamped
+                assert ws.selected_idx == 3  # wraps to skip option
 
                 await pilot.press("up")
                 await pilot.pause()
-                assert ws._cursor == 1
+                assert ws.selected_idx == 2
 
     async def test_enter_selects_facet_and_activates_workflow(
         self, mock_sdk_e2e, tmp_path
@@ -697,7 +714,7 @@ class TestWelcomeScreenInApp:
                 )
 
                 with patch("claudechic.tasks.create_safe_task", mock_create):
-                    ws.action_select()
+                    ws._select_option(ws.selected_idx)
                     await pilot.pause()
                     await pilot.pause()
 
@@ -729,7 +746,7 @@ class TestWelcomeScreenInApp:
 
                 await pilot.press("down")
                 await pilot.pause()
-                assert ws._cursor == 1
+                assert ws.selected_idx == 1
 
                 captured_calls = []
                 mock_create = MagicMock(
@@ -739,7 +756,7 @@ class TestWelcomeScreenInApp:
                 )
 
                 with patch("claudechic.tasks.create_safe_task", mock_create):
-                    ws.action_select()
+                    ws._select_option(ws.selected_idx)
                     await pilot.pause()
                     await pilot.pause()
 

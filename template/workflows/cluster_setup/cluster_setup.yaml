@@ -61,7 +61,7 @@ phases:
   - id: paths
     file: paths
     hints:
-      - message: "Phase 5/7: Path Mapping. Map local filesystem paths to cluster paths so jobs run in the right directory."
+      - message: "Phase 5/7: Path Mapping. Map network drives and local filesystem paths to cluster paths so jobs run in the right directory."
         lifecycle: show-once
     advance_checks:
       - type: manual-confirm

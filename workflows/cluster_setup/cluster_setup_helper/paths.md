@@ -11,18 +11,31 @@ Detect network mounts that bridge local and cluster filesystems:
 - **Linux:** `cat /proc/mounts | grep -iE 'nfs|cifs'`
 - **Windows/WSL:** `net use` or `mount | grep drvfs`
 
-### 2. Remote home
+### 2. Help map network drives (if none found)
+If no network mounts are detected, **ask the user** whether they can mount the cluster filesystem locally. This is the easiest path to a working setup.
+
+- **macOS:** `mount_smbfs` or Finder → Go → Connect to Server → `smb://server/share`
+- **Linux:** `sudo mount -t nfs server:/export /mnt/cluster` or add to `/etc/fstab`
+- **Windows:** Map Network Drive in Explorer, or `net use Z: \\server\share`
+
+Walk the user through mapping their cluster home or group directory. Common patterns:
+- `/groups/<lab>` on cluster → `/Volumes/groups/<lab>` on Mac (via SMB)
+- `/home/<user>` on cluster → `/mnt/cluster_home/<user>` on Linux
+
+If the user confirms they cannot or do not want to mount network drives, proceed with the rsync/git-clone fallback strategies in step 8.
+
+### 3. Remote home
 ```
 ssh <target> 'echo $HOME'
 ```
 
-### 3. CWD check
+### 4. CWD check
 Test if the current local working directory (translated) exists on the cluster:
 ```
 ssh <target> "test -d <translated_cwd> && echo exists"
 ```
 
-### 4. Propose path_map
+### 5. Propose path_map
 Compare local mounts with remote filesystem paths. Example:
 ```yaml
 path_map:
@@ -32,17 +45,17 @@ path_map:
 
 If NO mounts are detected, propose `remote_cwd` as the fallback (e.g., the user's remote home or a project directory on the cluster).
 
-### 5. Propose remote_cwd
+### 6. Propose remote_cwd
 If the local CWD doesn't map to a cluster path:
 - Propose remote home: `/groups/spruston/home/<user>`
 - Or ask user for their project directory on the cluster
 
-### 6. Propose log_access
+### 7. Propose log_access
 - Mounts found -> `auto` (try local first, fall back to SSH)
 - No mounts -> `ssh` (always read logs via SSH)
 - Local scheduler -> `local`
 
-### 7. Code sync strategy (when project is NOT under a mount)
+### 8. Code sync strategy (when project is NOT under a mount)
 
 If the project's local working directory is NOT under any detected network mount, the cluster cannot see the code. **Symlinks cannot work across this boundary** — they resolve on the machine where they're followed.
 

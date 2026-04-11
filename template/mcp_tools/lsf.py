@@ -322,6 +322,10 @@ def _kill_job(job_id: str, config: dict) -> dict[str, Any]:
 
 def get_tools(**kwargs) -> list:
     """Return LSF cluster MCP tools for registration."""
+    config = _get_config()
+    if config.get("backend") != "lsf":
+        return []
+
     caller_name = kwargs.get("caller_name")
     send_notification = kwargs.get("send_notification")
     find_agent = kwargs.get("find_agent")

@@ -158,3 +158,14 @@ _tasks:
   - "{% if _copier_conf.os != 'windows' %}chmod +x activate scripts/*.py 2>/dev/null || true{% endif %}"
   # Post-generation: clone claudechic for developer mode
   - "{% if claudechic_mode == 'developer' %}git clone https://github.com/sprustonlab/claudechic submodules/claudechic{% endif %}"
+
+_message_after_copy: |
+  Project generated! Next steps:
+
+  {% if _copier_conf.os == 'windows' %}
+  # Windows — if scripts are blocked, run this first:
+  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+  . .\activate.ps1
+  {% else %}
+  source ./activate
+  {% endif %}

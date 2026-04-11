@@ -1,7 +1,7 @@
 # Phase 7: Apply Configuration
 
 ## Goal
-Write the validated configuration to `mcp_tools/lsf.yaml`.
+Write the validated configuration to `mcp_tools/cluster.yaml`.
 
 ## Steps
 
@@ -11,9 +11,10 @@ Show the user a diff of what will change:
 - Format as a clear before/after comparison
 
 ### 2. Apply (only after user approves preview)
-Write the following fields to `mcp_tools/lsf.yaml`:
+Write the following fields to `mcp_tools/cluster.yaml`:
+- `backend` — detected scheduler (`lsf` or `slurm`)
 - `ssh_target` — confirmed login node
-- `lsf_profile` — scheduler profile path
+- `lsf_profile` — scheduler profile path (LSF only, leave empty for SLURM)
 - `path_map` — approved bidirectional mappings
 - `remote_cwd` — override working directory (if needed)
 - `log_access` — log reading method
@@ -24,7 +25,7 @@ Write the following fields to `mcp_tools/lsf.yaml`:
 - **Reject if validation hasn't passed.** Do not write config if phase 6 was skipped or failed.
 
 ### 3. Verify
-After writing, read back `mcp_tools/lsf.yaml` and confirm the values are correct.
+After writing, read back `mcp_tools/cluster.yaml` and confirm the values are correct.
 
 ### 4. Test
 Submit a quick test job via `cluster_submit` to confirm everything works end-to-end:

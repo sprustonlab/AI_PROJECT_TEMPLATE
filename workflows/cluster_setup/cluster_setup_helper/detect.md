@@ -10,7 +10,7 @@ Determine how the user connects to the cluster and verify reachability.
    - If found locally: note `local_scheduler: true`, SSH setup can be skipped
 
 2. **Check existing config:**
-   - Read `mcp_tools/lsf.yaml` for `ssh_target`
+   - Read `mcp_tools/cluster.yaml` for `ssh_target`
    - If set, test DNS reachability: `ssh -o BatchMode=yes -o ConnectTimeout=5 <target> echo ok`
 
 3. **Detect OS:**

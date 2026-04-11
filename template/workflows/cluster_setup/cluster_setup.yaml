@@ -9,10 +9,10 @@ phases:
         lifecycle: show-once
     advance_checks:
       - type: file-content-check
-        path: "mcp_tools/lsf.yaml"
+        path: "mcp_tools/cluster.yaml"
         pattern: "ssh_target:\\s+\\S+"
         on_failure:
-          message: "ssh_target must be set in mcp_tools/lsf.yaml before advancing."
+          message: "ssh_target must be set in mcp_tools/cluster.yaml before advancing."
           severity: warning
       - type: manual-confirm
         prompt: "SSH target confirmed and reachable?"
@@ -24,7 +24,7 @@ phases:
         lifecycle: show-once
     advance_checks:
       - type: command-output-check
-        command: "ssh -o BatchMode=yes -o ConnectTimeout=5 $(awk '/^ssh_target:/{print $2}' mcp_tools/lsf.yaml) echo ok 2>&1"
+        command: "ssh -o BatchMode=yes -o ConnectTimeout=5 $(awk '/^ssh_target:/{print $2}' mcp_tools/cluster.yaml) echo ok 2>&1"
         pattern: "^ok$"
         on_failure:
           message: "SSH BatchMode failed. Set up SSH keys: ssh-keygen -t ed25519 && ssh-copy-id <target>"
@@ -50,7 +50,7 @@ phases:
         lifecycle: show-once
     advance_checks:
       - type: command-output-check
-        command: "T=$(awk '/^ssh_target:/{print $2}' mcp_tools/lsf.yaml); P=$(awk '/^lsf_profile:/{print $2}' mcp_tools/lsf.yaml); ssh -o BatchMode=yes -o ConnectTimeout=5 $T \"source $P 2>/dev/null; which bsub 2>/dev/null || which sbatch 2>/dev/null\""
+        command: "T=$(awk '/^ssh_target:/{print $2}' mcp_tools/cluster.yaml); P=$(awk '/^lsf_profile:/{print $2}' mcp_tools/cluster.yaml); ssh -o BatchMode=yes -o ConnectTimeout=5 $T \"source $P 2>/dev/null; which bsub 2>/dev/null || which sbatch 2>/dev/null\""
         pattern: "(bsub|sbatch)"
         on_failure:
           message: "No scheduler (bsub/sbatch) found on the cluster. Verify the login node has LSF or SLURM and that lsf_profile is correct."
@@ -76,19 +76,19 @@ phases:
         lifecycle: show-once
     advance_checks:
       - type: command-output-check
-        command: "T=$(awk '/^ssh_target:/{print $2}' mcp_tools/lsf.yaml); P=$(awk '/^lsf_profile:/{print $2}' mcp_tools/lsf.yaml); ssh -o BatchMode=yes -o ConnectTimeout=5 $T \"mkdir -p ~/.cluster_setup_check && rm -f ~/.cluster_setup_check/*.log; source $P 2>/dev/null; if command -v bsub >/dev/null 2>&1; then bsub -J cluster_setup_check -q short -W 00:01 -o ~/.cluster_setup_check/%J.log 'echo cluster_setup_ok' 2>&1; elif command -v sbatch >/dev/null 2>&1; then sbatch --job-name=cluster_setup_check -p short --time=00:01 --output=~/.cluster_setup_check/%j.log --wrap='echo cluster_setup_ok' 2>&1; else echo NO_SCHEDULER; fi\""
+        command: "T=$(awk '/^ssh_target:/{print $2}' mcp_tools/cluster.yaml); P=$(awk '/^lsf_profile:/{print $2}' mcp_tools/cluster.yaml); ssh -o BatchMode=yes -o ConnectTimeout=5 $T \"mkdir -p ~/.cluster_setup_check && rm -f ~/.cluster_setup_check/*.log; source $P 2>/dev/null; if command -v bsub >/dev/null 2>&1; then bsub -J cluster_setup_check -q short -W 00:01 -o ~/.cluster_setup_check/%J.log 'echo cluster_setup_ok' 2>&1; elif command -v sbatch >/dev/null 2>&1; then sbatch --job-name=cluster_setup_check -p short --time=00:01 --output=~/.cluster_setup_check/%j.log --wrap='echo cluster_setup_ok' 2>&1; else echo NO_SCHEDULER; fi\""
         pattern: "(Job <\\d+>|Submitted batch job \\d+)"
         on_failure:
           message: "Test job submission failed. No scheduler (bsub/sbatch) found, or queue access denied."
           severity: warning
       - type: command-output-check
-        command: "sleep 15; T=$(awk '/^ssh_target:/{print $2}' mcp_tools/lsf.yaml); P=$(awk '/^lsf_profile:/{print $2}' mcp_tools/lsf.yaml); ssh -o BatchMode=yes $T \"source $P 2>/dev/null; if command -v bjobs >/dev/null 2>&1; then bjobs -d -noheader -J cluster_setup_check 2>/dev/null | head -1 | awk '{print \\$3}'; elif command -v sacct >/dev/null 2>&1; then sacct -n --name=cluster_setup_check --format=State%20 2>/dev/null | head -1 | xargs; else echo NO_SCHEDULER; fi\""
+        command: "sleep 15; T=$(awk '/^ssh_target:/{print $2}' mcp_tools/cluster.yaml); P=$(awk '/^lsf_profile:/{print $2}' mcp_tools/cluster.yaml); ssh -o BatchMode=yes $T \"source $P 2>/dev/null; if command -v bjobs >/dev/null 2>&1; then bjobs -d -noheader -J cluster_setup_check 2>/dev/null | head -1 | awk '{print \\$3}'; elif command -v sacct >/dev/null 2>&1; then sacct -n --name=cluster_setup_check --format=State%20 2>/dev/null | head -1 | xargs; else echo NO_SCHEDULER; fi\""
         pattern: "(DONE|COMPLETED|RUN|RUNNING)"
         on_failure:
           message: "Test job did not reach DONE/COMPLETED state. Check queue and cluster health."
           severity: warning
       - type: command-output-check
-        command: "T=$(awk '/^ssh_target:/{print $2}' mcp_tools/lsf.yaml); ssh -o BatchMode=yes $T 'cat ~/.cluster_setup_check/*.log 2>/dev/null | head -5'"
+        command: "T=$(awk '/^ssh_target:/{print $2}' mcp_tools/cluster.yaml); ssh -o BatchMode=yes $T 'cat ~/.cluster_setup_check/*.log 2>/dev/null | head -5'"
         pattern: "cluster_setup_ok"
         on_failure:
           message: "Job log not found or missing expected output. Check log_access and path_map settings."
@@ -99,7 +99,7 @@ phases:
   - id: apply
     file: apply
     hints:
-      - message: "Phase 7/7: Apply. Write the validated configuration to mcp_tools/lsf.yaml."
+      - message: "Phase 7/7: Apply. Write the validated configuration to mcp_tools/cluster.yaml."
         lifecycle: show-once
     advance_checks:
       - type: manual-confirm
@@ -111,8 +111,8 @@ rules:
     enforcement: deny
     detect:
       field: file_path
-      pattern: "mcp_tools/lsf\\.yaml"
-    message: "Cannot modify lsf.yaml until validation phase. Complete diagnose/detect steps first."
+      pattern: "mcp_tools/cluster\\.yaml"
+    message: "Cannot modify cluster.yaml until validation phase. Complete diagnose/detect steps first."
     exclude_phases: [validate, apply]
 
   - id: no_config_overwrite_before_validate
@@ -120,8 +120,8 @@ rules:
     enforcement: deny
     detect:
       field: file_path
-      pattern: "mcp_tools/lsf\\.yaml"
-    message: "Cannot overwrite lsf.yaml until validation phase. Complete diagnose/detect steps first."
+      pattern: "mcp_tools/cluster\\.yaml"
+    message: "Cannot overwrite cluster.yaml until validation phase. Complete diagnose/detect steps first."
     exclude_phases: [validate, apply]
 
   - id: warn_ssh_key_operations

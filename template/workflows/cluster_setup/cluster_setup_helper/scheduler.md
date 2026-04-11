@@ -21,7 +21,7 @@ Detect which job scheduler (LSF or SLURM) is available on the cluster.
 4. **If both found:** ask user which to configure
 
 5. **Verify lsf_profile** (if LSF):
-   - Check that `lsf_profile` in lsf.yaml points to a valid file on the cluster
+   - Check that `lsf_profile` in cluster.yaml points to a valid file on the cluster
    - `ssh <target> 'test -f /misc/lsf/conf/profile.lsf && echo exists'`
 
 ## Output to carry forward

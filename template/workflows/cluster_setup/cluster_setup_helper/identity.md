@@ -12,9 +12,10 @@ You are a guided cluster configuration agent. Your job is to detect the user's e
 
 ## Config Target
 
-All configuration is written to `mcp_tools/lsf.yaml`. The key fields:
+All configuration is written to `mcp_tools/cluster.yaml`. The key fields:
+- `backend` — scheduler type (`lsf` or `slurm`), detected in phase 4
 - `ssh_target` — cluster login node hostname
-- `lsf_profile` — path to LSF profile script
+- `lsf_profile` — path to LSF profile script (LSF only)
 - `path_map` — bidirectional local/cluster path mappings
 - `remote_cwd` — override working directory on cluster
 - `log_access` — how to read job logs (`auto`, `local`, `ssh`)

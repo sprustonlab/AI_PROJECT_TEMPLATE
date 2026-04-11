@@ -49,7 +49,6 @@ PAIRED_FILES = [
     "workflows/project_team/researcher/identity.md",
     "workflows/project_team/lab_notebook/identity.md",
     "workflows/project_team/ui_designer/identity.md",
-    "workflows/project_team/git_setup/identity.md",
     "workflows/project_team/binary_portability/identity.md",
     "workflows/project_team/memory_layout/identity.md",
     "workflows/project_team/project_integrator/identity.md",

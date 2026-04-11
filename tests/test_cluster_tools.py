@@ -289,7 +289,7 @@ class TestSLURMParseScontrol:
 class TestLSFGetTools:
     """Test lsf.py get_tools() contract."""
 
-    @patch.object(lsf_mod, "_get_config", return_value={"ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(lsf_mod, "_get_config", return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5})
     def test_get_tools_no_kwargs(self, mock_config):
         """get_tools() with no kwargs returns tool list without crashing."""
         tools = lsf_mod.get_tools()
@@ -303,7 +303,7 @@ class TestLSFGetTools:
         assert "cluster_logs" in names
         assert "cluster_watch" in names
 
-    @patch.object(lsf_mod, "_get_config", return_value={"ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(lsf_mod, "_get_config", return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5})
     def test_get_tools_with_full_kwargs(self, mock_config):
         """get_tools() with all kwargs wires cluster_watch correctly."""
         mock_notify = MagicMock()
@@ -322,7 +322,7 @@ class TestLSFGetTools:
 class TestSLURMGetTools:
     """Test slurm.py get_tools() contract."""
 
-    @patch.object(slurm_mod, "_get_config", return_value={"ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(slurm_mod, "_get_config", return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5})
     def test_get_tools_no_kwargs(self, mock_config):
         """get_tools() with no kwargs returns tool list without crashing."""
         tools = slurm_mod.get_tools()
@@ -331,7 +331,7 @@ class TestSLURMGetTools:
         assert "cluster_jobs" in names
         assert "cluster_watch" in names
 
-    @patch.object(slurm_mod, "_get_config", return_value={"ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(slurm_mod, "_get_config", return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5})
     def test_get_tools_with_full_kwargs(self, mock_config):
         """get_tools() with all kwargs wires cluster_watch correctly."""
         mock_notify = MagicMock()
@@ -352,7 +352,7 @@ class TestSLURMGetTools:
 class TestClusterWatchDegradation:
     """cluster_watch returns error when send_notification is None."""
 
-    @patch.object(lsf_mod, "_get_config", return_value={"ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(lsf_mod, "_get_config", return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5})
     def test_lsf_watch_without_notification(self, mock_config):
         """LSF cluster_watch without send_notification → graceful error."""
         tools = lsf_mod.get_tools()  # No kwargs → send_notification=None
@@ -363,7 +363,7 @@ class TestClusterWatchDegradation:
         assert result["isError"] is True
         assert "not available" in result["content"][0]["text"].lower()
 
-    @patch.object(slurm_mod, "_get_config", return_value={"ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(slurm_mod, "_get_config", return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5})
     def test_slurm_watch_without_notification(self, mock_config):
         """SLURM cluster_watch without send_notification → graceful error."""
         tools = slurm_mod.get_tools()

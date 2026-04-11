@@ -106,24 +106,6 @@ phases:
         prompt: "Configuration applied and verified?"
 
 rules:
-  - id: no_config_write_before_validate
-    trigger: PreToolUse/Edit
-    enforcement: deny
-    detect:
-      field: file_path
-      pattern: "mcp_tools/cluster\\.yaml"
-    message: "Cannot modify cluster.yaml until validation phase. Complete diagnose/detect steps first."
-    exclude_phases: [validate, apply]
-
-  - id: no_config_overwrite_before_validate
-    trigger: PreToolUse/Write
-    enforcement: deny
-    detect:
-      field: file_path
-      pattern: "mcp_tools/cluster\\.yaml"
-    message: "Cannot overwrite cluster.yaml until validation phase. Complete diagnose/detect steps first."
-    exclude_phases: [validate, apply]
-
   - id: warn_ssh_key_operations
     trigger: PreToolUse/Bash
     enforcement: warn

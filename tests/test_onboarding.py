@@ -140,30 +140,15 @@ class TestClusterConfiguredReal:
         with patch("claudechic.onboarding.shutil.which", return_value=None):
             assert _cluster_configured(tmp_path) is False
 
-    def test_cluster_yaml_with_backend_but_ssh_fails(self, tmp_path):
-        """cluster.yaml with backend+ssh_target but SSH unreachable -> not configured."""
+    def test_cluster_yaml_with_backend_and_ssh_target(self, tmp_path):
+        """cluster.yaml with backend+ssh_target -> configured (no SSH liveness check)."""
         mcp = tmp_path / "mcp_tools"
         mcp.mkdir()
         (mcp / "cluster.yaml").write_text(
-            yaml.dump({"backend": "lsf", "ssh_target": "fake.host.invalid"}),
+            yaml.dump({"backend": "lsf", "ssh_target": "login.hpc.edu"}),
             encoding="utf-8",
         )
-        with patch("claudechic.onboarding.shutil.which", return_value=None), \
-             patch("claudechic.onboarding.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=255)  # SSH failure
-            assert _cluster_configured(tmp_path) is False
-
-    def test_cluster_yaml_with_backend_and_ssh_succeeds(self, tmp_path):
-        """cluster.yaml with backend+ssh_target and SSH reachable -> configured."""
-        mcp = tmp_path / "mcp_tools"
-        mcp.mkdir()
-        (mcp / "cluster.yaml").write_text(
-            yaml.dump({"backend": "slurm", "ssh_target": "login.hpc.edu"}),
-            encoding="utf-8",
-        )
-        with patch("claudechic.onboarding.shutil.which", return_value=None), \
-             patch("claudechic.onboarding.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)  # SSH success
+        with patch("claudechic.onboarding.shutil.which", return_value=None):
             assert _cluster_configured(tmp_path) is True
 
     def test_local_bsub_on_path(self, tmp_path):

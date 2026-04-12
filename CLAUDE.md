@@ -37,7 +37,6 @@ pytest tests/test_copier_generation.py -v  # After template changes
 3. **Pre-commit auto-fixes staged files** -- ruff --fix + ruff-format + check-added-large-files (100KB limit) run on commit. May modify staged files silently.
 4. **Strict markers** -- `strict_markers = true` in pyproject.toml. New test markers MUST be added to the markers list.
 5. **DON'T write guardrail rules that block their own prerequisites** -- catch-22 pattern where rules prevent the very operations they protect.
-6. **Bare pytest is blocked** -- guardrail `no_bare_pytest` denies full-suite runs without output capture. Target a specific file or use the timestamped command above.
 
 ## Extending the Systems
 

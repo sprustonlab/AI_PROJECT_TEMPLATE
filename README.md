@@ -37,6 +37,7 @@ my-project/
 ├── scripts/                # Utility scripts
 ├── activate                # Source this to set up your environment
 ├── pixi.toml               # Package manager config
+├── CLAUDE.md               # Agent orientation — commands, structure, conventions
 └── .copier-answers.yml     # Template answers (for copier update)
 ```
 
@@ -122,6 +123,11 @@ If you provide a path to an existing codebase during setup, it's linked (Linux/m
 ## Development
 
 This repo uses a `develop` branch for ongoing work. The `main` branch contains release-ready code.
+
+> **Note:** `CLAUDE.md` at the project root provides agent-facing orientation
+> (commands, layout, pitfalls, extension recipes). `.project_team/` contains
+> development history and must not be committed to `main` -- a pre-commit hook
+> enforces this.
 
 ```bash
 git checkout develop

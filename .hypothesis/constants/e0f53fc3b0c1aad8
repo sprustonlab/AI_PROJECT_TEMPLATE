@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/guardrails/hooks.py
+# hypothesis_version: 6.151.12
+
+['PreToolUse', 'ack', 'allowed', 'block', 'blocked', 'decision', 'deny', 'discovery', 'global', 'hookEventName', 'hookSpecificOutput', 'log', 'message', 'overridden', 'reason', 'tool_input', 'tool_name', 'updatedInput', 'warn']

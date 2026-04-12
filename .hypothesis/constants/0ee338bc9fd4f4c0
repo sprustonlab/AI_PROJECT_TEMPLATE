@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/hints/state.py
+# hypothesis_version: 6.151.12
+
+['.', '.DS_Store', '.copier-answers.yml', '.gitkeep', '.hints_state_', '.tmp', 'README.md', '_', '__pycache__', 'activation', 'cluster_scheduler', 'current_phase', 'disabled_hints', 'dismissed', 'enabled', 'last_shown_ts', 'learn-command', 'lifecycle', 'lsf', 'project_name', 'session_count', 'taught_commands', 'times_shown', 'use_cluster', 'use_guardrails', 'use_hints', 'use_pattern_miner', 'use_project_team', 'utf-8', 'version', 'w']

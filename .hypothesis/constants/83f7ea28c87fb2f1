@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/layout/__init__.py
+# hypothesis_version: 6.151.12
+
+['AgentItem', 'AgentSection', 'CPUBar', 'ChatView', 'ChicsessionLabel', 'ContextBar', 'FileItem', 'FilesSection', 'HamburgerButton', 'IndicatorWidget', 'ModelLabel', 'PermissionModeLabel', 'PlanItem', 'PlanSection', 'ProcessIndicator', 'ProcessItem', 'ProcessPanel', 'ReviewItem', 'ReviewPanel', 'SessionItem', 'SidebarItem', 'SidebarSection', 'StatusFooter', 'WorktreeItem']

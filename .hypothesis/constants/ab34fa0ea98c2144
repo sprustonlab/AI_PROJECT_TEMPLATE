@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/template/mcp_tools/_cluster.py
+# hypothesis_version: 6.151.12
+
+[100, 448, 3600, '"', '%r@%h-%p', '.yaml', '/', '/bin/bash', 'COMPLETED', 'DONE', 'EXIT', 'FAILED', 'Task %s failed: %s', 'UNKNOWN', '\\', '\\"', 'auto', 'bsub', 'cluster', 'cluster-watch', 'connection', 'content', 'cpu_time_seconds', 'execution_cwd', 'first_use', 'found', 'incomplete', 'isError', 'job_id', 'job_name', 'local', 'log_access', 'log_paths', 'max_mem_gb', 'needs_setup', 'path', 'path_map', 'ready', 'remote_cwd', 'sbatch', 'ssh', 'ssh_target', 'status', 'stderr', 'stderr_path', 'stdout', 'stdout_path', 'text', 'type', 'unnamed', '{{', '~/.ssh/sockets']

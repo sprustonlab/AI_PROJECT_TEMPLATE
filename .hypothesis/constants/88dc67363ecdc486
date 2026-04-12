@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/features/roborev/models.py
+# hypothesis_version: 6.151.12
+
+['addressed', 'agent', 'branch', 'commit_subject', 'done', 'git_ref', 'id', 'job', 'job_id', 'output', 'pending', 'queued', 'running', 'status', 'verdict']

@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/file_index.py
+# hypothesis_version: 6.151.12
+
+[0.0, 0.01, 0.1, 0.15, 0.2, 0.3, 1.0, 5.0, 200, 300, 10000, '*.egg-info', '--cached', '--exclude-standard', '--others', '.', '.a', '.dylib', '.egg-info', '.eggs', '.git', '.mypy_cache', '.o', '.pyc', '.pyo', '.pytest_cache', '.ruff_cache', '.so', '.tox', '.venv', '/', '/_-.', '__pycache__', 'build', 'dist', 'git', 'ls-files', 'node_modules', 'venv']

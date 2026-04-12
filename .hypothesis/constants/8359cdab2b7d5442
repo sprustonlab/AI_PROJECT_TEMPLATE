@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/enums.py
+# hypothesis_version: 6.151.12
+
+['AskUserQuestion', 'Bash', 'Edit', 'EnterPlanMode', 'ExitPlanMode', 'Glob', 'Grep', 'NotebookEdit', 'Read', 'Skill', 'Task', 'TodoWrite', 'WebFetch', 'WebSearch', 'Write', 'allow', 'allow_all', 'allow_session', 'busy', 'completed', 'deny', 'idle', 'in_progress', 'interrupted', 'needs_input', 'pending', 'streaming']

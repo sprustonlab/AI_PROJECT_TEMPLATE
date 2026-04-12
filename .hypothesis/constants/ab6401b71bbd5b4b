@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/chicsession_cmd.py
+# hypothesis_version: 6.151.12
+
+['#chicsession-label', '--show-toplevel', '_chicsession_name', '_cwd', '_workflow_engine', 'chat_input', 'error', 'git', 'restore', 'rev-parse', 'save', 'system-message']

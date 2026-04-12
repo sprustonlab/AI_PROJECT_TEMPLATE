@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/prompts.py
+# hypothesis_version: 6.151.12
+
+[' *', ' selected', ' | ', '1. Commit changes', '3. Abort finish', '?', 'Enter name...', 'Enter text...', 'Other...', 'Select Model', 'Uncommitted Changes', 'Worktrees', 'abort', 'backspace', 'base-prompt', 'commit', 'description', 'discard', 'displayName', 'down', 'enter', 'escape', 'hidden', 'label', 'new', 'opt-0', 'opt-1', 'opt-2', 'options', 'prompt-option', 'prompt-placeholder', 'prompt-subtitle', 'prompt-title', 'question', 'selected', 'switch', 'up', 'value', '·']

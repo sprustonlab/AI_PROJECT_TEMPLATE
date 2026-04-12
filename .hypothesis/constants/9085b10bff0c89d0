@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/content/todo.py
+# hypothesis_version: 6.151.12
+
+['?', 'Tasks', 'activeForm', 'content', 'dim', 'green', 'hidden', 'status', 'strike dim', 'todo-title', 'yellow', 'yellow bold', '◉', '☐', '✓']

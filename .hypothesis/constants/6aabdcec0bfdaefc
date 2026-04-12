@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/checks/builtins.py
+# hypothesis_version: 6.151.12
+
+[30.0, 200, 300, 'Confirm?', 'User confirmed', 'User declined', 'command', 'command-output-check', 'confirm_fn', 'file-content-check', 'file-exists-check', 'manual-confirm', 'path', 'pattern', 'prompt', 'question', 'replace', 'utf-8']

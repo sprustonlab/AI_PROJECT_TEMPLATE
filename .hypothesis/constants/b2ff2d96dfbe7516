@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/layout/indicators.py
+# hypothesis_version: 6.151.12
+
+[0.0, 0.3, 0.5, 0.7, 0.8, 1.0, 2.0, 100.0, '#333333', '#666666', '#999999', '#aaaa00', '#cc3333', '#dddddd', '/context', 'CPU ', 'CPUBar.psutil_call', 'CPUBar.reactive_set', 'black', 'dim', 'hidden', 'red', 'white', 'yellow', '⚙ ']

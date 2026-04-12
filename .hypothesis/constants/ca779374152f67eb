@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/sessions.py
+# hypothesis_version: 6.151.12
+
+[b'\n', b'"slug"', 100, 32768, '*.jsonl', '+00:00', '-', '.', '.claude', '.claude/projects', '/', ':', '<command-', '<command-name>/', '?', 'Z', '_', 'assistant', 'content', 'id', 'input', 'input_tokens', 'isMeta', 'message', 'model', 'name', 'plans', 'rb', 'slug', 'summary', 'text', 'timestamp', 'tool_use', 'type', 'usage', 'user', 'utf-8']

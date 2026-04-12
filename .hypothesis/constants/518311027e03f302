@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/screens/diff.py
+# hypothesis_version: 6.151.12
+
+[100, '#diff-empty', 'Back', 'HEAD', 'Loading...', 'diff-container', 'diff-empty', 'diff-sidebar', 'diff-view', 'down', 'enter', 'escape', 'go_back', 'hidden', 'j', 'k', 'o', 'q', 'up']

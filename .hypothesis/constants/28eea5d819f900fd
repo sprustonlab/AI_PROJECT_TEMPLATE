@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/features/worktree/commands.py
+# hypothesis_version: 6.151.12
+
+['#input', ', ', '/worktree finish', 'Agent', 'Cancel', 'ChatApp', 'Cleanup cancelled', 'Discard cancelled', 'Finish aborted', 'No active agent', 'abort', 'all', 'already merged', 'cancel', 'cleanup', 'cleanup_prompt', 'commit', 'create', 'discard', 'discard_prompt', 'error', 'finish', 'finish_continue', 'finish_start', 'information', 'new', 'no commits', 'switch', 'unknown', 'warning', 'worktree', 'worktree-modal', 'worktree_action']

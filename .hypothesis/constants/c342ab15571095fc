@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/screens/rewind.py
+# hypothesis_version: 6.151.12
+
+['#checkpoint-list', '#rewind-title', '#type-list', 'Agent', 'Back', 'Both (Recommended)', 'Checkpoint', 'Code only', 'Conversation only', 'Rewind to Checkpoint', 'both', 'checkpoint', 'checkpoint-list', 'checkpoint-meta', 'code', 'conversation', 'escape', 'go_back', 'no tool uses', 'phase-type', 'rewind-container', 'rewind-title', 'rewind-type-desc', 'type', 'type-list', 'warning']

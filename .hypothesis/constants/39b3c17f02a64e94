@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/workflows/agent_folders.py
+# hypothesis_version: 6.151.12
+
+['.', ':', 'PostCompact', 'identity.md', 'reason', 'workflow_id']

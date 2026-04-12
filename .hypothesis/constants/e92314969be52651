@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/features/diff/__init__.py
+# hypothesis_version: 6.151.12
+
+['DiffSidebar', 'DiffView', 'EditFileRequested', 'FileChange', 'FileDiffPanel', 'FileStat', 'Hunk', 'HunkComment', 'HunkWidget', 'format_hunk_comments', 'get_changes', 'get_file_stats']

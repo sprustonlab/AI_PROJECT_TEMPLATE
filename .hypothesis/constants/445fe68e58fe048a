@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/modals/diagnostics.py
+# hypothesis_version: 6.151.12
+
+['(no active session)', 'Close', 'Copied to clipboard', '[bold]Diagnostics[/]', 'close-btn', 'compaction-content', 'compaction-scroll', 'content', 'copy-btn', 'copy-compaction-btn', 'copy-jsonl-btn', 'diagnostics-footer', 'diagnostics-header', 'diagnostics-title', 'dismiss', 'error', 'escape', 'isCompactSummary', 'jsonl-path', 'message', 'section-header', 'section-title', 'utf-8', 'warning', '⧉']

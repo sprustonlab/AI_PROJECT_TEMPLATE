@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/agent.py
+# hypothesis_version: 6.151.12
+
+[0.1, 3.0, 5.0, 259, 4096, '.claude', '<command-name>/', 'Agent not connected', 'BrokenPipeError', 'ConnectionError', 'Response failed', '_answers', '_process', '_query', '_tasks', 'acceptEdits', 'answers', 'api', 'assistant', 'base64', 'bypassPermissions', 'command', 'connection', 'content', 'content_block_delta', 'data', 'default', 'delta', 'fetch-plan-path', 'file_path', 'git ', 'id', 'image', 'image/png', 'init', 'input', 'input_tokens', 'json-decode-retry', 'mcp__chic__', 'media_type', 'message', 'model', 'name', 'opus', 'output_tokens', 'parent_tool_use_id', 'plan', 'planSwarm', 'plans', 'process-liveness', 'questions', 'role', 'send-followup', 'session_id', 'source', 'text', 'text_delta', 'timestamp', 'todos', 'tool_use', 'transport', 'type', 'user', 'win32']

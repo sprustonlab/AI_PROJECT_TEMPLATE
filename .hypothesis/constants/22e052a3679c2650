@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/guardrails/rules.py
+# hypothesis_version: 6.151.12
+
+['/', 'PreToolUse', 'command', 'deny', 'detect', 'enforcement', 'exclude_if_matches', 'exclude_phases', 'exclude_roles', 'field', 'global', 'id', 'message', 'namespace', 'pattern', 'phases', 'roles', 'rules', 'trigger']

@@ -28,3 +28,11 @@
     Bare pytest blocked. Full-suite runs must save timestamped results.
     Use: TS=$(date -u +%Y-%m-%d_%H%M%S) && pytest --junitxml=.test_results/${TS}.xml --tb=short 2>&1 | tee .test_results/${TS}.log
     Or target a specific test: pytest tests/test_foo.py
+
+- id: no_pip_install
+  trigger: PreToolUse/Bash
+  enforcement: deny
+  detect:
+    pattern: "(?:pip|conda)\\s+install"
+  exclude_if_matches: "pixi"
+  message: "This project uses pixi for dependency management. Use pixi add <package> instead."

@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/reports/context.py
+# hypothesis_version: 6.151.12
+
+[0.1, 0.15, 0.2, 100, 255, 1000, 200000, '#333333', '#5599dd', '#666666', '#cc7700', '-------', '-20251101', 'Autocompact buffer', 'Category', 'Free space', 'MCP tools', 'Memory files', 'Messages', 'Skills', 'System prompt', 'System tools', '[#222222]·[/]', 'buffer', 'categories', 'claude-', 'free', 'free_alt', 'grid-container', 'grid-row', 'grid-wrapper', 'header', 'k', 'legend-container', 'legend-row', 'memory', 'messages', 'model', 'name', 'neutral', 'neutral_alt', 'percentage', 'prompt', 'tokens', 'tokens_total', 'tokens_used', 'tools']

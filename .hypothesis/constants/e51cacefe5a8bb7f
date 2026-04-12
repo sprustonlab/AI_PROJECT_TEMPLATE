@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/checks/__init__.py
+# hypothesis_version: 6.151.12
+
+['Check', 'CheckDecl', 'CheckResult', 'ChecksParser', 'OnFailureConfig', 'check_failed_to_hint', 'register_check_type']

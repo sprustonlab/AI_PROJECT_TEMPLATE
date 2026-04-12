@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/theme.py
+# hypothesis_version: 6.151.12
+
+['#111111', '#2277bb', '#445566', '#555555', '#5599dd', '#667788', '#997700', '#aaaa00', '#b56600', '#cc3333', '#cc7700', '#cccccc', '#f0f0f0', '#ffffff', 'accent', 'background', 'black', 'boost', 'chic', 'chic-light', 'dark', 'error', 'foreground', 'panel', 'primary', 'secondary', 'success', 'surface', 'themes', 'warning']

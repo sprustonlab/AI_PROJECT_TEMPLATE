@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/reports/usage.py
+# hypothesis_version: 6.151.12
+
+[100, '$error', '$secondary', '$warning', 'Current session', '[bold]Usage[/bold]', 'bar-row', 'error', 'label-row', 'title']

@@ -90,7 +90,7 @@ class PathMapper:
 
     def __init__(self, path_map: list[dict[str, str]] | None = None):
         rules = []
-        for entry in (path_map or []):
+        for entry in path_map or []:
             local_val = entry.get("local", "")
             cluster_val = entry.get("cluster", "")
             if not local_val or not cluster_val:
@@ -103,10 +103,14 @@ class PathMapper:
             rules.append((local, cluster))
         # Two sorted views — each direction matches against the correct prefix
         self._rules_by_local: list[tuple[str, str]] = sorted(
-            rules, key=lambda r: len(r[0]), reverse=True,
+            rules,
+            key=lambda r: len(r[0]),
+            reverse=True,
         )
         self._rules_by_cluster: list[tuple[str, str]] = sorted(
-            rules, key=lambda r: len(r[1]), reverse=True,
+            rules,
+            key=lambda r: len(r[1]),
+            reverse=True,
         )
 
     # -- helpers --
@@ -132,7 +136,7 @@ class PathMapper:
         normalized = _normalize_local_path(local_path)
         for local_prefix, cluster_prefix in self._rules_by_local:
             if self._prefix_matches(normalized, local_prefix):
-                return cluster_prefix + normalized[len(local_prefix):]
+                return cluster_prefix + normalized[len(local_prefix) :]
         return normalized  # passthrough (backslashes already converted)
 
     def to_local(self, cluster_path: str) -> str:
@@ -143,7 +147,7 @@ class PathMapper:
         normalized = _normalize_cluster_path(cluster_path)
         for local_prefix, cluster_prefix in self._rules_by_cluster:
             if self._prefix_matches(normalized, cluster_prefix):
-                return local_prefix + normalized[len(cluster_prefix):]
+                return local_prefix + normalized[len(cluster_prefix) :]
         return normalized  # passthrough (trailing slashes stripped)
 
 
@@ -164,7 +168,8 @@ def _create_path_mapper(config: dict) -> PathMapper:
 
 
 def _translate_status_paths(
-    detail: dict[str, Any], path_mapper: PathMapper,
+    detail: dict[str, Any],
+    path_mapper: PathMapper,
 ) -> dict[str, Any]:
     """Translate cluster paths in a job status dict to local paths.
 
@@ -263,11 +268,11 @@ def _run_ssh(
         escaped = cmd.replace('"', '\\"')
         prefix = f"source {profile} && " if profile else ""
         full_cmd = (
-            f'ssh'
-            f' -o ControlMaster=auto'
-            f' -o ControlPath={control_path}'
-            f' -o ControlPersist=600'
-            f' {ssh_target}'
+            f"ssh"
+            f" -o ControlMaster=auto"
+            f" -o ControlPath={control_path}"
+            f" -o ControlPersist=600"
+            f" {ssh_target}"
             f' "{prefix}{escaped}"'
         )
 
@@ -374,20 +379,22 @@ class SSHLogReader:
         if not self._ssh_target:
             return None
         safe_path = shlex.quote(cluster_path)
-        if tail > 0:
-            cmd = f"tail -n {tail} {safe_path}"
-        else:
-            cmd = f"cat {safe_path}"
+        cmd = f"tail -n {tail} {safe_path}" if tail > 0 else f"cat {safe_path}"
         try:
             stdout, stderr, rc = _run_ssh(
-                cmd, self._ssh_target, profile=self._profile, timeout=30,
+                cmd,
+                self._ssh_target,
+                profile=self._profile,
+                timeout=30,
             )
         except (subprocess.TimeoutExpired, OSError):
             return None
         if rc != 0:
             log.debug(
                 "SSH log read failed (rc=%d) for %s: %s",
-                rc, cluster_path, stderr.strip(),
+                rc,
+                cluster_path,
+                stderr.strip(),
             )
             return None
         return stdout
@@ -408,7 +415,8 @@ class AutoLogReader:
         if content is not None:
             return content
         log.debug(
-            "Local log read failed for %s, falling back to SSH", cluster_path,
+            "Local log read failed for %s, falling back to SSH",
+            cluster_path,
         )
         return self._ssh.read_tail(cluster_path, tail)
 
@@ -461,9 +469,9 @@ def _read_logs(
         path_mapper: For translating display paths in the response.
     """
     detail = get_job_status_fn(job_id)
-    stdout_log_path = detail.get("stdout_path")   # cluster path
-    stderr_log_path = detail.get("stderr_path")    # cluster path
-    execution_cwd = detail.get("execution_cwd")    # cluster path
+    stdout_log_path = detail.get("stdout_path")  # cluster path
+    stderr_log_path = detail.get("stderr_path")  # cluster path
+    execution_cwd = detail.get("execution_cwd")  # cluster path
 
     result: dict[str, Any] = {
         "job_id": job_id,
@@ -491,9 +499,7 @@ def _read_logs(
             result[stream] = content
             result["found"] = True
             # Return local path to the model if we have a mapper
-            display_path = (
-                path_mapper.to_local(resolved) if path_mapper else resolved
-            )
+            display_path = path_mapper.to_local(resolved) if path_mapper else resolved
             result["log_paths"][stream] = display_path
 
     return result
@@ -606,6 +612,8 @@ def _error_with_hint(message: str, hint_type: str = "path") -> dict[str, Any]:
     hints = {
         "path": "Path may not be configured correctly. Run the cluster_setup workflow.",
         "connection": "Cluster connection failed. Run the cluster_setup workflow.",
-        "first_use": "Cluster tools are not yet configured. Run the cluster_setup workflow.",
+        "first_use": (
+            "Cluster tools are not yet configured. Run the cluster_setup workflow."
+        ),
     }
     return _error_response(message, hint=hints.get(hint_type, hints["path"]))

@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/layout/footer.py
+# hypothesis_version: 6.151.12
+
+['#branch-label', '#model-label', '#process-indicator', '#vi-mode-label', '--show-current', 'Auto-edit: off', 'Auto-edit: on', 'INSERT', 'NORMAL', 'Plan mode', 'Plan swarm', 'VISUAL', 'acceptEdits', 'active', 'branch', 'branch-label', 'bypassPermissions', 'context-bar', 'cpu-bar', 'default', 'detached', 'diagnostics-label', 'footer-content', 'footer-label', 'footer-sep', 'footer-spacer', 'git', 'hidden', 'model-label', 'plan', 'plan-mode', 'plan-swarm-mode', 'planSwarm', 'process-indicator', 'session_info', 'vi-insert', 'vi-mode-label', 'vi-normal', 'vi-visual', '·']

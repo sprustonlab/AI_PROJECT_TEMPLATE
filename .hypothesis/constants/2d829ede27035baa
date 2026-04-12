@@ -1,0 +1,4 @@
+# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/shell_complete.py
+# hypothesis_version: 6.151.12
+
+['!', '.', '.COM;.EXE;.BAT;.CMD', '.bat', '.cmd', '.com', '.exe', '.ps1', '/', '/\\', '/shell ', ':', ';', 'PATH', 'PATHEXT', '\\', 'win32', '~']

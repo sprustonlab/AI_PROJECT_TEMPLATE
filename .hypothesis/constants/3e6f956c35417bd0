@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/features/roborev/__init__.py
-# hypothesis_version: 6.151.12
-
-['ReviewDetail', 'ReviewJob', 'get_current_branch', 'is_roborev_available', 'list_reviews', 'show_review']

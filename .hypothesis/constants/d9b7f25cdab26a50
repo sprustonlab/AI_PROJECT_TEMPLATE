@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/screens/chat.py
-# hypothesis_version: 6.151.12
-
-['#input', 'Auto-edit', 'Cancel', 'ChatApp', 'Clear', 'History', 'agent-section', 'chat-column', 'chat-view', 'chicsession-label', 'clear', 'ctrl+l', 'ctrl+r', 'escape', 'files-section', 'hamburger-btn', 'hidden', 'history-search', 'history_search', 'image-attachments', 'input', 'input-container', 'main', 'plan-section', 'process-panel', 'review-panel', 'right-sidebar', 'shift+tab', 'todo-panel']

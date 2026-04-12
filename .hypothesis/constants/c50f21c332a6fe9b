@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/analytics.py
-# hypothesis_version: 6.151.12
-
-[2.0, '$session_id', '.git', 'ALACRITTY_SOCKET', 'ConEmuPID', 'KITTY_WINDOW_ID', 'KONSOLE_VERSION', 'TERM', 'TERM_PROGRAM', 'WEZTERM_PANE', 'WT_SESSION', 'alacritty', 'analytics', 'api_key', 'app_closed', 'app_installed', 'app_started', 'claudechic', 'claudechic_version', 'cli_args', 'conda', 'conemu', 'distinct_id', 'enabled', 'event', 'gnome-terminal', 'has_conda', 'has_uv', 'id', 'is_git_repo', 'kitty', 'konsole', 'os', 'properties', 'term_height', 'term_program', 'term_width', 'timestamp', 'unknown', 'uv', 'wezterm', 'windows-terminal']

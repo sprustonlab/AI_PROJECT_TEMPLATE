@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/modals/profile.py
-# hypothesis_version: 6.151.12
-
-[100, '\nHigh-CPU Episodes', '%', '...', 'Close', 'Copied to clipboard', 'Count', 'File', 'Function', 'Line', 'Reset', '[bold]CPU Samples[/]', 'close-btn', 'copy-all-btn', 'copy-btn', 'copy-episodes-btn', 'copy-profiling-btn', 'copy-sampling-btn', 'count', 'dim', 'dismiss', 'episodes-content', 'error', 'escape', 'filename', 'left', 'line_number', 'name', 'profile-container', 'profile-content', 'profile-footer', 'profile-header', 'profile-scroll', 'profile-title', 'reset-btn', 'right', 'sampling-content', 'section-header', 'section-title', '⧉']

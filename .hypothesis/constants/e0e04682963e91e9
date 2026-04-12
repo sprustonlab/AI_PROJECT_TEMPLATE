@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/screens/session.py
-# hypothesis_version: 6.151.12
-
-['#session-list', '#session-search', '#session-title', 'Back', 'Resume Session', 'Search sessions...', 'down', 'escape', 'go_back', 'session-container', 'session-list', 'session-search', 'session-title', 'up']

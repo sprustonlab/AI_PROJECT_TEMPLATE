@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/modals/process_detail.py
-# hypothesis_version: 6.151.12
-
-[0.1, 1024, 3600, 'B', 'CPU', 'Close', 'Duration', 'GB', 'KB', 'Key', 'Kill', 'MB', 'Memory (RSS)', 'Memory (VMS)', 'Open FDs', 'Status', 'Threads', 'Value', 'close-btn', 'cpu_percent', 'detail-command', 'detail-container', 'detail-footer', 'detail-metrics', 'detail-output', 'detail-pid', 'dim', 'dismiss', 'error', 'escape', 'kill-btn', 'memory_rss', 'memory_vms', 'num_fds', 'num_threads', 'right', 'status']

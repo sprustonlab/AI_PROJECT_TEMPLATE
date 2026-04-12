@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/features/diff/git.py
-# hypothesis_version: 6.151.12
-
-[1024, '\n\n---\n\n', ' b/(.+)$', '+', '-', '--exclude-standard', '--name-status', '--no-ext-diff', '--numstat', '--others', '@@', 'A', 'C', 'D', 'HEAD', 'M', 'R', '\\', '^diff --git ', 'added', 'copied', 'deleted', 'diff', 'git', 'ls-files', 'modified', 'renamed', 'untracked']

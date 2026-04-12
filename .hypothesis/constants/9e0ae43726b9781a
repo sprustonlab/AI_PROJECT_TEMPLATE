@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/sampling.py
-# hypothesis_version: 6.151.12
-
-[0.0, 0.02, 0.1, 2.0, 100.0, 100, '0.20', '<frozen runpy>', 'CPUSampler', '__main__.py', 'asyncio/events.py', 'asyncio/runners.py', 'children', 'concurrent/futures', 'count', 'description', 'filename', 'high', 'high_cpu_count', 'identifier', 'idle', 'lag_count', 'lag_max', 'lag_sum', 'line', 'line_number', 'log_entries', 'name', 'recorded_count', 'root', 'sample_count', 'selectors.py', 'text_chunks', 'textual/_callback.py', 'textual/app.py', 'textual/screen.py', 'textual/timer.py', 'textual/widget.py', 'threading.py', 'threshold', 'tool_results', 'tool_uses']

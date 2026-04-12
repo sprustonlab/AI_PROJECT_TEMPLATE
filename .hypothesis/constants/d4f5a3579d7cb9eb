@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/hints/__init__.py
-# hypothesis_version: 6.151.12
-
-['AlwaysTrue', 'CooldownPeriod', 'HintDecl', 'HintLifecycle', 'HintRecord', 'HintSpec', 'HintsParser', 'ShowEverySession', 'ShowOnce', 'ShowUntilResolved', 'TriggerCondition', 'run_pipeline']

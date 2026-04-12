@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/layout/chat_view.py
-# hypothesis_version: 6.151.12
-
-[999, 'ToolResultBlock', 'ToolUseBlock', 'agent-message', 'assistant', 'assistant-message', 'duration_ms', 'hidden', 'input_tokens', 'mcp__chic__', 'model', 'output_tokens', 'recent-turns-full', 'screenshot', 'total_cost_usd', 'usage', 'user', 'user-message']

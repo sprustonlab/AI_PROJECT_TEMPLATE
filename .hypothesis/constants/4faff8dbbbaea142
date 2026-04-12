@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/features/worktree/git.py
-# hypothesis_version: 6.151.12
-
-['$HOME', '${branch_name}', '${repo_name}', '*+ ', ', ', '--count', '--ff-only', '--force', '--git-dir', '--is-ancestor', '--merged', '--porcelain', '--show-toplevel', '-C', '-D', '-b', '-d', '-fd', '-fdX', '-fdXn', '-fdn', '-n', '.', '..', '.claude', '.git', '??', 'HEAD', 'Would remove ', 'add', 'branch', 'branch refs/heads/', 'checkout', 'clean', 'git', 'inf', 'list', 'main', 'merge', 'merge-base', 'not merged', 'path_template', 'remove', 'rev-list', 'rev-parse', 'status', 'worktree', 'worktree ']

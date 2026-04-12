@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/chicsessions.py
-# hypothesis_version: 6.151.12
-
-['*.json', '.chicsessions', '.tmp', 'active_agent', 'agents', 'cwd', 'name', 'session_id', 'utf-8', 'w', 'workflow_state']

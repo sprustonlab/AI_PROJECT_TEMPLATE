@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/workflows/engine.py
-# hypothesis_version: 6.151.12
-
-['Check failed', 'confirm_fn', 'current_phase', 'lifecycle', 'manual-confirm', 'message', 'severity', 'show-until-resolved', 'warning', 'workflow_id']

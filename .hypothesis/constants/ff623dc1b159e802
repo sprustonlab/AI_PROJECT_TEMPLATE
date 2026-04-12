@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/guardrails/parsers.py
-# hypothesis_version: 6.151.12
-
-[256, ':', 'command', 'deny', 'detect', 'enforcement', 'exclude_if_matches', 'exclude_phases', 'exclude_roles', 'field', 'global', 'id', 'inject_value', 'injections', 'log', 'message', "missing 'id' field", 'pattern', 'phases', 'roles', 'rules', 'trigger', 'warn']

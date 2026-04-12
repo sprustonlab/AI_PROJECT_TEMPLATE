@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/workflows/parsers.py
-# hypothesis_version: 6.151.12
-
-[':', 'advance_checks', 'cooldown', 'cooldown_seconds', 'file', 'hints', 'id', 'lifecycle', 'message', 'on_failure', 'phases', 'show-once', 'type', 'when']

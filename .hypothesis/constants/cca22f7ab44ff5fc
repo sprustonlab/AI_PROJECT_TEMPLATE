@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/features/roborev/cli.py
-# hypothesis_version: 6.151.12
-
-[0.0, 60.0, '--abbrev-ref', '--branch', '--job', '--json', 'HEAD', 'git', 'list', 'rev-parse', 'roborev', 'show']

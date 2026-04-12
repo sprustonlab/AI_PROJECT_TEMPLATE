@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/widgets/content/diff.py
-# hypothesis_version: 6.151.12
-
-[130, '\n(all occurrences)', ' │ ', '#446644', '#555555', '#664444', '#666666', '#66aa66', '#aa6666', '$text', '+ ', '- ', 'No changes', '\\w+|[^\\w\\s]|\\s+', 'added_bg', 'added_indicator', 'added_word', 'delete', 'dim', 'equal', 'green', 'green underline', 'insert', 'on #1a2a1a', 'on #253d25', 'on #2a1a1a', 'on #3d2525', 'on #ecffec', 'on #f5fff5', 'on #ffecec', 'on #fff5f5', 'red', 'red underline', 'removed_bg', 'removed_indicator', 'removed_word', 'replace']

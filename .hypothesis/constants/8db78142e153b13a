@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/hints/parsers.py
-# hypothesis_version: 6.151.12
-
-[':', 'cooldown', 'cooldown_seconds', 'global', 'hints', 'id', 'lifecycle', 'message', 'phase', 'show-every-session', 'show-once', 'show-until-resolved']

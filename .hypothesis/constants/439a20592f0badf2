@@ -1,4 +1,0 @@
-# file: /Users/moharb/Documents/Repos/AI_PROJECT_TEMPLATE/submodules/claudechic/claudechic/checks/parsers.py
-# hypothesis_version: 6.151.12
-
-[':', 'checks', 'id', "missing 'id' field", 'on_failure', 'params', 'type', 'when']

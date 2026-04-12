@@ -15,12 +15,10 @@ generations down to 7.
 
 from __future__ import annotations
 
-import shutil
 import subprocess
-import sys
+from pathlib import Path
 
 import pytest
-from pathlib import Path
 
 # Import the shared helper from conftest
 from conftest import shared_copier_generation
@@ -29,6 +27,7 @@ from conftest import shared_copier_generation
 def _copier_available():
     try:
         import copier  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -59,12 +58,16 @@ def standard_defaults_project(tmp_path_factory):
     test_pyyaml_always_present, test_always_excluded_dirs,
     test_defaults_mode, test_copier_answers_file_generated.
     """
-    return shared_copier_generation(tmp_path_factory, "copier_std_defaults", {
-        "project_name": "std_defaults",
-        "claudechic_mode": "standard",
-        "quick_start": "defaults",
-        "use_cluster": False,
-    })
+    return shared_copier_generation(
+        tmp_path_factory,
+        "copier_std_defaults",
+        {
+            "project_name": "std_defaults",
+            "claudechic_mode": "standard",
+            "quick_start": "defaults",
+            "use_cluster": False,
+        },
+    )
 
 
 @pytest.fixture(scope="module")
@@ -73,72 +76,96 @@ def lsf_cluster_project(tmp_path_factory):
 
     Shared by: test_lsf_scheduler, test_lsf_yaml_has_ssh_target.
     """
-    return shared_copier_generation(tmp_path_factory, "copier_lsf_cluster", {
-        "project_name": "lsf_project",
-        "claudechic_mode": "standard",
-        "quick_start": "defaults",
-        "use_cluster": True,
-    })
+    return shared_copier_generation(
+        tmp_path_factory,
+        "copier_lsf_cluster",
+        {
+            "project_name": "lsf_project",
+            "claudechic_mode": "standard",
+            "quick_start": "defaults",
+            "use_cluster": True,
+        },
+    )
 
 
 @pytest.fixture(scope="module")
 def slurm_cluster_project(tmp_path_factory):
     """Group B: SLURM cluster config."""
-    return shared_copier_generation(tmp_path_factory, "copier_slurm_cluster", {
-        "project_name": "slurm_project",
-        "claudechic_mode": "standard",
-        "quick_start": "defaults",
-        "use_cluster": True,
-    })
+    return shared_copier_generation(
+        tmp_path_factory,
+        "copier_slurm_cluster",
+        {
+            "project_name": "slurm_project",
+            "claudechic_mode": "standard",
+            "quick_start": "defaults",
+            "use_cluster": True,
+        },
+    )
 
 
 @pytest.fixture(scope="module")
 def everything_project(tmp_path_factory):
     """Group C: everything preset."""
-    return shared_copier_generation(tmp_path_factory, "copier_everything", {
-        "project_name": "everything_test",
-        "claudechic_mode": "standard",
-        "quick_start": "everything",
-        "use_cluster": False,
-    })
+    return shared_copier_generation(
+        tmp_path_factory,
+        "copier_everything",
+        {
+            "project_name": "everything_test",
+            "claudechic_mode": "standard",
+            "quick_start": "everything",
+            "use_cluster": False,
+        },
+    )
 
 
 @pytest.fixture(scope="module")
 def empty_project(tmp_path_factory):
     """Group C: empty preset."""
-    return shared_copier_generation(tmp_path_factory, "copier_empty", {
-        "project_name": "empty_test",
-        "claudechic_mode": "standard",
-        "quick_start": "empty",
-        "use_cluster": False,
-    })
+    return shared_copier_generation(
+        tmp_path_factory,
+        "copier_empty",
+        {
+            "project_name": "empty_test",
+            "claudechic_mode": "standard",
+            "quick_start": "empty",
+            "use_cluster": False,
+        },
+    )
 
 
 @pytest.fixture(scope="module")
 def custom_project(tmp_path_factory):
     """Group C: custom preset with selective options."""
-    return shared_copier_generation(tmp_path_factory, "copier_custom", {
-        "project_name": "custom_test",
-        "claudechic_mode": "standard",
-        "quick_start": "custom",
-        "example_rules": True,
-        "example_agent_roles": True,
-        "example_workflows": False,
-        "example_hints": False,
-        "example_patterns": False,
-        "use_cluster": False,
-    })
+    return shared_copier_generation(
+        tmp_path_factory,
+        "copier_custom",
+        {
+            "project_name": "custom_test",
+            "claudechic_mode": "standard",
+            "quick_start": "custom",
+            "example_rules": True,
+            "example_agent_roles": True,
+            "example_workflows": False,
+            "example_hints": False,
+            "example_patterns": False,
+            "use_cluster": False,
+        },
+    )
 
 
 @pytest.fixture(scope="module")
 def developer_project(tmp_path_factory):
     """Group D: developer mode."""
-    return shared_copier_generation(tmp_path_factory, "copier_developer", {
-        "project_name": "dev_project",
-        "claudechic_mode": "developer",
-        "quick_start": "defaults",
-        "use_cluster": False,
-    })
+    return shared_copier_generation(
+        tmp_path_factory,
+        "copier_developer",
+        {
+            "project_name": "dev_project",
+            "claudechic_mode": "developer",
+            "quick_start": "defaults",
+            "use_cluster": False,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +224,9 @@ class TestClusterScheduler:
 
     def test_cluster_yaml_has_empty_backend(self, lsf_cluster_project):
         """cluster.yaml should have empty backend (populated by cluster-setup workflow)."""
-        yaml_content = (lsf_cluster_project / "mcp_tools" / "cluster.yaml").read_text(encoding="utf-8")
+        yaml_content = (lsf_cluster_project / "mcp_tools" / "cluster.yaml").read_text(
+            encoding="utf-8"
+        )
         assert 'backend: ""' in yaml_content
         assert 'ssh_target: ""' in yaml_content
 
@@ -219,7 +248,9 @@ class TestExclude:
         """docs/, .project_team/, submodules/, tests/ never in generated project."""
         dest = standard_defaults_project
         assert not (dest / "docs").exists(), "docs/ should be excluded"
-        assert not (dest / ".project_team").exists(), ".project_team/ should be excluded"
+        assert not (dest / ".project_team").exists(), (
+            ".project_team/ should be excluded"
+        )
         assert not (dest / "submodules").exists(), "submodules/ should be excluded"
         assert not (dest / "tests").exists(), "tests/ should be excluded"
 
@@ -234,14 +265,23 @@ class TestQuickStartPresets:
 
     # Core roles that ALWAYS ship (regardless of preset)
     CORE_ROLES = [
-        "coordinator", "composability", "implementer", "skeptic",
-        "terminology", "user_alignment", "test_engineer",
+        "coordinator",
+        "composability",
+        "implementer",
+        "skeptic",
+        "terminology",
+        "user_alignment",
+        "test_engineer",
     ]
 
     # Specialist roles (only with everything/defaults/custom+example_agent_roles)
     SPECIALIST_ROLES = [
-        "researcher", "lab_notebook", "ui_designer",
-        "binary_portability", "memory_layout", "project_integrator",
+        "researcher",
+        "lab_notebook",
+        "ui_designer",
+        "binary_portability",
+        "memory_layout",
+        "project_integrator",
         "sync_coordinator",
     ]
 
@@ -261,15 +301,15 @@ class TestQuickStartPresets:
 
         # Core roles always present
         for role in self.CORE_ROLES:
-            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
-                f"Core role {role} should always be present"
-            )
+            assert (
+                dest / "workflows" / "project_team" / role / "identity.md"
+            ).exists(), f"Core role {role} should always be present"
 
         # Specialist roles present in everything mode
         for role in self.SPECIALIST_ROLES:
-            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
-                f"Specialist role {role} should be present in everything mode"
-            )
+            assert (
+                dest / "workflows" / "project_team" / role / "identity.md"
+            ).exists(), f"Specialist role {role} should be present in everything mode"
 
         # Tutorial workflows present in everything mode
         for wf in self.TUTORIAL_WORKFLOWS:
@@ -278,7 +318,9 @@ class TestQuickStartPresets:
             )
 
         # Global config present
-        assert (dest / "global" / "rules.yaml").exists(), "global/rules.yaml should be present"
+        assert (dest / "global" / "rules.yaml").exists(), (
+            "global/rules.yaml should be present"
+        )
 
         # Pattern miner present in everything mode
         assert (dest / "scripts" / "mine_patterns.py").exists(), (
@@ -297,18 +339,20 @@ class TestQuickStartPresets:
 
         # Core roles present
         for role in self.CORE_ROLES:
-            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
-                f"Core role {role} should be present in defaults mode"
-            )
+            assert (
+                dest / "workflows" / "project_team" / role / "identity.md"
+            ).exists(), f"Core role {role} should be present in defaults mode"
 
         # Specialist roles present in defaults mode
         for role in self.SPECIALIST_ROLES:
-            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
-                f"Specialist role {role} should be present in defaults mode"
-            )
+            assert (
+                dest / "workflows" / "project_team" / role / "identity.md"
+            ).exists(), f"Specialist role {role} should be present in defaults mode"
 
         # Global config present in defaults
-        assert (dest / "global" / "rules.yaml").exists(), "global/rules.yaml should be present"
+        assert (dest / "global" / "rules.yaml").exists(), (
+            "global/rules.yaml should be present"
+        )
 
         # Tutorial workflows NOT present in defaults
         for wf in self.TUTORIAL_WORKFLOWS:
@@ -336,9 +380,9 @@ class TestQuickStartPresets:
 
         # Core roles always present
         for role in self.CORE_ROLES:
-            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
-                f"Core role {role} should be present even in empty mode"
-            )
+            assert (
+                dest / "workflows" / "project_team" / role / "identity.md"
+            ).exists(), f"Core role {role} should be present even in empty mode"
 
         # Specialist roles NOT present in empty mode
         for role in self.SPECIALIST_ROLES:
@@ -373,13 +417,15 @@ class TestQuickStartPresets:
 
         # Core roles always present
         for role in self.CORE_ROLES:
-            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
-                f"Core role {role} should be present"
-            )
+            assert (
+                dest / "workflows" / "project_team" / role / "identity.md"
+            ).exists(), f"Core role {role} should be present"
 
         # Specialist roles present (example_agent_roles=True)
         for role in self.SPECIALIST_ROLES:
-            assert (dest / "workflows" / "project_team" / role / "identity.md").exists(), (
+            assert (
+                dest / "workflows" / "project_team" / role / "identity.md"
+            ).exists(), (
                 f"Specialist role {role} should be present when example_agent_roles=True"
             )
 
@@ -425,9 +471,9 @@ class TestProjectContainment:
         This catches the bug where `copier copy $URL .` dumps template files
         into the current directory instead of a named subdirectory.
         """
-        from copier import run_copy
         import os
-        import subprocess
+
+        from copier import run_copy
 
         env = os.environ.copy()
         env["GIT_AUTHOR_NAME"] = "Test"
@@ -444,12 +490,18 @@ class TestProjectContainment:
         project_in_parent = parent_dir / "my_project"
         project_in_parent.mkdir()
         subprocess.run(
-            ["git", "init"], cwd=project_in_parent,
-            capture_output=True, check=True, env=env,
+            ["git", "init"],
+            cwd=project_in_parent,
+            capture_output=True,
+            check=True,
+            env=env,
         )
         subprocess.run(
             ["git", "commit", "--allow-empty", "-m", "init"],
-            cwd=project_in_parent, capture_output=True, check=True, env=env,
+            cwd=project_in_parent,
+            capture_output=True,
+            check=True,
+            env=env,
         )
 
         run_copy(
@@ -506,11 +558,12 @@ class TestProjectContainment:
         All `read` calls must redirect from /dev/tty to get user input.
         """
         import re
+
         docs = Path(__file__).resolve().parent.parent / "docs"
         sh_content = (docs / "install.sh").read_text(encoding="utf-8")
 
         # Find all `read` commands
-        read_calls = re.findall(r'^.*\bread\b.*$', sh_content, re.MULTILINE)
+        read_calls = re.findall(r"^.*\bread\b.*$", sh_content, re.MULTILINE)
         for line in read_calls:
             stripped = line.strip()
             if stripped.startswith("#"):

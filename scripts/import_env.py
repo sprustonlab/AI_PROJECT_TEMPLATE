@@ -24,6 +24,7 @@ The yml format is the familiar conda env spec:
       - pip:
         - some-pip-package
 """
+
 from __future__ import annotations
 
 import argparse
@@ -78,7 +79,7 @@ def parse_conda_dep(dep_str: str) -> tuple[str, str]:
         "python>=3.10,<3.14" → ("python", ">=3.10,<3.14")
     """
     # Handle version constraints with >= or similar
-    match = re.match(r'^([a-zA-Z0-9_-]+)\s*([>=<!].*)?$', dep_str)
+    match = re.match(r"^([a-zA-Z0-9_-]+)\s*([>=<!].*)?$", dep_str)
     if not match:
         # Fallback: treat as package name with wildcard version
         return dep_str.strip(), "*"
@@ -126,14 +127,14 @@ def generate_feature_toml(env_data: dict) -> str:
                 lines.append(f'{pkg_name} = {{ path = "{path}", editable = true }}')
             else:
                 # Simple pip dep: name or name>=version
-                match = re.match(r'^([a-zA-Z0-9_-]+)\s*([>=<!].*)?$', dep)
+                match = re.match(r"^([a-zA-Z0-9_-]+)\s*([>=<!].*)?$", dep)
                 if match:
                     pkg = match.group(1)
                     ver = match.group(2) or "*"
                     lines.append(f'{pkg} = "{ver}"')
                 else:
                     # URL or complex spec — use as-is
-                    lines.append(f'# TODO: manually add: {dep}')
+                    lines.append(f"# TODO: manually add: {dep}")
         lines.append("")
 
     return "\n".join(lines)
@@ -150,12 +151,14 @@ def update_pixi_toml(pixi_path: Path, env_data: dict) -> None:
 
     # Check if feature already exists
     if f"[feature.{name}." in content:
-        print(f"  ⚠️  Feature '{name}' already exists in pixi.toml — skipping feature section")
+        print(
+            f"  ⚠️  Feature '{name}' already exists in pixi.toml — skipping feature section"
+        )
     else:
         feature_toml = generate_feature_toml(env_data)
 
         # Insert before [environments] section
-        env_section_match = re.search(r'^(\[environments\])', content, re.MULTILINE)
+        env_section_match = re.search(r"^(\[environments\])", content, re.MULTILINE)
         if env_section_match:
             insert_pos = env_section_match.start()
             content = content[:insert_pos] + feature_toml + "\n" + content[insert_pos:]
@@ -167,14 +170,16 @@ def update_pixi_toml(pixi_path: Path, env_data: dict) -> None:
     env_mapping = f'{name} = ["{name}"]'
     if env_mapping not in content:
         # Find [environments] section and append
-        env_match = re.search(r'^\[environments\]\s*$', content, re.MULTILINE)
+        env_match = re.search(r"^\[environments\]\s*$", content, re.MULTILINE)
         if env_match:
             # Find the end of the environments section (next section or EOF)
-            rest = content[env_match.end():]
-            next_section = re.search(r'^\[', rest, re.MULTILINE)
+            rest = content[env_match.end() :]
+            next_section = re.search(r"^\[", rest, re.MULTILINE)
             if next_section:
                 insert_pos = env_match.end() + next_section.start()
-                content = content[:insert_pos] + env_mapping + "\n" + content[insert_pos:]
+                content = (
+                    content[:insert_pos] + env_mapping + "\n" + content[insert_pos:]
+                )
             else:
                 content = content.rstrip() + "\n" + env_mapping + "\n"
         else:
@@ -208,11 +213,7 @@ def main() -> int:
     args = parser.parse_args()
 
     # Find pixi.toml
-    if args.pixi_toml:
-        pixi_path = args.pixi_toml
-    else:
-        # Auto-detect: script is in scripts/, pixi.toml is in parent
-        pixi_path = Path(__file__).resolve().parent.parent / "pixi.toml"
+    pixi_path = args.pixi_toml or Path(__file__).resolve().parent.parent / "pixi.toml"
 
     if not pixi_path.exists():
         print(f"ERROR: pixi.toml not found at {pixi_path}", file=sys.stderr)

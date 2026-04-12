@@ -20,9 +20,8 @@ pytestmark = [pytest.mark.timeout(30)]
 
 # Trigger the full claudechic import chain via app (avoids circular import
 # when importing agent.py directly).
-from claudechic.app import ChatApp  # noqa: F401, E402
 from claudechic.agent import Agent  # noqa: E402
-
+from claudechic.app import ChatApp  # noqa: F401, E402
 
 # ---------------------------------------------------------------------------
 # Fix 1: _is_process_alive() correctness (cross-platform)
@@ -126,8 +125,7 @@ class TestSigintFallback:
 
         agent, mock_process = self._make_agent_with_process()
 
-        with patch.object(sys, "platform", "linux"), \
-             patch("os.kill") as mock_kill:
+        with patch.object(sys, "platform", "linux"), patch("os.kill") as mock_kill:
             agent._sigint_fallback()
 
         mock_kill.assert_called_once_with(12345, signal.SIGINT)
@@ -200,7 +198,9 @@ class TestDrainNextMessageErrorHandling:
 
         agent, mock_observer = self._make_drainable_agent()
 
-        with patch.object(agent, "_start_response", side_effect=CLIConnectionError("dead")):
+        with patch.object(
+            agent, "_start_response", side_effect=CLIConnectionError("dead")
+        ):
             agent._drain_next_message()
 
         # Message should be re-queued
@@ -274,8 +274,10 @@ class TestErrorHooksInstalled:
         """The custom excepthook passes through KeyboardInterrupt."""
         from claudechic.__main__ import _excepthook
 
-        with patch("claudechic.__main__.logger") as mock_logger, \
-             patch("sys.__excepthook__"):
+        with (
+            patch("claudechic.__main__.logger") as mock_logger,
+            patch("sys.__excepthook__"),
+        ):
             _excepthook(KeyboardInterrupt, KeyboardInterrupt(), None)
 
         mock_logger.critical.assert_not_called()

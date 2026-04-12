@@ -19,7 +19,6 @@ import os
 import platform
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -46,6 +45,7 @@ TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
 def _copier_available():
     try:
         import copier  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -54,6 +54,7 @@ def _copier_available():
 def _pexpect_available():
     try:
         import pexpect  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -93,11 +94,18 @@ def generated_project(tmp_path_factory):
 
             dest.mkdir(parents=True, exist_ok=True)
             subprocess.run(
-                ["git", "init"], cwd=dest, capture_output=True, check=True, env=env,
+                ["git", "init"],
+                cwd=dest,
+                capture_output=True,
+                check=True,
+                env=env,
             )
             subprocess.run(
                 ["git", "commit", "--allow-empty", "-m", "init"],
-                cwd=dest, capture_output=True, check=True, env=env,
+                cwd=dest,
+                capture_output=True,
+                check=True,
+                env=env,
             )
 
             run_copy(
@@ -147,7 +155,6 @@ class TestCopierGeneration:
         assert not (generated_project / "tests").exists()
         assert not (generated_project / "docs").exists()
         assert not (generated_project / ".project_team").exists()
-
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +232,6 @@ class TestMCPServerCreation:
         """discover_mcp_tools() finds LSF tools in the generated project's mcp_tools/."""
         # We can test this directly using our test infrastructure
         # (no need for pixi — just import and point at the directory)
-        from pathlib import Path
         from claudechic.mcp import discover_mcp_tools
 
         mcp_dir = generated_project / "mcp_tools"
@@ -234,6 +240,7 @@ class TestMCPServerCreation:
 
         # Set backend so get_tools() backend gate passes
         import yaml
+
         cluster_yaml = mcp_dir / "cluster.yaml"
         if cluster_yaml.exists():
             data = yaml.safe_load(cluster_yaml.read_text(encoding="utf-8")) or {}
@@ -242,7 +249,9 @@ class TestMCPServerCreation:
 
         from unittest.mock import MagicMock, patch
 
-        with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):
+        with patch(
+            "subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)
+        ):
             tools = discover_mcp_tools(
                 mcp_dir,
                 caller_name="smoke_test",
@@ -250,7 +259,9 @@ class TestMCPServerCreation:
                 find_agent=lambda n: (None, "not found"),
             )
 
-        tool_names = [getattr(t, "name", None) or getattr(t, "_tool_name", None) for t in tools]
+        tool_names = [
+            getattr(t, "name", None) or getattr(t, "_tool_name", None) for t in tools
+        ]
         assert "cluster_jobs" in tool_names, f"Expected cluster_jobs in {tool_names}"
         assert "cluster_submit" in tool_names
         assert len(tools) == 6  # 6 LSF tools
@@ -267,6 +278,7 @@ class TestCopierAnswersIntentFlags:
     def test_use_cluster_recorded(self, generated_project):
         """use_cluster=True is recorded in .copier-answers.yml."""
         import yaml
+
         answers = generated_project / ".copier-answers.yml"
         assert answers.exists(), ".copier-answers.yml should exist"
         data = yaml.safe_load(answers.read_text(encoding="utf-8"))
@@ -275,6 +287,7 @@ class TestCopierAnswersIntentFlags:
     def test_use_existing_codebase_recorded(self, generated_project):
         """use_existing_codebase default (false) is recorded in .copier-answers.yml."""
         import yaml
+
         answers = generated_project / ".copier-answers.yml"
         data = yaml.safe_load(answers.read_text(encoding="utf-8"))
         assert "use_existing_codebase" in data

@@ -1,17 +1,5 @@
-"""Root conftest: filter SDK submodule tests.
+"""Root conftest: collect all tests including claudechic submodule.
 
-The claudechic submodule has many tests (app, widgets, cluster, etc.) that
-need dependencies not available in this repo's pixi env. We collect only
-workflow tests and hints integration tests here; the rest run in
-claudechic's own CI.
+All claudechic runtime dependencies are available in this repo's pixi env,
+so we run the full claudechic test suite here for combined coverage.
 """
-from pathlib import Path
-
-_SDK_TESTS = Path("submodules/claudechic/tests")
-_INCLUDE_PREFIXES = ("test_workflow_", "test_hints_")
-
-collect_ignore = [
-    str(f)
-    for f in _SDK_TESTS.glob("test_*.py")
-    if not any(f.name.startswith(p) for p in _INCLUDE_PREFIXES)
-] if _SDK_TESTS.is_dir() else []

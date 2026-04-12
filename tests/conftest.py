@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import os
-import shutil
 import subprocess
-import sys
-import tempfile
+from collections.abc import Generator
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -61,11 +58,17 @@ def shared_copier_generation(tmp_path_factory, name: str, data: dict) -> Path:
             dest.mkdir(parents=True, exist_ok=True)
             subprocess.run(
                 ["git", "init"],
-                cwd=dest, capture_output=True, check=True, env=env,
+                cwd=dest,
+                capture_output=True,
+                check=True,
+                env=env,
             )
             subprocess.run(
                 ["git", "commit", "--allow-empty", "-m", "init"],
-                cwd=dest, capture_output=True, check=True, env=env,
+                cwd=dest,
+                capture_output=True,
+                check=True,
+                env=env,
             )
 
             run_copy(
@@ -109,11 +112,17 @@ def copier_output(tmp_path):
         dest.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             ["git", "init"],
-            cwd=dest, capture_output=True, check=True, env=env,
+            cwd=dest,
+            capture_output=True,
+            check=True,
+            env=env,
         )
         subprocess.run(
             ["git", "commit", "--allow-empty", "-m", "init"],
-            cwd=dest, capture_output=True, check=True, env=env,
+            cwd=dest,
+            capture_output=True,
+            check=True,
+            env=env,
         )
 
         run_copy(
@@ -148,14 +157,18 @@ def e2e_project(tmp_path_factory) -> Generator[Path, None, None]:
     Module-scoped so the generated project is shared across all test steps.
     Uses shared_copier_generation() for FileLock + xdist safety.
     """
-    dest = shared_copier_generation(tmp_path_factory, "e2e_cross_platform", {
-        "project_name": "e2e_cross_platform",
-        "claudechic_mode": "standard",
-        "quick_start": "everything",
-        "use_cluster": False,
-        "use_guardrails": True,
-        "use_project_team": True,
-    })
+    dest = shared_copier_generation(
+        tmp_path_factory,
+        "e2e_cross_platform",
+        {
+            "project_name": "e2e_cross_platform",
+            "claudechic_mode": "standard",
+            "quick_start": "everything",
+            "use_cluster": False,
+            "use_guardrails": True,
+            "use_project_team": True,
+        },
+    )
 
     yield dest
 

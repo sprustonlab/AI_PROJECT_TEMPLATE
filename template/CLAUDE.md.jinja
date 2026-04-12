@@ -1,0 +1,87 @@
+# {{ project_name }}
+
+A Claude Code project managed by claudechic. Agents are already running inside the environment — no activation or launch commands needed.
+
+## Project Structure
+
+- `repos/` — Your codebases. Auto-added to PYTHONPATH by `activate`.
+- `workflows/` — Phase-gated workflow definitions (project-team, tutorials, setup wizards).
+- `global/` — Always-active guardrail rules (`rules.yaml`) and contextual hints (`hints.yaml`).
+- `mcp_tools/` — MCP tool scripts. Drop a `.py` file here and claudechic auto-discovers it.
+- `commands/` — CLI commands available after activation.
+- `envs/` — Environment configurations.
+- `scripts/` — Utility scripts.
+
+## Workflows
+
+Workflow phases are gated by advance checks — all must pass before moving on.
+The Coordinator agent delegates work. It does NOT write code itself.
+
+Available workflows:
+- `project-team` — Full multi-agent development (vision → setup → leadership → specification → implementation → testing → signoff)
+- `tutorial` — Learn how workflows, checks, and hints work
+{% if quick_start in ['everything', 'custom'] and example_workflows %}
+- `tutorial-extending` — Learn to extend workflows
+- `tutorial-toy-project` — Build a project end-to-end
+{% endif %}
+- `git-setup`, `codebase-setup`, `cluster-setup` — Onboarding wizards
+- `/workflow list` — See all available workflows
+
+## repos/ Directory
+
+- Clone or symlink your codebases into `repos/`.
+- `activate` adds all `repos/*/` to PYTHONPATH automatically.
+- Your code is importable from anywhere in the project after activation.
+
+{% if quick_start in ['everything', 'defaults'] or (quick_start == 'custom' and example_rules) %}
+## Guardrails
+
+Active guardrail rules in `global/rules.yaml`:
+- `rm -rf /` patterns → DENIED (hard block)
+- `sudo` commands → WARNED (needs acknowledgment)
+- `git` operations → LOGGED (audit trail)
+- Bare `pytest` → DENIED (must target specific file or save timestamped results)
+
+Override: call `request_override()` for deny rules, `acknowledge_warning()` for warn rules.
+{% endif %}
+
+{% if use_cluster %}
+## Cluster Tools
+
+MCP tools for HPC job management (LSF/SLURM) in `mcp_tools/`:
+- Backend and connection details are in `mcp_tools/cluster.yaml` (populated by setup workflow, NOT at template time).
+- Run `/cluster-setup` workflow to configure — it discovers your scheduler, SSH target, and path mapping.
+- `cluster.yaml` is the runtime source of truth for cluster config.
+{% endif %}
+
+## Extension Points
+
+- **Add MCP tools**: Create `mcp_tools/my_tool.py` — auto-discovered by claudechic.
+- **Add workflows**: Create `workflows/<name>/<name>.yaml` + role directories.
+- **Add guardrail rules**: Edit `global/rules.yaml` (deny/warn/log enforcement).
+- **Add hints**: Edit `global/hints.yaml` (contextual toast notifications).
+- **Add CLI commands**: Create executable in `commands/` — available after activation.
+- **Add repos**: Clone into `repos/` — auto-added to PYTHONPATH.
+
+{% if claudechic_mode == 'developer' %}
+## claudechic — Developer Mode
+
+claudechic source is in `submodules/claudechic/` (editable install).
+- You CAN and SHOULD edit claudechic source here when extending the engine.
+- `.claude/rules/*.md` files document claudechic internals (auto-loaded by path).
+- `submodules/claudechic/` is a separate git repo — changes need own commits + parent pin update.
+- Changes there do not appear in parent `git status`.
+- Ruff and pyright exclude `submodules/` — lint/typecheck inside the submodule separately.
+{% else %}
+## claudechic — Standard Mode
+
+claudechic is installed via git URL (not editable).
+- Do NOT try to edit claudechic internals — there is no local source to modify.
+- To customize behavior, use extension points: guardrail rules, hints, workflows, MCP tools.
+{% endif %}
+
+## Conventions
+
+- Use `pixi run <cmd>`, not pip/venv/conda.
+- Workflows are activated with `/<workflow-id>` in claudechic (NOT Claude Code slash commands).
+- claudechic is always lowercase.

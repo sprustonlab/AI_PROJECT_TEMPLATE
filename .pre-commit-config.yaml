@@ -10,3 +10,11 @@ repos:
     hooks:
       - id: check-added-large-files
         args: ['--maxkb=100']
+  - repo: local
+    hooks:
+      - id: block-project-team-on-main
+        name: Block .project_team/ on main
+        entry: bash -c 'branch=$(git rev-parse --abbrev-ref HEAD); if [ "$branch" = "main" ]; then echo ".project_team/ files must not be committed to main (develop only)"; exit 1; fi'
+        language: system
+        files: ^\.project_team/
+        pass_filenames: false

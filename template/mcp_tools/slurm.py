@@ -9,14 +9,12 @@ Zero claudechic imports. Dependencies: stdlib + pyyaml + claude_agent_sdk.
 from __future__ import annotations
 
 import asyncio
-import os
 import re
 import shlex
 from pathlib import Path
 from typing import Any
 
 from claude_agent_sdk import tool
-
 from mcp_tools._cluster import (
     _check_config_readiness,
     _create_log_reader,
@@ -34,9 +32,16 @@ from mcp_tools._cluster import (
 )
 
 #: Terminal SLURM job statuses.
-_TERMINAL_STATUSES = frozenset({
-    "COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL",
-})
+_TERMINAL_STATUSES = frozenset(
+    {
+        "COMPLETED",
+        "FAILED",
+        "CANCELLED",
+        "TIMEOUT",
+        "OUT_OF_MEMORY",
+        "NODE_FAIL",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -102,9 +107,9 @@ def _parse_scontrol_job(output: str, job_id: str) -> dict[str, Any]:
     """Parse ``scontrol show job <id>`` Key=Value output."""
     # scontrol uses Key=Value pairs separated by spaces and newlines
     kv: dict[str, str] = {}
-    for token in re.split(r'\s+', output):
-        if '=' in token:
-            key, _, value = token.partition('=')
+    for token in re.split(r"\s+", output):
+        if "=" in token:
+            key, _, value = token.partition("=")
             kv[key] = value
 
     # Extract resource usage if available
@@ -187,6 +192,7 @@ def _submit_job(
     """Build sbatch invocation, submit, and return {job_id, message}."""
     if path_mapper is None:
         from mcp_tools._cluster import PathMapper
+
         path_mapper = PathMapper()
 
     # Translate log paths from local to cluster
@@ -248,9 +254,7 @@ def _submit_job(
 def _kill_job(job_id: str, config: dict) -> dict[str, Any]:
     stdout, stderr, rc = _run_slurm(f"scancel {job_id}", config, timeout=30)
     if rc != 0:
-        raise RuntimeError(
-            f"scancel {job_id} failed (rc={rc}): {stderr or stdout}"
-        )
+        raise RuntimeError(f"scancel {job_id} failed (rc={rc}): {stderr or stdout}")
     return {
         "success": True,
         "message": stdout.strip() or f"Job {job_id} cancelled.",
@@ -346,10 +350,12 @@ def get_tools(**kwargs) -> list:
             path_mapper = _create_path_mapper(config)
             readiness = _check_config_readiness(config)
             if readiness == "needs_setup":
-                return _json_response({
-                    "setup_needed": "run cluster_setup workflow",
-                    "message": "Cluster tools are not yet configured.",
-                })
+                return _json_response(
+                    {
+                        "setup_needed": "run cluster_setup workflow",
+                        "message": "Cluster tools are not yet configured.",
+                    }
+                )
 
             result = await asyncio.to_thread(
                 _submit_job,
@@ -423,9 +429,7 @@ def get_tools(**kwargs) -> list:
             return _error_response(str(e))
 
     # cluster_watch needs notification wiring — graceful degradation
-    cluster_watch = _make_cluster_watch(
-        caller_name, send_notification, find_agent
-    )
+    cluster_watch = _make_cluster_watch(caller_name, send_notification, find_agent)
 
     return [
         cluster_jobs,

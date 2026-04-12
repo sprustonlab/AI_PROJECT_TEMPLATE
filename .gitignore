@@ -28,6 +28,8 @@ __pycache__/
 # Test artifacts
 .test_runs/
 .test_results/
+.coverage
+.hypothesis/
 
 # Project team runtime state (tracked on develop, blocked from main via pre-commit hook)
 

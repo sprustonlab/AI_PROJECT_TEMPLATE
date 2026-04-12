@@ -9,7 +9,6 @@ Zero claudechic imports. Dependencies: stdlib + pyyaml + claude_agent_sdk.
 from __future__ import annotations
 
 import asyncio
-import os
 import re
 import shlex
 import shutil
@@ -17,7 +16,6 @@ from pathlib import Path
 from typing import Any
 
 from claude_agent_sdk import tool
-
 from mcp_tools._cluster import (
     _check_config_readiness,
     _create_log_reader,
@@ -145,9 +143,7 @@ def _parse_bjobs_detail(output: str, job_id: str) -> dict[str, Any]:
     queue = _first(r"Queue <([^>]+)>")
     command = _first(r"Command <([^>]+)>")
     exec_host = _first(r"Started \d+ Task\(s\) on Host\(s\) <([^>]+)>")
-    submit_time = _first(
-        r"(\w{3} \w{3} \s*\d+ \d+:\d+:\d+ \d+):\s+Submitted"
-    )
+    submit_time = _first(r"(\w{3} \w{3} \s*\d+ \d+:\d+:\d+ \d+):\s+Submitted")
     stdout_path = _first(r"Output File <([^>]+)>")
     stderr_path = _first(r"Error File <([^>]+)>")
     execution_cwd = _first(r"Execution CWD <([^>]+)>")
@@ -205,9 +201,7 @@ def _list_jobs(config: dict) -> list[dict[str, Any]]:
 def _get_job_status(job_id: str, config: dict) -> dict[str, Any]:
     stdout, stderr, rc = _run_lsf(f"bjobs -l {job_id} 2>&1", config)
     if rc != 0:
-        raise RuntimeError(
-            f"bjobs -l {job_id} failed (rc={rc}): {stderr or stdout}"
-        )
+        raise RuntimeError(f"bjobs -l {job_id} failed (rc={rc}): {stderr or stdout}")
     if "is not found" in stdout or f"Job <{job_id}> is not found" in stdout:
         raise ValueError(f"Job {job_id} not found")
     return _parse_bjobs_detail(stdout, job_id)
@@ -228,6 +222,7 @@ def _submit_job(
     """Build bsub invocation, submit, and return {job_id, message}."""
     if path_mapper is None:
         from mcp_tools._cluster import PathMapper
+
         path_mapper = PathMapper()
 
     # Translate log paths from local to cluster
@@ -306,9 +301,7 @@ def _submit_job(
 def _kill_job(job_id: str, config: dict) -> dict[str, Any]:
     stdout, stderr, rc = _run_lsf(f"bkill {job_id} 2>&1", config, timeout=30)
     if rc != 0:
-        raise RuntimeError(
-            f"bkill {job_id} failed (rc={rc}): {stderr or stdout}"
-        )
+        raise RuntimeError(f"bkill {job_id} failed (rc={rc}): {stderr or stdout}")
     return {
         "success": True,
         "message": stdout.strip() or f"Job {job_id} signal sent.",
@@ -403,10 +396,12 @@ def get_tools(**kwargs) -> list:
             path_mapper = _create_path_mapper(config)
             readiness = _check_config_readiness(config)
             if readiness == "needs_setup":
-                return _json_response({
-                    "setup_needed": "run cluster_setup workflow",
-                    "message": "Cluster tools are not yet configured.",
-                })
+                return _json_response(
+                    {
+                        "setup_needed": "run cluster_setup workflow",
+                        "message": "Cluster tools are not yet configured.",
+                    }
+                )
 
             result = await asyncio.to_thread(
                 _submit_job,
@@ -463,7 +458,8 @@ def get_tools(**kwargs) -> list:
         try:
             path_mapper = _create_path_mapper(config)
             log_reader = _create_log_reader(
-                config, path_mapper,
+                config,
+                path_mapper,
                 profile=config.get("lsf_profile"),
             )
             result = await asyncio.to_thread(
@@ -482,9 +478,7 @@ def get_tools(**kwargs) -> list:
             return _error_response(str(e))
 
     # cluster_watch needs notification wiring — graceful degradation
-    cluster_watch = _make_cluster_watch(
-        caller_name, send_notification, find_agent
-    )
+    cluster_watch = _make_cluster_watch(caller_name, send_notification, find_agent)
 
     return [
         cluster_jobs,

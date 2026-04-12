@@ -197,6 +197,7 @@ my-project/
 ├── scripts/                     # Utility scripts
 ├── repos/                       # Your integrated codebases
 ├── envs/                        # Environment configurations
+├── CLAUDE.md                    # Agent orientation (commands, structure, conventions)
 └── mcp_tools/                   # Custom MCP tools (optional)
 ```
 
@@ -255,6 +256,8 @@ claudechic session, regardless of whether a workflow is active.
 | no_rm_rf | `deny` | Blocks `rm -rf` on absolute paths |
 | warn_sudo | `warn` | Warns when using `sudo` |
 | log_git_operations | `log` | Silently logs all git operations |
+| no_bare_pytest | `deny` | Blocks bare pytest -- must target a file or save timestamped results |
+| no_pip_install | `deny` | Blocks pip/conda install -- use pixi add instead |
 
 ### Workflow Rules (Scoped to Active Workflow)
 

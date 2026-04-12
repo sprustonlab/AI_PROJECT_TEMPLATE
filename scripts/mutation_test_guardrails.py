@@ -352,20 +352,20 @@ MUTATIONS: list[Mutation] = [
 def apply_mutation(mutation: Mutation) -> tuple[Path, str]:
     """Apply a mutation and return (file_path, original_content)."""
     path = GUARDRAILS / mutation.file
-    original = path.read_text()
+    original = path.read_text(encoding="utf-8")
     if mutation.old not in original:
         raise ValueError(
             f"Mutation {mutation.id}: old text not found in {mutation.file}.\n"
             f"First 80 chars of old: {mutation.old[:80]!r}"
         )
     mutated = original.replace(mutation.old, mutation.new, 1)
-    path.write_text(mutated)
+    path.write_text(mutated, encoding="utf-8")
     return path, original
 
 
 def revert(path: Path, original: str) -> None:
     """Restore the original file content."""
-    path.write_text(original)
+    path.write_text(original, encoding="utf-8")
 
 
 def run_tests() -> bool:

@@ -46,10 +46,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
-import time
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -110,7 +108,8 @@ DEFAULT_AGENT_ROLES = [
 @dataclass
 class Message:
     """A single user or assistant message extracted from a JSONL session."""
-    role: str               # "user" | "assistant"
+
+    role: str  # "user" | "assistant"
     text: str
     timestamp: str | None
     session_id: str | None
@@ -119,6 +118,7 @@ class Message:
 @dataclass
 class ParseStats:
     """Statistics from parsing a single JSONL file."""
+
     total_lines: int = 0
     json_errors: int = 0
     skipped_tool_results: int = 0
@@ -131,10 +131,11 @@ class ParseStats:
 @dataclass
 class ParseResult:
     """Complete result of parsing a JSONL session file."""
+
     messages: list[Message] = field(default_factory=list)
-    session_type: str = "main"          # "main" | "sub-agent"
+    session_type: str = "main"  # "main" | "sub-agent"
     agent_type: str | None = None
-    workflow: str = "solo"              # "project_team" | "ao_experiment_team" | "solo"
+    workflow: str = "solo"  # "project_team" | "ao_experiment_team" | "solo"
     session_date: str = "unknown"
     session_id: str | None = None
     stats: ParseStats = field(default_factory=ParseStats)
@@ -189,7 +190,7 @@ def parse_session(
     session_date_found = False
     session_id_found = False
 
-    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+    with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             stats.total_lines += 1
             line = line.strip()
@@ -248,12 +249,14 @@ def parse_session(
                 stats.empty_messages += 1
                 continue
 
-            result.messages.append(Message(
-                role=msg_type,
-                text=text,
-                timestamp=ts,
-                session_id=obj.get("sessionId"),
-            ))
+            result.messages.append(
+                Message(
+                    role=msg_type,
+                    text=text,
+                    timestamp=ts,
+                    session_id=obj.get("sessionId"),
+                )
+            )
 
     # Detect sub-agent sessions and agent type from first user message
     if result.messages:
@@ -353,9 +356,17 @@ def discover_session_files(
 NEGATION_PATTERNS: list[tuple[re.Pattern, float, str]] = [
     (re.compile(r"\bno[,.]?\s+that'?s\b", re.I), 0.45, "no, that's"),
     (re.compile(r"\bnot what I\b", re.I), 0.50, "not what I"),
-    (re.compile(r"\bthat'?s not\s+(right|correct|what)\b", re.I), 0.50, "that's not right"),
+    (
+        re.compile(r"\bthat'?s not\s+(right|correct|what)\b", re.I),
+        0.50,
+        "that's not right",
+    ),
     (re.compile(r"\bthat'?s\s+wrong\b", re.I), 0.55, "that's wrong"),
-    (re.compile(r"\bno[,.]?\s+(I\s+)?(said|meant|asked|wanted)\b", re.I), 0.50, "no, I said"),
+    (
+        re.compile(r"\bno[,.]?\s+(I\s+)?(said|meant|asked|wanted)\b", re.I),
+        0.50,
+        "no, I said",
+    ),
     (re.compile(r"\bwrong\b", re.I), 0.30, "wrong"),
     (re.compile(r"\bincorrect\b", re.I), 0.35, "incorrect"),
     (re.compile(r"\bnot\s+correct\b", re.I), 0.40, "not correct"),
@@ -365,7 +376,11 @@ FRUSTRATION_PATTERNS: list[tuple[re.Pattern, float, str]] = [
     (re.compile(r"\bgaslighting\b", re.I), 0.70, "gaslighting"),
     (re.compile(r"\byou'?re\s+not\s+listening\b", re.I), 0.65, "you're not listening"),
     (re.compile(r"\bstop\s+(doing|it|that)\b", re.I), 0.50, "stop doing"),
-    (re.compile(r"\bI\s+already\s+(said|told|explained)\b", re.I), 0.55, "I already said"),
+    (
+        re.compile(r"\bI\s+already\s+(said|told|explained)\b", re.I),
+        0.55,
+        "I already said",
+    ),
     (re.compile(r"\bhow\s+many\s+times\b", re.I), 0.55, "how many times"),
     (re.compile(r"\bplease\s+(just\s+)?read\b", re.I), 0.35, "please read"),
     (re.compile(r"\bpay\s+attention\b", re.I), 0.55, "pay attention"),
@@ -394,8 +409,16 @@ CORRECTION_PATTERNS: list[tuple[re.Pattern, float, str]] = [
     (re.compile(r"\bI\s+(meant|wanted|asked\s+for)\b", re.I), 0.40, "I meant"),
     (re.compile(r"\bnot\s+what\s+I\b", re.I), 0.50, "not what I"),
     (re.compile(r"\bshould\s+(be|have)\b", re.I), 0.20, "should be"),
-    (re.compile(r"\byou\s+(missed|forgot|skipped|ignored|overlooked)\b", re.I), 0.50, "you missed"),
-    (re.compile(r"\bdo(n'?t|es\s*n'?t)\s+(modify|change|touch|edit|alter)\b", re.I), 0.40, "don't modify"),
+    (
+        re.compile(r"\byou\s+(missed|forgot|skipped|ignored|overlooked)\b", re.I),
+        0.50,
+        "you missed",
+    ),
+    (
+        re.compile(r"\bdo(n'?t|es\s*n'?t)\s+(modify|change|touch|edit|alter)\b", re.I),
+        0.40,
+        "don't modify",
+    ),
     (re.compile(r"\bI\s+told\s+you\b", re.I), 0.50, "I told you"),
     (re.compile(r"\blike\s+I\s+said\b", re.I), 0.45, "like I said"),
 ]
@@ -480,11 +503,14 @@ def tier1_score_message(
             best_indicator = "user_repeat"
 
     # Session abandonment (session ends within 2 turns of this message)
-    if is_near_session_end and total_user_turns > 1 and turn_index >= total_user_turns - 2:
-        # Only boost if there's already some signal
-        if scores:
-            w = 0.15
-            scores.append(w)
+    if (
+        is_near_session_end
+        and total_user_turns > 1
+        and turn_index >= total_user_turns - 2
+        and scores  # Only boost if there's already some signal
+    ):
+        w = 0.15
+        scores.append(w)
 
     # Combine scores: take the max single score + diminishing bonus for
     # additional signals (caps at 1.0).  This means a single strong signal
@@ -559,21 +585,23 @@ def run_tier1(
                         else preceding_agent_text
                     )
 
-                candidates.append({
-                    "session_file": str(sess.path),
-                    "session_date": sess.session_date,
-                    "session_type": sess.session_type,
-                    "agent_type": sess.agent_type,
-                    "workflow": sess.workflow,
-                    "user_message": user_preview,
-                    "preceding_agent_message": agent_preview,
-                    "correction_indicator": indicator,
-                    "confidence": round(score, 3),
-                    "detection_tier": 1,
-                    "semantic_label": None,
-                    "cluster_id": None,
-                    "matched_pattern": None,
-                })
+                candidates.append(
+                    {
+                        "session_file": str(sess.path),
+                        "session_date": sess.session_date,
+                        "session_type": sess.session_type,
+                        "agent_type": sess.agent_type,
+                        "workflow": sess.workflow,
+                        "user_message": user_preview,
+                        "preceding_agent_message": agent_preview,
+                        "correction_indicator": indicator,
+                        "confidence": round(score, 3),
+                        "detection_tier": 1,
+                        "semantic_label": None,
+                        "cluster_id": None,
+                        "matched_pattern": None,
+                    }
+                )
 
     return candidates
 
@@ -611,6 +639,7 @@ def run_tier2(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return candidates
 
     import torch
+
     device = 0 if torch.cuda.is_available() else -1
     device_name = "GPU (CUDA)" if device == 0 else "CPU"
     print(
@@ -642,7 +671,7 @@ def run_tier2(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if isinstance(results, dict):
             results = [results]
 
-        for c, result in zip(batch, results):
+        for c, result in zip(batch, results, strict=True):
             top_label = result["labels"][0]
             top_score = result["scores"][0]
             c["semantic_label"] = top_label
@@ -676,8 +705,7 @@ def run_tier3(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         from sentence_transformers import SentenceTransformer
     except ImportError:
         print(
-            "WARNING: sentence-transformers not installed. "
-            "Skipping Tier 3 clustering.",
+            "WARNING: sentence-transformers not installed. Skipping Tier 3 clustering.",
             file=sys.stderr,
         )
         return candidates
@@ -693,6 +721,7 @@ def run_tier3(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return candidates
 
     import torch
+
     device_str = "cuda" if torch.cuda.is_available() else "cpu"
     print(
         f"Tier 3: Loading embedding model "
@@ -720,7 +749,7 @@ def run_tier3(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         file=sys.stderr,
     )
 
-    for c, label in zip(candidates, labels):
+    for c, label in zip(candidates, labels, strict=True):
         c["cluster_id"] = int(label)
 
     return candidates
@@ -750,9 +779,7 @@ def save_state(state: dict[str, Any]) -> None:
         json.dump(state, f, indent=2)
 
 
-def filter_sessions_incremental(
-    files: list[Path], state: dict[str, Any]
-) -> list[Path]:
+def filter_sessions_incremental(files: list[Path], state: dict[str, Any]) -> list[Path]:
     """Filter session files to only those new or modified since last scan."""
     processed = state.get("processed_sessions", {})
     new_files: list[Path] = []
@@ -817,34 +844,34 @@ def run_validate(
         )
         workflows[result.workflow] = workflows.get(result.workflow, 0) + 1
         if result.agent_type:
-            agent_types[result.agent_type] = (
-                agent_types.get(result.agent_type, 0) + 1
-            )
+            agent_types[result.agent_type] = agent_types.get(result.agent_type, 0) + 1
 
     # Report
-    print(f"\n{'='*60}", file=sys.stderr)
-    print(f"  JSONL Parse Validation Report", file=sys.stderr)
-    print(f"{'='*60}", file=sys.stderr)
+    print(f"\n{'=' * 60}", file=sys.stderr)
+    print("  JSONL Parse Validation Report", file=sys.stderr)
+    print(f"{'=' * 60}", file=sys.stderr)
     print(f"  Files scanned:          {len(files)}", file=sys.stderr)
     print(f"  Parse errors (files):   {parse_errors}", file=sys.stderr)
     print(f"  Total JSONL lines:      {total_stats.total_lines}", file=sys.stderr)
     print(f"  JSON decode errors:     {total_stats.json_errors}", file=sys.stderr)
-    print(f"  Skipped tool results:   {total_stats.skipped_tool_results}", file=sys.stderr)
+    print(
+        f"  Skipped tool results:   {total_stats.skipped_tool_results}", file=sys.stderr
+    )
     print(f"  Empty messages:         {total_stats.empty_messages}", file=sys.stderr)
     print(f"  Unknown message types:  {total_stats.unknown_types}", file=sys.stderr)
-    print(f"", file=sys.stderr)
-    print(f"  Versions seen:", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("  Versions seen:", file=sys.stderr)
     for v, count in sorted(versions_seen.items()):
         known = "OK" if v in KNOWN_VERSIONS else "UNKNOWN"
         print(f"    {v}: {count} files [{known}]", file=sys.stderr)
-    print(f"", file=sys.stderr)
+    print("", file=sys.stderr)
     print(f"  Session types:  {session_types}", file=sys.stderr)
     print(f"  Workflows:      {workflows}", file=sys.stderr)
     if agent_types:
-        print(f"  Agent types:", file=sys.stderr)
+        print("  Agent types:", file=sys.stderr)
         for at, count in sorted(agent_types.items(), key=lambda x: -x[1]):
             print(f"    {at}: {count}", file=sys.stderr)
-    print(f"{'='*60}", file=sys.stderr)
+    print(f"{'=' * 60}", file=sys.stderr)
 
     # Exit with error if there were unknown versions
     unknown_versions = [v for v in versions_seen if v not in KNOWN_VERSIONS]
@@ -894,7 +921,11 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     # Discover sessions
     all_files = discover_session_files(project_dirs)
-    mode_label = "auto-discover" if project_dirs is None or project_dirs == ["auto"] else "explicit dirs"
+    mode_label = (
+        "auto-discover"
+        if project_dirs is None or project_dirs == ["auto"]
+        else "explicit dirs"
+    )
     print(
         f"Discovered {len(all_files)} JSONL session files ({mode_label}).",
         file=sys.stderr,
@@ -919,14 +950,16 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     # Dry run
     if args.dry_run:
-        print(f"\n--- DRY RUN ---")
+        print("\n--- DRY RUN ---")
         print(f"Would scan {len(files)} session files:")
         for f in files[:20]:
             print(f"  {f}")
         if len(files) > 20:
             print(f"  ... and {len(files) - 20} more")
-        print(f"\nTiers enabled: 1{' + 2 (semantic)' if args.semantic else ''}"
-              f"{' + 3 (cluster)' if args.cluster else ''}")
+        print(
+            f"\nTiers enabled: 1{' + 2 (semantic)' if args.semantic else ''}"
+            f"{' + 3 (cluster)' if args.cluster else ''}"
+        )
         print(f"Threshold: {args.threshold}")
         return
 
@@ -959,7 +992,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
     extra_keywords = load_extra_keywords(args.keywords_file)
 
     # Tier 1
-    print(f"\n--- Tier 1: Regex + Behavioral Heuristics ---", file=sys.stderr)
+    print("\n--- Tier 1: Regex + Behavioral Heuristics ---", file=sys.stderr)
     candidates = run_tier1(sessions, args.threshold, extra_keywords)
     print(
         f"Tier 1: {len(candidates)} candidates above threshold {args.threshold}",
@@ -968,7 +1001,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     # Tier 2 (if enabled)
     if args.semantic:
-        print(f"\n--- Tier 2: Semantic Classification ---", file=sys.stderr)
+        print("\n--- Tier 2: Semantic Classification ---", file=sys.stderr)
         candidates = run_tier2(candidates)
         tier2_promoted = sum(1 for c in candidates if c["detection_tier"] == 2)
         print(
@@ -978,11 +1011,11 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     # Tier 3 (if enabled)
     if args.cluster:
-        print(f"\n--- Tier 3: Embedding Clustering ---", file=sys.stderr)
+        print("\n--- Tier 3: Embedding Clustering ---", file=sys.stderr)
         candidates = run_tier3(candidates)
 
     # Summary statistics
-    print(f"\n--- Summary ---", file=sys.stderr)
+    print("\n--- Summary ---", file=sys.stderr)
     print(f"Total candidates: {len(candidates)}", file=sys.stderr)
     if candidates:
         avg_conf = sum(c["confidence"] for c in candidates) / len(candidates)
@@ -1009,16 +1042,20 @@ def run_pipeline(args: argparse.Namespace) -> None:
             if ind:
                 indicators[ind] = indicators.get(ind, 0) + 1
         top_indicators = sorted(indicators.items(), key=lambda x: -x[1])[:10]
-        print(f"Top correction indicators:", file=sys.stderr)
+        print("Top correction indicators:", file=sys.stderr)
         for ind, count in top_indicators:
             print(f"  {ind}: {count}", file=sys.stderr)
 
         if args.cluster:
-            cluster_ids = set(c["cluster_id"] for c in candidates if c["cluster_id"] is not None)
+            cluster_ids = set(
+                c["cluster_id"] for c in candidates if c["cluster_id"] is not None
+            )
             real_clusters = cluster_ids - {-1}
-            print(f"Clusters: {len(real_clusters)} "
-                  f"(+ {sum(1 for c in candidates if c.get('cluster_id') == -1)} noise)",
-                  file=sys.stderr)
+            print(
+                f"Clusters: {len(real_clusters)} "
+                f"(+ {sum(1 for c in candidates if c.get('cluster_id') == -1)} noise)",
+                file=sys.stderr,
+            )
 
         if args.semantic:
             by_label: dict[str, int] = {}
@@ -1026,7 +1063,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
                 lbl = c.get("semantic_label")
                 if lbl:
                     by_label[lbl] = by_label.get(lbl, 0) + 1
-            print(f"By semantic label:", file=sys.stderr)
+            print("By semantic label:", file=sys.stderr)
             for lbl, count in sorted(by_label.items(), key=lambda x: -x[1]):
                 print(f"  {lbl}: {count}", file=sys.stderr)
 
@@ -1065,8 +1102,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
     state["last_run"] = now_iso
     state["total_sessions_scanned"] = len(state["processed_sessions"])
     state["total_corrections"] = sum(
-        v["corrections_found"]
-        for v in state["processed_sessions"].values()
+        v["corrections_found"] for v in state["processed_sessions"].values()
     )
     save_state(state)
     print(f"State saved to {STATE_FILE}", file=sys.stderr)

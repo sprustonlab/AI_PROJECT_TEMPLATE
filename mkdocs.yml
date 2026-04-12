@@ -1,0 +1,36 @@
+site_name: AI Project Template
+site_description: Documentation for AI_PROJECT_TEMPLATE
+docs_dir: docs
+site_dir: site
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            members_order: source
+            heading_level: 4
+
+markdown_extensions:
+  - toc:
+      toc_depth: 2
+
+nav:
+  - Home: index.md
+  - Install: install.md
+  - Getting Started: getting-started.md
+  - API Reference:
+    - Overview: api/index.md
+    - Guardrails: api/guardrails.md
+    - Hints: api/hints.md
+    - MCP: api/mcp.md
+    - Checks: api/checks.md
+    - Workflows: api/workflows.md
+    - Agent: api/agent.md
+    - Application: api/app.md
+    - UI & Widgets: api/ui.md
+    - Utilities: api/utilities.md
+    - Features: api/features.md
+  - Test Coverage: test-coverage.md
+  - Docstring Coverage: docstring-coverage.md

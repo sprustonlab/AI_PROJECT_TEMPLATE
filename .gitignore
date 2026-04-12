@@ -47,3 +47,5 @@ data/raw/
 data/processed/
 *.csv
 *.parquet
+site/
+docs/coverage/

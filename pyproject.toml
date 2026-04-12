@@ -1,3 +1,30 @@
+[tool.ruff]
+target-version = "py310"
+exclude = ["submodules", "template", ".pixi"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+# E=pycodestyle, F=pyflakes, I=isort, UP=pyupgrade, B=bugbear, SIM=simplify
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]
+"scripts/**" = ["E501"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+include = [
+    "tests/test_mcp_integration.py",
+    "tests/test_mcp_discovery.py",
+    "tests/test_onboarding.py",
+    "tests/test_tui_chatapp.py",
+    "tests/test_e2e_cross_platform.py",
+    "tests/test_windows_crash_fixes.py",
+    "tests/conftest.py",
+    "scripts",
+]
+exclude = ["build", ".pixi", "template", "submodules"]
+extraPaths = ["submodules/claudechic"]
+
 [tool.pytest.ini_options]
 pythonpath = [".", "scripts"]
 testpaths = ["tests", "submodules/claudechic/tests"]

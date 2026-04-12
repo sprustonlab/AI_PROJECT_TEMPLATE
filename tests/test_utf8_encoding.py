@@ -6,6 +6,7 @@ but break on Windows for any file with non-ASCII characters.
 
 This test scans all project Python files and fails if any bare calls are found.
 """
+
 from __future__ import annotations
 
 import re
@@ -32,10 +33,7 @@ def _collect_python_files() -> list[Path]:
     files = []
     for d in SCAN_DIRS:
         if d.is_dir():
-            files.extend(
-                f for f in sorted(d.rglob("*.py"))
-                if f.name not in SKIP_FILES
-            )
+            files.extend(f for f in sorted(d.rglob("*.py")) if f.name not in SKIP_FILES)
     return files
 
 
@@ -47,9 +45,7 @@ def _is_code_line(line: str) -> bool:
     if stripped.startswith(('"""', "'''", '"', "'")):
         return False
     # Lines that are building strings (e.g. lines.append("...open..."))
-    if "lines.append(" in stripped:
-        return False
-    return True
+    return "lines.append(" not in stripped
 
 
 def _find_bare_read_text(path: Path) -> list[tuple[int, str]]:
@@ -99,9 +95,9 @@ def _find_bare_open(path: Path) -> list[tuple[int, str]]:
     for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not _is_code_line(line):
             continue
-        if re.search(r'\bopen\s*\(', line) and "encoding" not in line:
+        if re.search(r"\bopen\s*\(", line) and "encoding" not in line:
             # Skip binary mode: open(..., "rb"), open(..., "wb"), etc.
-            if re.search(r'''["'][rwax]+b["']''', line):
+            if re.search(r"""["'][rwax]+b["']""", line):
                 continue
             violations.append((i, line.rstrip()))
     return violations

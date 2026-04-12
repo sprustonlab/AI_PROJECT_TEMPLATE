@@ -6,6 +6,7 @@ Some files exist in both places:
 
 This test fails if any paired file drifts, preventing silent staleness.
 """
+
 from __future__ import annotations
 
 import difflib
@@ -27,15 +28,12 @@ PAIRED_FILES = [
     "scripts/mine_patterns.py",
     "commands/claudechic",
     "commands/mine-patterns",
-
     # Global config
     "global/rules.yaml",
-
     # Workflow YAMLs
     "workflows/project_team/project_team.yaml",
     "workflows/project_team/README.md",
     "workflows/project_team/project_types.md",
-
     # Core role identity files
     "workflows/project_team/coordinator/identity.md",
     "workflows/project_team/composability/identity.md",
@@ -44,7 +42,6 @@ PAIRED_FILES = [
     "workflows/project_team/terminology/identity.md",
     "workflows/project_team/user_alignment/identity.md",
     "workflows/project_team/test_engineer/identity.md",
-
     # Specialist role identity files
     "workflows/project_team/researcher/identity.md",
     "workflows/project_team/lab_notebook/identity.md",
@@ -53,7 +50,6 @@ PAIRED_FILES = [
     "workflows/project_team/memory_layout/identity.md",
     "workflows/project_team/project_integrator/identity.md",
     "workflows/project_team/sync_coordinator/identity.md",
-
     # Coordinator phase files
     "workflows/project_team/coordinator/implementation.md",
     "workflows/project_team/coordinator/leadership.md",
@@ -62,7 +58,6 @@ PAIRED_FILES = [
     "workflows/project_team/coordinator/specification.md",
     "workflows/project_team/coordinator/testing.md",
     "workflows/project_team/coordinator/vision.md",
-
     # Tutorial workflow files
     "workflows/tutorial_extending/tutorial_extending.yaml",
     "workflows/tutorial_extending/learner/identity.md",

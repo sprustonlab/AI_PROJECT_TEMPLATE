@@ -8,6 +8,7 @@ This catches cases where someone runs `pip install foo` directly instead
 of `pixi add --pypi foo`, which causes the environment to drift from
 the lockfile and breaks reproducibility.
 """
+
 from __future__ import annotations
 
 import json

@@ -6,23 +6,19 @@ ParseStats dataclasses and the parse_session() function.
 
 from __future__ import annotations
 
-import json
 import warnings
 from pathlib import Path
 
 import pytest
-
 from mine_patterns import (
     DEFAULT_AGENT_ROLES,
-    KNOWN_VERSIONS,
     Message,
     ParseResult,
-    ParseStats,
     _detect_agent_type,
     _extract_text,
+    _jaccard_similarity,
     parse_session,
     tier1_score_message,
-    _jaccard_similarity,
 )
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "mine_patterns"
@@ -78,6 +74,9 @@ class TestParseMainSession:
         """Tool-use result messages should be excluded."""
         roles = [m.role for m in result.messages]
         # The fixture has 1 toolUseResult user message; should not appear
+        assert all(r in ("user", "assistant") for r in roles), (
+            f"Unexpected roles found: {set(roles)}"
+        )
         user_texts = [m.text for m in result.messages if m.role == "user"]
         for t in user_texts:
             assert "toolUseResult" not in t
@@ -201,7 +200,9 @@ class TestAgentTypeDetection:
         text = "[Spawned by agent 'X']\n\nYou are the **Data Wizard**. Analyze data."
         # Not in default roles — fallback pattern should catch it
         result = _detect_agent_type(text, DEFAULT_AGENT_ROLES)
-        # Fallback may or may not match; test custom list
+        # "Data Wizard" is not in DEFAULT_AGENT_ROLES — should not match a wrong role
+        assert result is None or result == "Data Wizard"
+        # Test custom list where "Data Wizard" IS a known role
         custom = _detect_agent_type(text, ["Data Wizard", "Code Guru"])
         assert custom == "Data Wizard"
 

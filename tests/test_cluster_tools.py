@@ -10,12 +10,8 @@ import asyncio
 import importlib.util
 import json
 import sys
-import textwrap
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 # ---------------------------------------------------------------------------
 # Import tool modules directly (no claudechic needed)
@@ -289,7 +285,11 @@ class TestSLURMParseScontrol:
 class TestLSFGetTools:
     """Test lsf.py get_tools() contract."""
 
-    @patch.object(lsf_mod, "_get_config", return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(
+        lsf_mod,
+        "_get_config",
+        return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5},
+    )
     def test_get_tools_no_kwargs(self, mock_config):
         """get_tools() with no kwargs returns tool list without crashing."""
         tools = lsf_mod.get_tools()
@@ -303,7 +303,11 @@ class TestLSFGetTools:
         assert "cluster_logs" in names
         assert "cluster_watch" in names
 
-    @patch.object(lsf_mod, "_get_config", return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(
+        lsf_mod,
+        "_get_config",
+        return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5},
+    )
     def test_get_tools_with_full_kwargs(self, mock_config):
         """get_tools() with all kwargs wires cluster_watch correctly."""
         mock_notify = MagicMock()
@@ -322,7 +326,11 @@ class TestLSFGetTools:
 class TestSLURMGetTools:
     """Test slurm.py get_tools() contract."""
 
-    @patch.object(slurm_mod, "_get_config", return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(
+        slurm_mod,
+        "_get_config",
+        return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5},
+    )
     def test_get_tools_no_kwargs(self, mock_config):
         """get_tools() with no kwargs returns tool list without crashing."""
         tools = slurm_mod.get_tools()
@@ -331,7 +339,11 @@ class TestSLURMGetTools:
         assert "cluster_jobs" in names
         assert "cluster_watch" in names
 
-    @patch.object(slurm_mod, "_get_config", return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(
+        slurm_mod,
+        "_get_config",
+        return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5},
+    )
     def test_get_tools_with_full_kwargs(self, mock_config):
         """get_tools() with all kwargs wires cluster_watch correctly."""
         mock_notify = MagicMock()
@@ -352,7 +364,11 @@ class TestSLURMGetTools:
 class TestClusterWatchDegradation:
     """cluster_watch returns error when send_notification is None."""
 
-    @patch.object(lsf_mod, "_get_config", return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(
+        lsf_mod,
+        "_get_config",
+        return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5},
+    )
     def test_lsf_watch_without_notification(self, mock_config):
         """LSF cluster_watch without send_notification → graceful error."""
         tools = lsf_mod.get_tools()  # No kwargs → send_notification=None
@@ -363,7 +379,11 @@ class TestClusterWatchDegradation:
         assert result["isError"] is True
         assert "not available" in result["content"][0]["text"].lower()
 
-    @patch.object(slurm_mod, "_get_config", return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(
+        slurm_mod,
+        "_get_config",
+        return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5},
+    )
     def test_slurm_watch_without_notification(self, mock_config):
         """SLURM cluster_watch without send_notification → graceful error."""
         tools = slurm_mod.get_tools()
@@ -385,7 +405,9 @@ class TestLoadConfig:
         tool_py = tmp_path / "lsf.py"
         tool_py.write_text("# dummy\n", encoding="utf-8")
         yaml_file = tmp_path / "lsf.yaml"
-        yaml_file.write_text("ssh_target: login.example.com\nwatch_poll_interval: 15\n", encoding="utf-8")
+        yaml_file.write_text(
+            "ssh_target: login.example.com\nwatch_poll_interval: 15\n", encoding="utf-8"
+        )
 
         config = _cluster_mod._load_config(tool_py)
         assert config["ssh_target"] == "login.example.com"
@@ -458,7 +480,9 @@ class TestRunSSH:
         """Non-empty ssh_target → wraps command in SSH."""
         mock_run.return_value = MagicMock(stdout="remote_ok", stderr="", returncode=0)
         stdout, stderr, rc = _cluster_mod._run_ssh(
-            "bjobs -w", ssh_target="login.example.com", profile="/misc/lsf/conf/profile.lsf"
+            "bjobs -w",
+            ssh_target="login.example.com",
+            profile="/misc/lsf/conf/profile.lsf",
         )
         assert stdout == "remote_ok"
         call_cmd = mock_run.call_args[0][0]
@@ -480,5 +504,12 @@ class TestTerminalStatuses:
         assert "EXIT" in lsf_mod._TERMINAL_STATUSES
 
     def test_slurm_terminal_statuses(self):
-        expected = {"COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL"}
+        expected = {
+            "COMPLETED",
+            "FAILED",
+            "CANCELLED",
+            "TIMEOUT",
+            "OUT_OF_MEMORY",
+            "NODE_FAIL",
+        }
         assert expected == slurm_mod._TERMINAL_STATUSES

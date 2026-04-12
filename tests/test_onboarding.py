@@ -17,17 +17,16 @@ import shutil
 import subprocess
 from contextlib import ExitStack
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-
-from claudechic.hints.state import CopierAnswers, HintStateStore
+from claudechic.hints.state import HintStateStore
 from claudechic.onboarding import (
     FacetStatus,
-    _codebase_configured,
     _cluster_configured,
     _cluster_detail,
+    _codebase_configured,
     _codebase_detail,
     _git_configured,
     _is_dismissed,
@@ -37,7 +36,6 @@ from claudechic.onboarding import (
 
 # Import shared copier helper for Tier 2 fixtures
 from conftest import shared_copier_generation
-
 
 # ---------------------------------------------------------------------------
 # Skip markers
@@ -58,12 +56,16 @@ def _write_copier_answers(project_root: Path, answers: dict) -> None:
     )
 
 
-def _git_init_with_remote(project_root: Path, remote_url: str = "git@github.com:user/repo.git") -> None:
+def _git_init_with_remote(
+    project_root: Path, remote_url: str = "git@github.com:user/repo.git"
+) -> None:
     """Run real git init + add origin remote."""
     subprocess.run(["git", "init"], cwd=project_root, capture_output=True, check=True)
     subprocess.run(
         ["git", "remote", "add", "origin", remote_url],
-        cwd=project_root, capture_output=True, check=True,
+        cwd=project_root,
+        capture_output=True,
+        check=True,
     )
 
 
@@ -190,10 +192,13 @@ class TestCheckOnboardingRealFilesystem:
 
     def test_fresh_project_all_features_unconfigured(self, tmp_path):
         """Fresh project with all features -> 3 unconfigured facets."""
-        _write_copier_answers(tmp_path, {
-            "use_cluster": True,
-            "use_existing_codebase": True,
-        })
+        _write_copier_answers(
+            tmp_path,
+            {
+                "use_cluster": True,
+                "use_existing_codebase": True,
+            },
+        )
         _create_workflow_manifests(tmp_path)
         # No git, no cluster.yaml, no repos/ -> all unconfigured
         with patch("claudechic.onboarding.shutil.which", return_value=None):
@@ -205,10 +210,13 @@ class TestCheckOnboardingRealFilesystem:
 
     def test_git_configured_others_not(self, tmp_path):
         """Git remote set, cluster and codebase not -> 2 unconfigured facets shown."""
-        _write_copier_answers(tmp_path, {
-            "use_cluster": True,
-            "use_existing_codebase": True,
-        })
+        _write_copier_answers(
+            tmp_path,
+            {
+                "use_cluster": True,
+                "use_existing_codebase": True,
+            },
+        )
         _create_workflow_manifests(tmp_path)
         _git_init_with_remote(tmp_path)
 
@@ -223,10 +231,13 @@ class TestCheckOnboardingRealFilesystem:
 
     def test_all_configured_returns_none(self, tmp_path):
         """Everything set up -> check_onboarding returns None."""
-        _write_copier_answers(tmp_path, {
-            "use_cluster": True,
-            "use_existing_codebase": True,
-        })
+        _write_copier_answers(
+            tmp_path,
+            {
+                "use_cluster": True,
+                "use_existing_codebase": True,
+            },
+        )
         _create_workflow_manifests(tmp_path)
         _git_init_with_remote(tmp_path)
         (tmp_path / "repos" / "mypackage").mkdir(parents=True)
@@ -242,10 +253,13 @@ class TestCheckOnboardingRealFilesystem:
 
     def test_cluster_false_skips_cluster_facet(self, tmp_path):
         """use_cluster=False -> no cluster facet, only git + codebase."""
-        _write_copier_answers(tmp_path, {
-            "use_cluster": False,
-            "use_existing_codebase": True,
-        })
+        _write_copier_answers(
+            tmp_path,
+            {
+                "use_cluster": False,
+                "use_existing_codebase": True,
+            },
+        )
         _create_workflow_manifests(tmp_path)
 
         facets = check_onboarding(tmp_path)
@@ -257,10 +271,13 @@ class TestCheckOnboardingRealFilesystem:
 
     def test_codebase_false_skips_codebase_facet(self, tmp_path):
         """use_existing_codebase=False -> no codebase facet."""
-        _write_copier_answers(tmp_path, {
-            "use_cluster": False,
-            "use_existing_codebase": False,
-        })
+        _write_copier_answers(
+            tmp_path,
+            {
+                "use_cluster": False,
+                "use_existing_codebase": False,
+            },
+        )
         _create_workflow_manifests(tmp_path)
 
         facets = check_onboarding(tmp_path)
@@ -303,28 +320,37 @@ class TestDetailFunctionsReal:
 @pytest.fixture(scope="module")
 def lsf_cluster_project(tmp_path_factory):
     """Reuse copier generation: LSF cluster config."""
-    return shared_copier_generation(tmp_path_factory, "copier_lsf_cluster", {
-        "project_name": "lsf_project",
-        "claudechic_mode": "standard",
-        "quick_start": "defaults",
-        "use_cluster": True,
-    })
+    return shared_copier_generation(
+        tmp_path_factory,
+        "copier_lsf_cluster",
+        {
+            "project_name": "lsf_project",
+            "claudechic_mode": "standard",
+            "quick_start": "defaults",
+            "use_cluster": True,
+        },
+    )
 
 
 @pytest.fixture(scope="module")
 def no_cluster_project(tmp_path_factory):
     """Reuse copier generation: no cluster."""
-    return shared_copier_generation(tmp_path_factory, "copier_std_defaults", {
-        "project_name": "std_defaults",
-        "claudechic_mode": "standard",
-        "quick_start": "defaults",
-        "use_cluster": False,
-    })
+    return shared_copier_generation(
+        tmp_path_factory,
+        "copier_std_defaults",
+        {
+            "project_name": "std_defaults",
+            "claudechic_mode": "standard",
+            "quick_start": "defaults",
+            "use_cluster": False,
+        },
+    )
 
 
 def _copier_available():
     try:
         import copier  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -350,8 +376,10 @@ class TestOnboardingWithCopierProjects:
         assert (dest / "mcp_tools" / "cluster.yaml").exists()
 
         # Run check_onboarding — only mock SSH (network boundary)
-        with patch("claudechic.onboarding.shutil.which", return_value=None), \
-             patch("claudechic.onboarding.subprocess.run") as mock_run:
+        with (
+            patch("claudechic.onboarding.shutil.which", return_value=None),
+            patch("claudechic.onboarding.subprocess.run") as mock_run,
+        ):
             # SSH check for cluster (will fail -> unconfigured)
             mock_run.return_value = MagicMock(returncode=255)
             facets = check_onboarding(dest)
@@ -388,8 +416,10 @@ class TestOnboardingWithCopierProjects:
         """Git facet configured status matches real .git state."""
         dest = lsf_cluster_project
 
-        with patch("claudechic.onboarding.shutil.which", return_value=None), \
-             patch("claudechic.onboarding.subprocess.run") as mock_run:
+        with (
+            patch("claudechic.onboarding.shutil.which", return_value=None),
+            patch("claudechic.onboarding.subprocess.run") as mock_run,
+        ):
             mock_run.return_value = MagicMock(returncode=255)
             facets = check_onboarding(dest)
 
@@ -407,6 +437,7 @@ class TestOnboardingWithCopierProjects:
         Note: uses a temporary copy to avoid polluting the shared fixture.
         """
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             # Copy the copier answers file (minimal footprint)
@@ -416,8 +447,10 @@ class TestOnboardingWithCopierProjects:
             _create_workflow_manifests(tmp_path)
 
             # Before dismiss: should show facets
-            with patch("claudechic.onboarding.shutil.which", return_value=None), \
-                 patch("claudechic.onboarding.subprocess.run") as mock_run:
+            with (
+                patch("claudechic.onboarding.shutil.which", return_value=None),
+                patch("claudechic.onboarding.subprocess.run") as mock_run,
+            ):
                 mock_run.return_value = MagicMock(returncode=255)
                 assert check_onboarding(tmp_path) is not None
 
@@ -447,7 +480,9 @@ class TestDismissMarker:
 
     def test_dismissed_skips_welcome(self, tmp_path):
         """check_onboarding returns None after dismiss."""
-        _write_copier_answers(tmp_path, {"use_cluster": True, "use_existing_codebase": True})
+        _write_copier_answers(
+            tmp_path, {"use_cluster": True, "use_existing_codebase": True}
+        )
         _create_workflow_manifests(tmp_path)
 
         store = HintStateStore(tmp_path)
@@ -533,9 +568,7 @@ def _app_context(tmp_path, facets):
     stack.enter_context(
         patch("claudechic.tasks.create_safe_task", return_value=MagicMock())
     )
-    stack.enter_context(
-        patch("claudechic.sessions.count_sessions", return_value=1)
-    )
+    stack.enter_context(patch("claudechic.sessions.count_sessions", return_value=1))
     stack.enter_context(
         patch.object(
             __import__("claudechic.app", fromlist=["ChatApp"]).ChatApp,
@@ -706,9 +739,9 @@ class TestWelcomeScreenInApp:
                     await pilot.pause()
 
                 assert len(list(app.screen.query(WelcomeScreen))) == 0
-                assert any(
-                    "onboarding-cluster-setup" in c for c in captured_calls
-                ), f"Expected onboarding-cluster-setup, got: {captured_calls}"
+                assert any("onboarding-cluster-setup" in c for c in captured_calls), (
+                    f"Expected onboarding-cluster-setup, got: {captured_calls}"
+                )
 
     async def test_enter_after_navigate_selects_correct_facet(
         self, mock_sdk_e2e, tmp_path
@@ -747,7 +780,6 @@ class TestWelcomeScreenInApp:
                     await pilot.pause()
                     await pilot.pause()
 
-                assert any(
-                    "onboarding-git-setup" in c for c in captured_calls
-                ), f"Expected onboarding-git-setup, got: {captured_calls}"
-
+                assert any("onboarding-git-setup" in c for c in captured_calls), (
+                    f"Expected onboarding-git-setup, got: {captured_calls}"
+                )

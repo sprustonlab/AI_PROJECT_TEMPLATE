@@ -8,22 +8,15 @@ that cluster MCP tools can be discovered, registered, and called with mocked sub
 
 from __future__ import annotations
 
-import asyncio
-import importlib.util
 import json
 import sys
-import types
 from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from claudechic.mcp import (
     discover_mcp_tools,
     set_app,
-    _find_agent_by_name,
-    _send_prompt_fire_and_forget,
 )
 
 # ---------------------------------------------------------------------------
@@ -147,12 +140,13 @@ class TestDiscoverClusterTools:
 
         # Copy _cluster.py and lsf.py from template
         import shutil
+
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
 
         # Create cluster.yaml config (get_tools reads cluster.yaml via _get_config)
         (mcp_dir / "cluster.yaml").write_text(
-            "backend: lsf\nssh_target: \"\"\nlsf_profile: /misc/lsf/conf/profile.lsf\nwatch_poll_interval: 5\n",
+            'backend: lsf\nssh_target: ""\nlsf_profile: /misc/lsf/conf/profile.lsf\nwatch_poll_interval: 5\n',
             encoding="utf-8",
         )
 
@@ -174,12 +168,13 @@ class TestDiscoverClusterTools:
         mcp_dir.mkdir()
 
         import shutil
+
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "slurm.py", mcp_dir / "slurm.py")
 
         # get_tools() reads cluster.yaml (not slurm.yaml) via _get_config()
         (mcp_dir / "cluster.yaml").write_text(
-            "backend: slurm\nssh_target: \"\"\nwatch_poll_interval: 5\n",
+            'backend: slurm\nssh_target: ""\nwatch_poll_interval: 5\n',
             encoding="utf-8",
         )
 
@@ -196,11 +191,12 @@ class TestDiscoverClusterTools:
         mcp_dir.mkdir()
 
         import shutil
+
         for f in ["_cluster.py", "lsf.py", "slurm.py"]:
             shutil.copy(TEMPLATE_MCP / f, mcp_dir / f)
         # cluster.yaml says "lsf" — only LSF tools should be discovered
         (mcp_dir / "cluster.yaml").write_text(
-            "backend: lsf\nssh_target: \"\"\nwatch_poll_interval: 5\n",
+            'backend: lsf\nssh_target: ""\nwatch_poll_interval: 5\n',
             encoding="utf-8",
         )
 
@@ -213,9 +209,12 @@ class TestDiscoverClusterTools:
         mcp_dir.mkdir()
 
         import shutil
+
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
-        (mcp_dir / "cluster.yaml").write_text("backend: lsf\nssh_target: \"\"\nwatch_poll_interval: 5\n", encoding="utf-8")
+        (mcp_dir / "cluster.yaml").write_text(
+            'backend: lsf\nssh_target: ""\nwatch_poll_interval: 5\n', encoding="utf-8"
+        )
 
         self._discover_with_mock_subprocess(mcp_dir)
 
@@ -238,10 +237,11 @@ class TestToolExecution:
         mcp_dir.mkdir()
 
         import shutil
+
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
         (mcp_dir / "cluster.yaml").write_text(
-            "backend: lsf\nssh_target: \"\"\nlsf_profile: /misc/lsf/conf/profile.lsf\nwatch_poll_interval: 5\n",
+            'backend: lsf\nssh_target: ""\nlsf_profile: /misc/lsf/conf/profile.lsf\nwatch_poll_interval: 5\n',
             encoding="utf-8",
         )
 
@@ -320,12 +320,15 @@ class TestToolExecution:
                 returncode=0,
             )
             tool = self.tool_map["cluster_submit"]
-            result = await _call_tool(tool, {
-                "queue": "gpu",
-                "cpus": 4,
-                "walltime": "2:00",
-                "command": "python train.py",
-            })
+            result = await _call_tool(
+                tool,
+                {
+                    "queue": "gpu",
+                    "cpus": 4,
+                    "walltime": "2:00",
+                    "command": "python train.py",
+                },
+            )
 
         assert "isError" not in result
         data = json.loads(result["content"][0]["text"])
@@ -372,13 +375,16 @@ class TestToolExecution:
         mcp_dir = tmp_path / "mcp_tools_watch"
         mcp_dir.mkdir()
         import shutil
+
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
         (mcp_dir / "cluster.yaml").write_text(
-            "backend: lsf\nssh_target: \"\"\nwatch_poll_interval: 5\n",
+            'backend: lsf\nssh_target: ""\nwatch_poll_interval: 5\n',
             encoding="utf-8",
         )
-        with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):
+        with patch(
+            "subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)
+        ):
             unwired_tools = discover_mcp_tools(mcp_dir)  # No kwargs → None for all
         watch = [t for t in unwired_tools if _get_tool_name(t) == "cluster_watch"][0]
         result = await _call_tool(watch, {"job_id": "123456"})
@@ -400,10 +406,11 @@ class TestKwargsWiring:
         mcp_dir.mkdir()
 
         import shutil
+
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
         (mcp_dir / "cluster.yaml").write_text(
-            "backend: lsf\nssh_target: \"\"\nwatch_poll_interval: 5\n",
+            'backend: lsf\nssh_target: ""\nwatch_poll_interval: 5\n',
             encoding="utf-8",
         )
 

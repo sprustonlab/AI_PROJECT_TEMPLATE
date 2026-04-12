@@ -18,7 +18,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from claudechic.app import ChatApp
 
 pytestmark = [
@@ -39,14 +38,10 @@ def _common_patches():
     stack.enter_context(
         patch("claudechic.tasks.create_safe_task", return_value=MagicMock())
     )
-    stack.enter_context(
-        patch("claudechic.sessions.count_sessions", return_value=1)
-    )
+    stack.enter_context(patch("claudechic.sessions.count_sessions", return_value=1))
     # _send_to_active_agent triggers agent.send() → SDK query.
     # With mock SDK this is harmless but noisy; mock it to no-op.
-    stack.enter_context(
-        patch.object(ChatApp, "_send_to_active_agent")
-    )
+    stack.enter_context(patch.object(ChatApp, "_send_to_active_agent"))
     return stack
 
 
@@ -91,8 +86,13 @@ class TestE2EFullLifecycle:
         # Core roles (always present)
         pt_dir = e2e_project / "workflows" / "project_team"
         core_roles = [
-            "coordinator", "composability", "implementer", "skeptic",
-            "terminology", "user_alignment", "test_engineer",
+            "coordinator",
+            "composability",
+            "implementer",
+            "skeptic",
+            "terminology",
+            "user_alignment",
+            "test_engineer",
         ]
         for role in core_roles:
             assert (pt_dir / role).exists(), f"Core role '{role}' missing"
@@ -103,22 +103,27 @@ class TestE2EFullLifecycle:
             assert (pt_dir / role).exists(), f"Specialist role '{role}' missing"
 
         # Tutorial workflows (present in "everything" preset)
-        assert (e2e_project / "workflows" / "tutorial_extending").exists(), \
+        assert (e2e_project / "workflows" / "tutorial_extending").exists(), (
             "tutorial_extending workflow missing"
-        assert (e2e_project / "workflows" / "tutorial_toy_project").exists(), \
+        )
+        assert (e2e_project / "workflows" / "tutorial_toy_project").exists(), (
             "tutorial_toy_project workflow missing"
+        )
 
         # Global rules
-        assert (e2e_project / "global" / "rules.yaml").exists(), \
+        assert (e2e_project / "global" / "rules.yaml").exists(), (
             "global/rules.yaml missing"
+        )
 
         # Pattern miner (present in "everything" preset)
-        assert (e2e_project / "scripts" / "mine_patterns.py").exists(), \
+        assert (e2e_project / "scripts" / "mine_patterns.py").exists(), (
             "scripts/mine_patterns.py missing"
+        )
 
         # Global hints
-        assert (e2e_project / "global" / "hints.yaml").exists(), \
+        assert (e2e_project / "global" / "hints.yaml").exists(), (
             "global/hints.yaml missing"
+        )
 
         # Copier exclusion completeness: ensure no leaked directories
         excluded_dirs = {"docs", ".project_team", "submodules", "tests"}
@@ -131,7 +136,7 @@ class TestE2EFullLifecycle:
             # Also check dirnames at this level
             for d in dirnames:
                 if d in excluded_dirs:
-                    assert False, (
+                    raise AssertionError(
                         f"Excluded directory '{d}' found in generated project at {rel}"
                     )
 
@@ -192,7 +197,8 @@ class TestE2EFullLifecycle:
 
                 # No error notifications (hints must not crash)
                 error_notifs = [
-                    n for n in app._notifications
+                    n
+                    for n in app._notifications
                     if getattr(n, "severity", "information") == "error"
                 ]
                 assert len(error_notifs) == 0, (
@@ -210,13 +216,8 @@ class TestE2EFullLifecycle:
                     f"state: {json.dumps(state_data, indent=2)}"
                 )
                 # Verify at least one hint has times_shown > 0
-                has_shown = any(
-                    v.get("times_shown", 0) > 0
-                    for v in lifecycle.values()
-                )
-                assert has_shown, (
-                    "No hint with times_shown > 0 in state file"
-                )
+                has_shown = any(v.get("times_shown", 0) > 0 for v in lifecycle.values())
+                assert has_shown, "No hint with times_shown > 0 in state file"
 
     @pytest.mark.asyncio
     async def test_04_workflow_activation(self, e2e_project, mock_sdk_e2e):
@@ -226,7 +227,8 @@ class TestE2EFullLifecycle:
         with _common_patches() as stack:
             stack.enter_context(
                 patch.object(
-                    ChatApp, "_prompt_chicsession_name",
+                    ChatApp,
+                    "_prompt_chicsession_name",
                     _mock_prompt_chicsession_name,
                 )
             )
@@ -263,12 +265,11 @@ class TestE2EFullLifecycle:
                 # Chicsession file should exist (created by _activate_workflow's
                 # persist callback); force a save to ensure it's populated
                 from claudechic.chicsession_cmd import auto_save_chicsession
+
                 auto_save_chicsession(app)
 
                 cs_path = e2e_project / ".chicsessions" / "e2e_test_session.json"
-                assert cs_path.exists(), (
-                    f"Chicsession file not found at {cs_path}"
-                )
+                assert cs_path.exists(), f"Chicsession file not found at {cs_path}"
 
                 # Chicsession should contain workflow_state
                 cs_data = json.loads(cs_path.read_text(encoding="utf-8"))
@@ -285,14 +286,16 @@ class TestE2EFullLifecycle:
         with _common_patches() as stack:
             stack.enter_context(
                 patch.object(
-                    ChatApp, "_prompt_chicsession_name",
+                    ChatApp,
+                    "_prompt_chicsession_name",
                     _mock_prompt_chicsession_name,
                 )
             )
             # Mock the manual-confirm callback to auto-approve
             stack.enter_context(
                 patch.object(
-                    ChatApp, "_make_confirm_callback",
+                    ChatApp,
+                    "_make_confirm_callback",
                     lambda self: AsyncMock(return_value=True),
                 )
             )
@@ -316,9 +319,7 @@ class TestE2EFullLifecycle:
                 first_phase = engine.get_current_phase()
                 assert first_phase is not None
                 next_phase = engine.get_next_phase(first_phase)
-                assert next_phase is not None, (
-                    f"No next phase after {first_phase}"
-                )
+                assert next_phase is not None, f"No next phase after {first_phase}"
 
                 # Get advance checks for first phase (vision has manual-confirm)
                 checks = engine.get_advance_checks_for(first_phase)
@@ -327,9 +328,7 @@ class TestE2EFullLifecycle:
                 result = await engine.attempt_phase_advance(
                     "project-team", first_phase, next_phase, checks
                 )
-                assert result.success is True, (
-                    f"Phase advance failed: {result.reason}"
-                )
+                assert result.success is True, f"Phase advance failed: {result.reason}"
                 assert engine.get_current_phase() == next_phase
 
                 # Write phase context for the new phase.
@@ -355,7 +354,9 @@ class TestE2EFullLifecycle:
                 short_phase = (
                     next_phase.split(":")[-1] if ":" in next_phase else next_phase
                 )
-                assert short_phase in phase_content.lower() or next_phase in phase_content, (
+                assert (
+                    short_phase in phase_content.lower() or next_phase in phase_content
+                ), (
                     f"phase_context.md doesn't reference new phase '{next_phase}': "
                     f"{phase_content[:200]}"
                 )
@@ -383,9 +384,7 @@ class TestE2EFullLifecycle:
 
                 # Get the real hook pipeline built from copier-generated rules
                 hooks = app2._guardrail_hooks()
-                assert "PreToolUse" in hooks, (
-                    "Guardrail hooks should be registered"
-                )
+                assert "PreToolUse" in hooks, "Guardrail hooks should be registered"
 
                 # Extract the evaluate closure
                 hook_matchers = hooks["PreToolUse"]
@@ -420,7 +419,8 @@ class TestE2EFullLifecycle:
         with _common_patches() as stack:
             stack.enter_context(
                 patch.object(
-                    ChatApp, "_prompt_chicsession_name",
+                    ChatApp,
+                    "_prompt_chicsession_name",
                     _mock_prompt_chicsession_name,
                 )
             )
@@ -466,6 +466,7 @@ class TestE2EFullLifecycle:
 
                 # Force save chicsession
                 from claudechic.chicsession_cmd import auto_save_chicsession
+
                 auto_save_chicsession(app)
 
                 # Read chicsession and verify agents are tracked
@@ -497,13 +498,15 @@ class TestE2EFullLifecycle:
         with _common_patches() as stack:
             stack.enter_context(
                 patch.object(
-                    ChatApp, "_prompt_chicsession_name",
+                    ChatApp,
+                    "_prompt_chicsession_name",
                     _mock_prompt_chicsession_name,
                 )
             )
             stack.enter_context(
                 patch.object(
-                    ChatApp, "_make_confirm_callback",
+                    ChatApp,
+                    "_make_confirm_callback",
                     lambda self: AsyncMock(return_value=True),
                 )
             )
@@ -540,7 +543,9 @@ class TestE2EFullLifecycle:
                 auto_save_chicsession(app1)
 
                 # Read the saved JSON
-                cs_path = e2e_project / ".chicsessions" / f"{pre_kill_chicsession_name}.json"
+                cs_path = (
+                    e2e_project / ".chicsessions" / f"{pre_kill_chicsession_name}.json"
+                )
                 assert cs_path.exists(), "Chicsession file not saved before kill"
                 pre_kill_json = json.loads(cs_path.read_text(encoding="utf-8"))
 
@@ -563,7 +568,8 @@ class TestE2EFullLifecycle:
             # don't exist on disk (mock SDK never created real sessions)
             stack.enter_context(
                 patch.object(
-                    ChatApp, "_load_and_display_history",
+                    ChatApp,
+                    "_load_and_display_history",
                     new_callable=AsyncMock,
                 )
             )
@@ -607,11 +613,12 @@ class TestE2EFullLifecycle:
                 from claudechic.workflows.engine import WorkflowEngine, WorkflowManifest
 
                 wf_data = app2._load_result.get_workflow("project-team")
-                assert wf_data is not None, "project-team workflow not found in load result"
+                assert wf_data is not None, (
+                    "project-team workflow not found in load result"
+                )
 
                 wf_phases = [
-                    p for p in app2._load_result.phases
-                    if p.namespace == "project-team"
+                    p for p in app2._load_result.phases if p.namespace == "project-team"
                 ]
                 manifest = WorkflowManifest(
                     workflow_id="project-team",
@@ -640,13 +647,17 @@ class TestE2EFullLifecycle:
                     "Chicsession name changed after round-trip"
                 )
                 pre_agent_names = {a["name"] for a in pre_kill_json.get("agents", [])}
-                post_agent_names = {a["name"] for a in post_restore_json.get("agents", [])}
+                post_agent_names = {
+                    a["name"] for a in post_restore_json.get("agents", [])
+                }
                 assert pre_agent_names == post_agent_names, (
                     f"Agent names changed: pre={pre_agent_names}, "
                     f"post={post_agent_names}"
                 )
                 # Compare workflow_state
-                assert pre_kill_json.get("workflow_state") == post_restore_json.get("workflow_state"), (
+                assert pre_kill_json.get("workflow_state") == post_restore_json.get(
+                    "workflow_state"
+                ), (
                     f"Workflow state changed after round-trip: "
                     f"pre={pre_kill_json.get('workflow_state')}, "
                     f"post={post_restore_json.get('workflow_state')}"
@@ -660,7 +671,8 @@ class TestE2EFullLifecycle:
         with _common_patches() as stack:
             stack.enter_context(
                 patch.object(
-                    ChatApp, "_prompt_chicsession_name",
+                    ChatApp,
+                    "_prompt_chicsession_name",
                     _mock_prompt_chicsession_name,
                 )
             )
@@ -681,6 +693,7 @@ class TestE2EFullLifecycle:
 
                 # Force save so chicsession file exists for deactivation
                 from claudechic.chicsession_cmd import auto_save_chicsession
+
                 auto_save_chicsession(app)
 
                 # Deactivate workflow (the "stop" mechanism).
@@ -708,7 +721,8 @@ class TestE2EFullLifecycle:
 
                 # No error notifications during cleanup
                 error_notifs = [
-                    n for n in app._notifications
+                    n
+                    for n in app._notifications
                     if getattr(n, "severity", "information") == "error"
                 ]
                 assert len(error_notifs) == 0, (

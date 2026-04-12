@@ -1,7 +1,5 @@
 # Getting Started with AI_PROJECT_TEMPLATE
 
-> **[Back to README](../README.md)**
-
 > This guide is for **humans** and **agents**. Sections marked with
 > **For Humans** or **For Agents** contain audience-specific details.
 > Everything else applies to both.

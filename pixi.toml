@@ -18,6 +18,15 @@ pytest-timeout = "*"
 pytest-xdist = "*"
 filelock = "*"
 pexpect = "*"
+ruff = "*"
+pytest-cov = "*"
+hypothesis = "*"
+interrogate = "*"
+pre-commit = "*"
+pyright = "*"
+mutmut = "*"
+mkdocstrings-python = "*"
+zensical = "==0.0.32"
 
 # ── Optional environments (added by user or Copier) ───────────
 [feature.jupyter.dependencies]

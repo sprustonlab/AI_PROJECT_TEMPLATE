@@ -137,3 +137,25 @@ The copier template lives in `template/`. Files ending in `.jinja` are processed
 ```bash
 pixi run pytest tests/test_copier_generation.py -v  # Fast copier tests
 ```
+
+### Setting Up a Local Dev Environment
+
+To clone and set up this repo for development:
+
+```bash
+# 1. Clone the repo and switch to the develop branch
+git clone https://github.com/sprustonlab/AI_PROJECT_TEMPLATE
+cd AI_PROJECT_TEMPLATE
+git checkout develop
+
+# 2. Initialize the claudechic submodule
+git submodule update --init --recursive
+
+# 3. Install pixi environments (installs claudechic as an editable package)
+pixi install
+
+# 4. Activate the project — claudechic will be on your PATH
+source activate
+```
+
+After step 4, `claudechic` is available directly in your shell for the session.

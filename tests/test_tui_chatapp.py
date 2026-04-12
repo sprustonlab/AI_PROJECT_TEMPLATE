@@ -15,12 +15,9 @@ Reuses patterns from claudechic's own test_app_ui.py.
 
 from __future__ import annotations
 
-import asyncio
-import os
 import shutil
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -125,7 +122,7 @@ class TestChatAppStartup:
     async def test_app_mounts_core_widgets(self, mock_sdk):
         """ChatApp starts and mounts ChatInput, AgentSection, StatusFooter."""
         from claudechic.app import ChatApp
-        from claudechic.widgets import ChatInput, AgentSection, StatusFooter
+        from claudechic.widgets import AgentSection, ChatInput, StatusFooter
 
         app = ChatApp()
         async with app.run_test():
@@ -182,9 +179,13 @@ class TestMCPToolRegistration:
         mcp_dir.mkdir()
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
         shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
-        (mcp_dir / "cluster.yaml").write_text("backend: lsf\nssh_target: \"\"\nwatch_poll_interval: 5\n", encoding="utf-8")
+        (mcp_dir / "cluster.yaml").write_text(
+            'backend: lsf\nssh_target: ""\nwatch_poll_interval: 5\n', encoding="utf-8"
+        )
 
-        with patch("subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)):
+        with patch(
+            "subprocess.run", return_value=MagicMock(stdout="", stderr="", returncode=0)
+        ):
             tools = discover_mcp_tools(
                 mcp_dir,
                 caller_name="test",

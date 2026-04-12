@@ -10,20 +10,20 @@ dependencies (claude_agent_sdk, claudechic.*) stubbed out via mock modules.
 from __future__ import annotations
 
 import importlib.util
-import logging
 import sys
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock
-
-import pytest
 
 # ---------------------------------------------------------------------------
 # Import discover_mcp_tools from claudechic/mcp.py with stubbed deps
 # ---------------------------------------------------------------------------
 _CLAUDECHIC_MCP = (
     Path(__file__).resolve().parent.parent
-    / "submodules" / "claudechic" / "claudechic" / "mcp.py"
+    / "submodules"
+    / "claudechic"
+    / "claudechic"
+    / "mcp.py"
 )
 
 
@@ -51,7 +51,7 @@ def _import_discover_fn():
             stub = ModuleType(name)
             # claude_agent_sdk needs 'tool' and 'create_sdk_mcp_server'
             if name == "claude_agent_sdk":
-                stub.tool = lambda *a, **kw: (lambda fn: fn)
+                stub.tool = lambda *a, **kw: lambda fn: fn
                 stub.create_sdk_mcp_server = MagicMock()
             # claudechic.config needs CONFIG dict
             if name == "claudechic.config":
@@ -65,19 +65,24 @@ def _import_discover_fn():
             # claudechic.features.worktree.git needs many symbols
             if name == "claudechic.features.worktree.git":
                 for attr in [
-                    "FinishPhase", "FinishState", "ResolutionAction",
-                    "clean_gitignored_files", "determine_resolution_action",
-                    "diagnose_worktree", "fast_forward_merge", "finish_cleanup",
-                    "get_cleanup_fix_prompt", "get_finish_info",
-                    "get_finish_prompt", "start_worktree",
+                    "FinishPhase",
+                    "FinishState",
+                    "ResolutionAction",
+                    "clean_gitignored_files",
+                    "determine_resolution_action",
+                    "diagnose_worktree",
+                    "fast_forward_merge",
+                    "finish_cleanup",
+                    "get_cleanup_fix_prompt",
+                    "get_finish_info",
+                    "get_finish_prompt",
+                    "start_worktree",
                 ]:
                     setattr(stub, attr, MagicMock())
             sys.modules[name] = stub
 
     try:
-        spec = importlib.util.spec_from_file_location(
-            "claudechic.mcp", _CLAUDECHIC_MCP
-        )
+        spec = importlib.util.spec_from_file_location("claudechic.mcp", _CLAUDECHIC_MCP)
         assert spec and spec.loader, f"Could not load spec for {_CLAUDECHIC_MCP}"
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -129,13 +134,17 @@ class TestUnderscoreFiles:
 
     def test_underscore_files_skipped_for_tools(self, mcp_tools_dir):
         """_helper.py is pre-loaded into sys.modules but not called for get_tools."""
-        _write_py(mcp_tools_dir, "_helper.py", """\
+        _write_py(
+            mcp_tools_dir,
+            "_helper.py",
+            """\
 HELPER_VALUE = 42
 
 def get_tools(**kwargs):
     # This should NOT be called — underscore files are skipped
     return [lambda: "should_not_appear"]
-""")
+""",
+        )
         tools = discover_mcp_tools(mcp_tools_dir)
         assert tools == [], "Underscore files should not contribute tools"
 
@@ -164,43 +173,63 @@ class TestToolDiscovery:
 
     def test_file_with_get_tools_loaded(self, mcp_tools_dir):
         """File with get_tools() has its tools collected."""
-        _write_py(mcp_tools_dir, "mytool.py", """\
+        _write_py(
+            mcp_tools_dir,
+            "mytool.py",
+            """\
 def get_tools(**kwargs):
     return ["tool_a", "tool_b"]
-""")
+""",
+        )
         tools = discover_mcp_tools(mcp_tools_dir)
         assert tools == ["tool_a", "tool_b"]
 
     def test_broken_file_skipped_others_load(self, mcp_tools_dir):
         """A broken file is skipped; other files still load."""
         _write_py(mcp_tools_dir, "broken.py", "raise RuntimeError('boom')\n")
-        _write_py(mcp_tools_dir, "good.py", """\
+        _write_py(
+            mcp_tools_dir,
+            "good.py",
+            """\
 def get_tools(**kwargs):
     return ["good_tool"]
-""")
+""",
+        )
         tools = discover_mcp_tools(mcp_tools_dir)
         assert tools == ["good_tool"]
 
     def test_syntax_error_skipped(self, mcp_tools_dir):
         """A file with syntax errors is skipped."""
         _write_py(mcp_tools_dir, "bad_syntax.py", "def broken(\n")
-        _write_py(mcp_tools_dir, "ok.py", """\
+        _write_py(
+            mcp_tools_dir,
+            "ok.py",
+            """\
 def get_tools(**kwargs):
     return ["ok_tool"]
-""")
+""",
+        )
         tools = discover_mcp_tools(mcp_tools_dir)
         assert tools == ["ok_tool"]
 
     def test_get_tools_exception_skipped(self, mcp_tools_dir):
         """If get_tools() raises, that file is skipped."""
-        _write_py(mcp_tools_dir, "exploder.py", """\
+        _write_py(
+            mcp_tools_dir,
+            "exploder.py",
+            """\
 def get_tools(**kwargs):
     raise ValueError("nope")
-""")
-        _write_py(mcp_tools_dir, "fine.py", """\
+""",
+        )
+        _write_py(
+            mcp_tools_dir,
+            "fine.py",
+            """\
 def get_tools(**kwargs):
     return ["fine_tool"]
-""")
+""",
+        )
         tools = discover_mcp_tools(mcp_tools_dir)
         assert tools == ["fine_tool"]
 
@@ -210,13 +239,22 @@ class TestKwargsPassthrough:
 
     def test_kwargs_forwarded(self, mcp_tools_dir):
         """All kwargs from discover_mcp_tools are passed to get_tools()."""
-        _write_py(mcp_tools_dir, "kwarg_echo.py", """\
+        _write_py(
+            mcp_tools_dir,
+            "kwarg_echo.py",
+            """\
 def get_tools(**kwargs):
     # Return kwargs as a tool (for inspection)
     return [kwargs]
-""")
-        mock_notify = lambda: None
-        mock_find = lambda: None
+""",
+        )
+
+        def mock_notify():
+            return None
+
+        def mock_find():
+            return None
+
         tools = discover_mcp_tools(
             mcp_tools_dir,
             caller_name="TestAgent",
@@ -235,18 +273,30 @@ class TestAlphabeticalOrder:
 
     def test_alphabetical_load_order(self, mcp_tools_dir):
         """Tools from alpha.py come before those from zeta.py."""
-        _write_py(mcp_tools_dir, "zeta.py", """\
+        _write_py(
+            mcp_tools_dir,
+            "zeta.py",
+            """\
 def get_tools(**kwargs):
     return ["z_tool"]
-""")
-        _write_py(mcp_tools_dir, "alpha.py", """\
+""",
+        )
+        _write_py(
+            mcp_tools_dir,
+            "alpha.py",
+            """\
 def get_tools(**kwargs):
     return ["a_tool"]
-""")
-        _write_py(mcp_tools_dir, "mid.py", """\
+""",
+        )
+        _write_py(
+            mcp_tools_dir,
+            "mid.py",
+            """\
 def get_tools(**kwargs):
     return ["m_tool"]
-""")
+""",
+        )
         tools = discover_mcp_tools(mcp_tools_dir)
         assert tools == ["a_tool", "m_tool", "z_tool"]
 
@@ -265,10 +315,14 @@ class TestNonPyFilesSkipped:
         """Subdirectories are not traversed (flat namespace only)."""
         sub = mcp_tools_dir / "subdir"
         sub.mkdir()
-        _write_py(sub, "nested.py", """\
+        _write_py(
+            sub,
+            "nested.py",
+            """\
 def get_tools(**kwargs):
     return ["nested_tool"]
-""")
+""",
+        )
         tools = discover_mcp_tools(mcp_tools_dir)
         assert tools == []
 
@@ -278,13 +332,21 @@ class TestMultipleFiles:
 
     def test_tools_aggregated_from_multiple_files(self, mcp_tools_dir):
         """Tools from all valid files are combined into one list."""
-        _write_py(mcp_tools_dir, "a.py", """\
+        _write_py(
+            mcp_tools_dir,
+            "a.py",
+            """\
 def get_tools(**kwargs):
     return ["a1", "a2"]
-""")
-        _write_py(mcp_tools_dir, "b.py", """\
+""",
+        )
+        _write_py(
+            mcp_tools_dir,
+            "b.py",
+            """\
 def get_tools(**kwargs):
     return ["b1"]
-""")
+""",
+        )
         tools = discover_mcp_tools(mcp_tools_dir)
         assert tools == ["a1", "a2", "b1"]

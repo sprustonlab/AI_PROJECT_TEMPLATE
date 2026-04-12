@@ -10,15 +10,12 @@ All subprocess/SSH calls are mocked — no real cluster needed.
 from __future__ import annotations
 
 import importlib.util
-import json
 import os
 import shlex
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -93,38 +90,52 @@ class TestPathTranslatesLocalToCluster:
         "rules,input_path,expected",
         [
             pytest.param(
-                [SMB_MAC], "/Volumes/groups/lab/script.sh",
-                "/groups/lab/script.sh", id="smb_mac",
+                [SMB_MAC],
+                "/Volumes/groups/lab/script.sh",
+                "/groups/lab/script.sh",
+                id="smb_mac",
             ),
             pytest.param(
-                [WINDOWS_DRIVE], "Z:\\groups\\lab\\run.py",
-                "/groups/lab/run.py", id="windows_drive",
+                [WINDOWS_DRIVE],
+                "Z:\\groups\\lab\\run.py",
+                "/groups/lab/run.py",
+                id="windows_drive",
             ),
             pytest.param(
-                [WSL_MOUNT], "/mnt/cluster/groups/spruston/project",
-                "/groups/spruston/project", id="wsl_mount",
+                [WSL_MOUNT],
+                "/mnt/cluster/groups/spruston/project",
+                "/groups/spruston/project",
+                id="wsl_mount",
             ),
             pytest.param(
-                [UNC_PATH], "//smb-server/groups/lab/data",
-                "/groups/lab/data", id="unc_path",
+                [UNC_PATH],
+                "//smb-server/groups/lab/data",
+                "/groups/lab/data",
+                id="unc_path",
             ),
             pytest.param(
-                [SMB_MAC], "/tmp/scratch/data",
-                "/tmp/scratch/data", id="no_match_passthrough",
+                [SMB_MAC],
+                "/tmp/scratch/data",
+                "/tmp/scratch/data",
+                id="no_match_passthrough",
             ),
             pytest.param(
-                OVERLAP_RULES, "/mnt/cluster/groups/spruston/file.py",
-                "/groups/spruston/file.py", id="longest_prefix_wins",
+                OVERLAP_RULES,
+                "/mnt/cluster/groups/spruston/file.py",
+                "/groups/spruston/file.py",
+                id="longest_prefix_wins",
             ),
             pytest.param(
                 [{"local": "/mnt/cluster", "cluster": "/"}],
                 "/mnt/clusterX/foo",
-                "/mnt/clusterX/foo", id="boundary_safe_no_false_match",
+                "/mnt/clusterX/foo",
+                id="boundary_safe_no_false_match",
             ),
             pytest.param(
                 [{"local": "/Volumes/groups/", "cluster": "/groups/"}],
                 "/Volumes/groups/lab/data",
-                "/groups/lab/data", id="trailing_slash_config",
+                "/groups/lab/data",
+                id="trailing_slash_config",
             ),
         ],
     )
@@ -145,31 +156,44 @@ class TestPathTranslatesClusterToLocal:
         "rules,input_path,expected",
         [
             pytest.param(
-                [SMB_MAC], "/groups/lab/logs/out.log",
-                "/Volumes/groups/lab/logs/out.log", id="smb_mac_reverse",
+                [SMB_MAC],
+                "/groups/lab/logs/out.log",
+                "/Volumes/groups/lab/logs/out.log",
+                id="smb_mac_reverse",
             ),
             pytest.param(
-                [WINDOWS_DRIVE], "/groups/lab/out.log",
-                "Z:/groups/lab/out.log", id="windows_forward_slashes",
+                [WINDOWS_DRIVE],
+                "/groups/lab/out.log",
+                "Z:/groups/lab/out.log",
+                id="windows_forward_slashes",
             ),
             pytest.param(
-                [WSL_MOUNT], "/groups/spruston/logs/out.log",
-                "/mnt/cluster/groups/spruston/logs/out.log", id="wsl_reverse",
+                [WSL_MOUNT],
+                "/groups/spruston/logs/out.log",
+                "/mnt/cluster/groups/spruston/logs/out.log",
+                id="wsl_reverse",
             ),
             pytest.param(
-                [SMB_MAC], "/tmp/scratch/data",
-                "/tmp/scratch/data", id="no_match_passthrough",
+                [SMB_MAC],
+                "/tmp/scratch/data",
+                "/tmp/scratch/data",
+                id="no_match_passthrough",
             ),
             pytest.param(
-                [], "/groups/lab/out.log",
-                "/groups/lab/out.log", id="empty_rules_passthrough",
+                [],
+                "/groups/lab/out.log",
+                "/groups/lab/out.log",
+                id="empty_rules_passthrough",
             ),
             pytest.param(
-                None, "/groups/lab/out.log",
-                "/groups/lab/out.log", id="none_rules_passthrough",
+                None,
+                "/groups/lab/out.log",
+                "/groups/lab/out.log",
+                id="none_rules_passthrough",
             ),
             pytest.param(
-                OVERLAP_RULES, "/groups/spruston/deep/file.py",
+                OVERLAP_RULES,
+                "/groups/spruston/deep/file.py",
                 "/mnt/cluster/groups/spruston/deep/file.py",
                 id="longest_cluster_prefix_wins",
             ),
@@ -192,28 +216,38 @@ class TestCWDResolvesCorrectly:
         "remote_cwd,local_cwd,rules,expected",
         [
             pytest.param(
-                "/groups/lab/project", "/Volumes/groups/lab/project",
-                [SMB_MAC], "/groups/lab/project",
+                "/groups/lab/project",
+                "/Volumes/groups/lab/project",
+                [SMB_MAC],
+                "/groups/lab/project",
                 id="remote_cwd_wins",
             ),
             pytest.param(
-                "", "/Volumes/groups/lab/project",
-                [SMB_MAC], "/groups/lab/project",
+                "",
+                "/Volumes/groups/lab/project",
+                [SMB_MAC],
+                "/groups/lab/project",
                 id="translates_local_cwd",
             ),
             pytest.param(
-                "", "/home/user/project",
-                [], "/home/user/project",
+                "",
+                "/home/user/project",
+                [],
+                "/home/user/project",
                 id="no_config_passthrough",
             ),
             pytest.param(
-                "", "/groups/lab/project",
-                [], "/groups/lab/project",
+                "",
+                "/groups/lab/project",
+                [],
+                "/groups/lab/project",
                 id="direct_cluster_verbatim",
             ),
             pytest.param(
-                "", "Z:\\groups\\lab\\project",
-                [WINDOWS_DRIVE], "/groups/lab/project",
+                "",
+                "Z:\\groups\\lab\\project",
+                [WINDOWS_DRIVE],
+                "/groups/lab/project",
                 id="windows_cwd_normalized",
             ),
         ],
@@ -238,9 +272,11 @@ class TestLogReadingWorks:
         log_file = tmp_path / "out.log"
         log_file.write_text("line1\nline2\nline3\n", encoding="utf-8")
         # Map cluster path to local temp dir
-        mapper = PathMapper([
-            {"local": str(tmp_path), "cluster": "/cluster/logs"},
-        ])
+        mapper = PathMapper(
+            [
+                {"local": str(tmp_path), "cluster": "/cluster/logs"},
+            ]
+        )
         reader = LocalLogReader(mapper)
         content = reader.read_tail("/cluster/logs/out.log", tail=2)
         assert content is not None
@@ -279,9 +315,11 @@ class TestLogReadingWorks:
         """AutoLogReader uses local when available."""
         log_file = tmp_path / "out.log"
         log_file.write_text("local content\n", encoding="utf-8")
-        mapper = PathMapper([
-            {"local": str(tmp_path), "cluster": "/cluster/logs"},
-        ])
+        mapper = PathMapper(
+            [
+                {"local": str(tmp_path), "cluster": "/cluster/logs"},
+            ]
+        )
         local = LocalLogReader(mapper)
         ssh = SSHLogReader("login.example.com")
         reader = AutoLogReader(local, ssh)
@@ -324,9 +362,12 @@ class TestSubmitUsesCorrectPaths:
         config = {"ssh_target": "login.example.com"}
         mapper = PathMapper([SMB_MAC])
         result = lsf_mod._submit_job(
-            queue="gpu", cpus=1, walltime="1:00",
+            queue="gpu",
+            cpus=1,
+            walltime="1:00",
             command="python train.py",
-            config=config, path_mapper=mapper,
+            config=config,
+            path_mapper=mapper,
         )
         bsub_cmd = mock_lsf.call_args[0][0]
         assert "-cwd" in bsub_cmd
@@ -338,16 +379,23 @@ class TestSubmitUsesCorrectPaths:
         """LSF submit uses remote_cwd when set."""
         monkeypatch.setattr(os, "getcwd", lambda: "/Volumes/groups/lab/project")
         mock_lsf.return_value = ("Job <12345> is submitted.", "", 0)
-        config = {"ssh_target": "login.example.com", "remote_cwd": "/groups/lab/project"}
+        config = {
+            "ssh_target": "login.example.com",
+            "remote_cwd": "/groups/lab/project",
+        }
         mapper = PathMapper([])
         result = lsf_mod._submit_job(
-            queue="gpu", cpus=1, walltime="1:00",
+            queue="gpu",
+            cpus=1,
+            walltime="1:00",
             command="python train.py",
-            config=config, path_mapper=mapper,
+            config=config,
+            path_mapper=mapper,
         )
         bsub_cmd = mock_lsf.call_args[0][0]
         assert "-cwd" in bsub_cmd
         assert "/groups/lab/project" in bsub_cmd
+        assert result["job_id"] == "12345"
 
     @patch.object(slurm_mod, "_run_slurm")
     def test_slurm_smb_mac(self, mock_slurm, monkeypatch):
@@ -357,9 +405,12 @@ class TestSubmitUsesCorrectPaths:
         config = {"ssh_target": "login.example.com"}
         mapper = PathMapper([SMB_MAC])
         result = slurm_mod._submit_job(
-            partition="gpu", cpus=1, time_limit="1:00:00",
+            partition="gpu",
+            cpus=1,
+            time_limit="1:00:00",
             command="python train.py",
-            config=config, path_mapper=mapper,
+            config=config,
+            path_mapper=mapper,
         )
         sbatch_cmd = mock_slurm.call_args[0][0]
         assert "--chdir=" in sbatch_cmd
@@ -374,13 +425,17 @@ class TestSubmitUsesCorrectPaths:
         config = {"ssh_target": "login.example.com"}
         mapper = PathMapper([WINDOWS_DRIVE])
         result = slurm_mod._submit_job(
-            partition="gpu", cpus=1, time_limit="1:00:00",
+            partition="gpu",
+            cpus=1,
+            time_limit="1:00:00",
             command="python train.py",
-            config=config, path_mapper=mapper,
+            config=config,
+            path_mapper=mapper,
         )
         sbatch_cmd = mock_slurm.call_args[0][0]
         assert "--chdir=" in sbatch_cmd
         assert "/groups/lab/project" in sbatch_cmd
+        assert result["job_id"] == "88888"
 
     @patch.object(lsf_mod, "_run_lsf")
     def test_lsf_direct_cluster(self, mock_lsf, monkeypatch):
@@ -390,9 +445,12 @@ class TestSubmitUsesCorrectPaths:
         config = {}
         mapper = PathMapper([])
         lsf_mod._submit_job(
-            queue="gpu", cpus=1, walltime="1:00",
+            queue="gpu",
+            cpus=1,
+            walltime="1:00",
             command="python train.py",
-            config=config, path_mapper=mapper,
+            config=config,
+            path_mapper=mapper,
         )
         bsub_cmd = mock_lsf.call_args[0][0]
         assert "-cwd" in bsub_cmd
@@ -406,9 +464,12 @@ class TestSubmitUsesCorrectPaths:
         config = {}
         mapper = PathMapper([SMB_MAC])
         lsf_mod._submit_job(
-            queue="gpu", cpus=1, walltime="1:00",
+            queue="gpu",
+            cpus=1,
+            walltime="1:00",
             command="python /Volumes/groups/lab/train.py",
-            config=config, path_mapper=mapper,
+            config=config,
+            path_mapper=mapper,
         )
         bsub_cmd = mock_lsf.call_args[0][0]
         # The command inside the bsub call should still contain the local path
@@ -428,8 +489,14 @@ class TestStatusReturnsLocalPaths:
         [
             pytest.param(
                 [SMB_MAC],
-                {"stdout_path": "/groups/lab/out.log", "execution_cwd": "/groups/lab/project"},
-                {"stdout_path": "/Volumes/groups/lab/out.log", "execution_cwd": "/Volumes/groups/lab/project"},
+                {
+                    "stdout_path": "/groups/lab/out.log",
+                    "execution_cwd": "/groups/lab/project",
+                },
+                {
+                    "stdout_path": "/Volumes/groups/lab/out.log",
+                    "execution_cwd": "/Volumes/groups/lab/project",
+                },
                 id="smb_mac",
             ),
             pytest.param(
@@ -446,8 +513,14 @@ class TestStatusReturnsLocalPaths:
             ),
             pytest.param(
                 MULTI_MOUNT,
-                {"stdout_path": "/groups/projects/out.log", "stderr_path": "/scratch/err.log"},
-                {"stdout_path": "/mnt/projects/out.log", "stderr_path": "/mnt/scratch/err.log"},
+                {
+                    "stdout_path": "/groups/projects/out.log",
+                    "stderr_path": "/scratch/err.log",
+                },
+                {
+                    "stdout_path": "/mnt/projects/out.log",
+                    "stderr_path": "/mnt/scratch/err.log",
+                },
                 id="multi_mount_routing",
             ),
         ],
@@ -572,7 +645,9 @@ class TestDefaultsPassthrough:
         "config",
         [
             pytest.param({"ssh_target": "login1.org"}, id="no_new_keys"),
-            pytest.param({"ssh_target": "login1.org", "path_map": []}, id="explicit_empty"),
+            pytest.param(
+                {"ssh_target": "login1.org", "path_map": []}, id="explicit_empty"
+            ),
             pytest.param({"ssh_target": "login1.org"}, id="no_log_access"),
             pytest.param({}, id="completely_empty"),
         ],
@@ -596,7 +671,11 @@ class TestDefaultsPassthrough:
 class TestModelSeesCorrectDescriptions:
     """Tool descriptions inform the model about path mapping and setup."""
 
-    @patch.object(lsf_mod, "_get_config", return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(
+        lsf_mod,
+        "_get_config",
+        return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5},
+    )
     def test_lsf_descriptions(self, mock_config):
         tools = lsf_mod.get_tools()
         tool_map = {_get_tool_name(t): t for t in tools}
@@ -614,7 +693,11 @@ class TestModelSeesCorrectDescriptions:
         status_desc = _get_tool_description(tool_map["cluster_status"]).lower()
         assert "local paths" in status_desc
 
-    @patch.object(slurm_mod, "_get_config", return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5})
+    @patch.object(
+        slurm_mod,
+        "_get_config",
+        return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5},
+    )
     def test_slurm_descriptions(self, mock_config):
         tools = slurm_mod.get_tools()
         tool_map = {_get_tool_name(t): t for t in tools}
@@ -640,29 +723,45 @@ class TestOnboardingDetectPhase:
         [
             pytest.param(
                 {"ssh_target": "login1.org", "path_map": [SMB_MAC]},
-                False, "ready", id="fully_configured",
+                False,
+                "ready",
+                id="fully_configured",
             ),
             pytest.param(
-                {}, False, "needs_setup", id="no_target_no_local",
+                {},
+                False,
+                "needs_setup",
+                id="no_target_no_local",
             ),
             pytest.param(
-                {"ssh_target": "login1.org"}, False, "incomplete",
+                {"ssh_target": "login1.org"},
+                False,
+                "incomplete",
                 id="target_no_path_map",
             ),
             pytest.param(
-                {}, True, "ready", id="local_scheduler_found",
+                {},
+                True,
+                "ready",
+                id="local_scheduler_found",
             ),
             pytest.param(
-                {"ssh_target": "{{ ssh_host }}"}, False, "needs_setup",
+                {"ssh_target": "{{ ssh_host }}"},
+                False,
+                "needs_setup",
                 id="jinja_placeholder",
             ),
         ],
     )
     def test_readiness(self, config, local_scheduler, expected):
         if local_scheduler:
-            mock_which = lambda x: "/usr/bin/bsub" if x == "bsub" else None
+
+            def mock_which(x):
+                return "/usr/bin/bsub" if x == "bsub" else None
         else:
-            mock_which = lambda x: None
+
+            def mock_which(x):
+                return None
 
         with patch.object(_cluster_mod.shutil, "which", mock_which):
             assert _cluster_mod._check_config_readiness(config) == expected
@@ -706,7 +805,7 @@ class TestOnboardingValidatePhase:
         """Path round-trip: local -> cluster -> local produces original."""
         for rules in [[SMB_MAC], [WINDOWS_DRIVE], [WSL_MOUNT], MULTI_MOUNT]:
             mapper = PathMapper(rules)
-            for rule in (rules if isinstance(rules, list) else [rules]):
+            for rule in rules if isinstance(rules, list) else [rules]:
                 if "local" in rule:
                     test_path = rule["local"] + "/sub/file.py"
                     cluster = mapper.to_cluster(test_path)
@@ -734,9 +833,14 @@ class TestOnboardingApplyPhase:
         # dry_run=True: just validate, don't write
         dry_run = True
         validation_passed = False
-        status = "preview" if dry_run else ("written" if validation_passed else "rejected")
+        status = (
+            "preview" if dry_run else ("written" if validation_passed else "rejected")
+        )
         assert status == "preview"
         assert not config_path.exists()
+        # Verify proposed config has required keys
+        assert "ssh_target" in proposed
+        assert "path_map" in proposed
 
     def test_apply_after_validation(self, tmp_path):
         """Apply writes config after validation passes."""
@@ -775,7 +879,9 @@ class TestOnboardingApplyPhase:
         config_path = tmp_path / "lsf.yaml"
         dry_run = False
         validation_passed = False
-        status = "preview" if dry_run else ("written" if validation_passed else "rejected")
+        status = (
+            "preview" if dry_run else ("written" if validation_passed else "rejected")
+        )
         assert status == "rejected"
         assert not config_path.exists()
 
@@ -784,7 +890,9 @@ class TestOnboardingApplyPhase:
         config_path = tmp_path / "lsf.yaml"
         dry_run = True
         validation_passed = True
-        status = "preview" if dry_run else ("written" if validation_passed else "rejected")
+        status = (
+            "preview" if dry_run else ("written" if validation_passed else "rejected")
+        )
         assert status == "preview"
         assert not config_path.exists()
 
@@ -968,10 +1076,10 @@ class TestBugRegressionConfigReadinessType:
         """Every possible return value is a string from the defined set."""
         valid = {"ready", "incomplete", "needs_setup"}
         test_configs = [
-            ({"ssh_target": "x", "path_map": [SMB_MAC]}, None),      # ready
-            ({}, None),                                                 # needs_setup
-            ({"ssh_target": "x"}, None),                               # incomplete
-            ({"ssh_target": "{{ x }}"}, None),                         # needs_setup
+            ({"ssh_target": "x", "path_map": [SMB_MAC]}, None),  # ready
+            ({}, None),  # needs_setup
+            ({"ssh_target": "x"}, None),  # incomplete
+            ({"ssh_target": "{{ x }}"}, None),  # needs_setup
         ]
         for config, which_result in test_configs:
             with patch.object(_cluster_mod.shutil, "which", return_value=which_result):
@@ -1055,7 +1163,9 @@ class TestErrorWithHintWiring:
         cluster_source = Path(TEMPLATE_MCP / "_cluster.py").read_text(encoding="utf-8")
         # Function still exists in _cluster.py with a TODO comment
         assert "def _error_with_hint" in cluster_source
-        assert "TODO" in cluster_source.split("def _error_with_hint")[0].splitlines()[-1]
+        assert (
+            "TODO" in cluster_source.split("def _error_with_hint")[0].splitlines()[-1]
+        )
 
 
 class TestWorkflowFileStructure:
@@ -1063,7 +1173,10 @@ class TestWorkflowFileStructure:
 
     WORKFLOW_PATH = (
         Path(__file__).resolve().parent.parent
-        / "template" / "workflows" / "cluster_setup" / "cluster_setup.yaml"
+        / "template"
+        / "workflows"
+        / "cluster_setup"
+        / "cluster_setup.yaml"
     )
 
     def test_workflow_file_exists(self):
@@ -1075,10 +1188,16 @@ class TestWorkflowFileStructure:
     def test_workflow_contains_all_phases(self):
         """Workflow YAML contains all 6 phases from the spec."""
         import yaml as _yaml
+
         data = _yaml.safe_load(self.WORKFLOW_PATH.read_text(encoding="utf-8"))
         phase_ids = [p["id"] for p in data.get("phases", [])]
         expected_phases = [
-            "detect", "ssh_mux", "scheduler", "paths", "validate", "apply",
+            "detect",
+            "ssh_mux",
+            "scheduler",
+            "paths",
+            "validate",
+            "apply",
         ]
         for phase in expected_phases:
             assert phase in phase_ids, (
@@ -1088,10 +1207,10 @@ class TestWorkflowFileStructure:
     def test_workflow_has_advancement_checks(self):
         """Workflow phases have advance_checks for phase gating."""
         import yaml as _yaml
+
         data = _yaml.safe_load(self.WORKFLOW_PATH.read_text(encoding="utf-8"))
         phases_with_checks = [
-            p["id"] for p in data.get("phases", [])
-            if p.get("advance_checks")
+            p["id"] for p in data.get("phases", []) if p.get("advance_checks")
         ]
         assert len(phases_with_checks) >= 1, (
             "Expected at least one phase with advance_checks"
@@ -1100,11 +1219,11 @@ class TestWorkflowFileStructure:
     def test_workflow_phase_count(self):
         """Workflow has exactly 6 phases."""
         import yaml as _yaml
+
         data = _yaml.safe_load(self.WORKFLOW_PATH.read_text(encoding="utf-8"))
         phases = data.get("phases", [])
         assert len(phases) == 6, (
-            f"Expected 6 phases, found {len(phases)}: "
-            f"{[p.get('id') for p in phases]}"
+            f"Expected 6 phases, found {len(phases)}: {[p.get('id') for p in phases]}"
         )
 
 

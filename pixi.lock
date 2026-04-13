@@ -1734,8 +1734,8 @@ packages:
   requires_python: '>=3.10'
 - pypi: ./submodules/claudechic
   name: claudechic
-  version: 0.1.dev667+g612c42d83
-  sha256: e08d9b87da8b35fce8b2eb6301e3ddda5586188b33f3eb67b2ac5b50fd196b7b
+  version: 0.1.dev689+g9fb6f0c26.d20260413
+  sha256: b7a6a299ef6282b5a4ce7be7a75adb6a16d0aea866e2181ac7553ff4fa3643c0
   requires_dist:
   - aiofiles>=25.1.0
   - aiohttp>=3.9.0

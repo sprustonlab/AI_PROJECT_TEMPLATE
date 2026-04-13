@@ -21,7 +21,7 @@ pytest tests/test_copier_generation.py -v  # After template changes
 ## Project Layout
 
 - `template/` -- Jinja2 source files processed by Copier (*.jinja files). This is what end users get.
-- `submodules/claudechic/` -- Core TUI + engine. Separate git repo, editable install. Changes need own commits + parent pointer update.
+- `submodules/claudechic/` -- Core TUI + engine. Separate git repo, editable install. When you change files here: (1) commit inside the submodule, (2) `git push origin main` inside the submodule, (3) commit the updated submodule pointer in the parent repo. CI cannot fetch submodule commits that only exist locally.
 - `workflows/` -- Workflow definitions for THIS repo's development (project_team, tutorial, etc.)
 - `global/` -- Always-active guardrail rules (rules.yaml) and contextual hints (hints.yaml).
 - `.claude/rules/` -- Agent context files documenting claudechic internals (developer mode only).

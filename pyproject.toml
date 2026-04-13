@@ -31,6 +31,7 @@ testpaths = ["tests", "submodules/claudechic/tests"]
 markers = [
     "slow: tests that take >30s (copier+pixi install, E2E, pexpect)",
     "integration: tests requiring external tools (copier, pixi) but <60s each",
+    "fast: fast unit tests (default tier, under 1s each)",
     "copier: tests that run copier copy",
     "pixi: tests that require pixi installed",
     "network: tests requiring network access",

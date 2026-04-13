@@ -25,7 +25,20 @@ Available workflows:
 - `tutorial-toy-project` — Build a project end-to-end
 {% endif %}
 - `git-setup`, `codebase-setup`, `cluster-setup` — Onboarding wizards
-- `/workflow list` — See all available workflows
+- `/workflow list` -- See all available workflows
+
+## Inter-Agent Communication
+
+Agents talk to each other using MCP tools:
+
+- **`ask_agent`** -- Send a question and expect a reply. The target is nudged if idle without responding.
+- **`tell_agent`** -- Fire-and-forget message, no reply expected. Queues behind the target's current work.
+- **`interrupt_agent`** -- Interrupt an agent's current task immediately. Optionally redirect with a new prompt.
+
+**When to use which:**
+- Need a response? Use `ask_agent`.
+- Sending info, OK to wait? Use `tell_agent` (queues behind current work).
+- Need to stop/redirect NOW? Use `interrupt_agent` (cuts through immediately).
 
 ## repos/ Directory
 

@@ -361,6 +361,7 @@ enabling save/restore of the full multi-agent context.
 >    - `mcp__chic__spawn_agent` — create a new agent
 >    - `mcp__chic__ask_agent` — send message, wait for reply (reliable)
 >    - `mcp__chic__tell_agent` — fire-and-forget message
+>    - `mcp__chic__interrupt_agent` — interrupt an agent's current task, optionally redirect with new prompt
 >    - `mcp__chic__advance_phase` — move to next workflow phase
 >    - `mcp__chic__get_phase` — query current phase
 >    - `mcp__chic__whoami` — check your own agent identity

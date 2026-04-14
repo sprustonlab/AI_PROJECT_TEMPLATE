@@ -79,15 +79,15 @@ Copier will ask you to configure your project. Here is every option:
 | **example_agent_roles** | `true` | `quick_start` is `custom` | Include specialist agent roles beyond the core 7 |
 | **example_workflows** | `true` | `quick_start` is `custom` | Include tutorial workflows |
 | **example_hints** | `true` | `quick_start` is `custom` | Include global hints (welcome message + workflow tips) |
-| **example_patterns** | `false` | `quick_start` is `custom` | Include the pattern miner (session history analysis) |
+| **example_patterns** | `false` | `quick_start` is `custom` | Include the audit workflow (session history analysis and correction detection) |
 
 The **quick_start** preset controls how much example content ships with your project.
 Infrastructure (guardrails, workflows, hints engine, Project Team) is always included.
 
 | Preset | Example content included |
 |--------|------------------------|
-| **everything** | All example rules, specialist agent roles, tutorial workflows, hints, pattern miner |
-| **defaults** | Example rules, specialist roles, onboarding hints. No tutorials, no pattern miner. |
+| **everything** | All example rules, specialist agent roles, tutorial workflows, hints, audit workflow |
+| **defaults** | Example rules, specialist roles, onboarding hints. No tutorials, no audit workflow. |
 | **empty** | Infrastructure only — no examples, no tutorials, no hints |
 | **custom** | You choose each category individually (rules, roles, workflows, hints, patterns) |
 

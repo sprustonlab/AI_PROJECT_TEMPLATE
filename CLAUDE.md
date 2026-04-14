@@ -26,8 +26,8 @@ pytest tests/test_copier_generation.py -v  # After template changes
 - `global/` -- Always-active guardrail rules (rules.yaml) and contextual hints (hints.yaml).
 - `.claude/rules/` -- Agent context files documenting claudechic internals (developer mode only).
 - `tests/` -- Test suite (collects from both this repo AND submodules/claudechic/tests).
-- `scripts/` -- Utility scripts (pattern mining, mutation testing).
-- `commands/` -- Shell command launchers (claudechic, jupyter, mine-patterns).
+- `scripts/` -- Utility scripts (audit workflow, mutation testing).
+- `commands/` -- Shell command launchers (claudechic, jupyter).
 - `copier.yml` -- Copier template config. HIGH CHURN -- check `_exclude` rules when adding/removing files.
 
 ## Things That Will Bite You

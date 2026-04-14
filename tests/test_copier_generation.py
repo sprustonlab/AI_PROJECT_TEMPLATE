@@ -322,12 +322,12 @@ class TestQuickStartPresets:
             "global/rules.yaml should be present"
         )
 
-        # Pattern miner present in everything mode
-        assert (dest / "scripts" / "mine_patterns.py").exists(), (
-            "Pattern miner should be present in everything mode"
+        # Audit workflow present in everything mode
+        assert (dest / "scripts" / "audit" / "audit.py").exists(), (
+            "Audit script should be present in everything mode"
         )
-        assert (dest / "commands" / "mine-patterns").exists(), (
-            "mine-patterns command should be present in everything mode"
+        assert (dest / "workflows" / "audit" / "audit.yaml").exists(), (
+            "Audit workflow should be present in everything mode"
         )
 
         # project_team workflow YAML always present
@@ -362,11 +362,11 @@ class TestQuickStartPresets:
                 files = [f for f in files if f.is_file()]
                 assert files == [], f"Tutorial {wf} should be excluded in defaults mode"
 
-        # Pattern miner NOT present in defaults
-        assert not (dest / "scripts" / "mine_patterns.py").exists(), (
-            "Pattern miner should NOT be present in defaults mode"
+        # Audit workflow NOT present in defaults
+        assert not (dest / "scripts" / "audit" / "audit.py").exists(), (
+            "Audit script should NOT be present in defaults mode"
         )
-        assert not (dest / "commands" / "mine-patterns").exists(), (
+        assert not (dest / "workflows" / "audit").exists(), (
             "mine-patterns should NOT be present in defaults mode"
         )
 
@@ -408,8 +408,8 @@ class TestQuickStartPresets:
                 files = [f for f in files if f.is_file()]
                 assert files == [], f"Tutorial {wf} should be excluded in empty mode"
 
-        # Pattern miner NOT present
-        assert not (dest / "scripts" / "mine_patterns.py").exists()
+        # Audit workflow NOT present
+        assert not (dest / "scripts" / "audit" / "audit.py").exists()
 
     def test_custom_selective(self, custom_project):
         """custom with example_workflows=False but example_agent_roles=True works."""
@@ -442,8 +442,8 @@ class TestQuickStartPresets:
         # Global rules present (example_rules=True)
         assert (dest / "global" / "rules.yaml").exists()
 
-        # Pattern miner NOT present (example_patterns=False)
-        assert not (dest / "scripts" / "mine_patterns.py").exists()
+        # Audit workflow NOT present (example_patterns=False)
+        assert not (dest / "scripts" / "audit" / "audit.py").exists()
 
         # Hints NOT present (example_hints=False)
         global_hints = dest / "global" / "hints.yaml"

@@ -1,7 +1,7 @@
 [tool.ruff]
 target-version = "py310"
 exclude = [".pixi"]
-extend-exclude = ["*.jinja"]
+extend-exclude = ["*.jinja", ".project_team/**/poc/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

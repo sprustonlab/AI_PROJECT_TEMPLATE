@@ -1,0 +1,98 @@
+workflow_id: audit
+main_role: auditor
+
+roles:
+  - id: classifier
+    description: "Scans messages, detects and categorizes corrections (Haiku)"
+  - id: judge
+    description: "Analyzes corrections, reads workflow definitions, generates suggestions"
+  - id: critic
+    description: "Validates suggestions against 6 criteria: specificity, actionability, evidence, proportionality, conflicts, feasibility"
+  - id: auditor
+    description: "Orchestrates workflow, presents to user, applies approved edits"
+
+phases:
+  - id: parse
+    role: auditor
+    file: parse
+    hints:
+      - message: "Phase 1/5: Ask the user what to audit, then extract messages into the corrections database."
+        lifecycle: show-once
+    advance_checks:
+      - type: command-output-check
+        command: "python scripts/audit/audit.py check has-messages --json"
+        pattern: "\"pass\":\\s*true"
+        on_failure:
+          message: "Run audit.py extract first."
+          severity: warning
+
+  - id: analyze
+    role: auditor
+    file: analyze
+    hints:
+      - message: "Phase 2/5: Spawn classifier agent to classify unprocessed messages."
+        lifecycle: show-once
+    advance_checks:
+      - type: command-output-check
+        command: "python scripts/audit/audit.py check all-classified --json"
+        pattern: "\"pass\":\\s*true"
+        on_failure:
+          message: "Classify all messages before advancing."
+          severity: warning
+
+  - id: suggest
+    role: auditor
+    file: suggest
+    hints:
+      - message: "Phase 3/5: Run audit.py aggregate, then spawn judge with patterns, then critic to validate."
+        lifecycle: show-once
+    advance_checks:
+      - type: command-output-check
+        command: "python scripts/audit/audit.py check all-reviewed --json"
+        pattern: "\"pass\":\\s*true"
+        on_failure:
+          message: "All suggestions must have critic verdicts before advancing."
+          severity: warning
+
+  - id: report
+    role: auditor
+    file: report
+    hints:
+      - message: "Phase 4/5: Present suggestions to user. Ask apply or skip for each."
+        lifecycle: show-once
+    advance_checks:
+      - type: command-output-check
+        command: "python scripts/audit/audit.py check all-decided --json"
+        pattern: "\"pass\":\\s*true"
+        on_failure:
+          message: "Review all suggestions before advancing."
+          severity: warning
+      - type: manual-confirm
+        prompt: "All suggestions reviewed. Ready to apply approved changes?"
+
+  - id: apply
+    role: auditor
+    file: apply
+    hints:
+      - message: "Phase 5/5: Apply approved suggestions by editing target files."
+        lifecycle: show-once
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Changes applied. Verify and confirm?"
+
+rules:
+  - id: no_direct_edit_workflows
+    trigger: PreToolUse/Write
+    enforcement: warn
+    detect:
+      pattern: "workflows/"
+    message: "Only the auditor in the apply phase should edit workflow files."
+    phases: [parse, analyze, suggest, report]
+
+  - id: no_direct_edit_rules
+    trigger: PreToolUse/Write
+    enforcement: warn
+    detect:
+      pattern: "global/"
+    message: "Only the auditor in the apply phase should edit global files."
+    phases: [parse, analyze, suggest, report]

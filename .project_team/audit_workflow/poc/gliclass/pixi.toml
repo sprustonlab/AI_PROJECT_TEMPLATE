@@ -1,0 +1,15 @@
+[project]
+name = "gliclass-poc"
+version = "0.1.0"
+description = "POC: GLiClass for detecting user corrections in LLM sessions"
+channels = ["conda-forge", "pytorch"]
+platforms = ["osx-arm64"]
+
+[dependencies]
+python = ">=3.11"
+pip = "*"
+pytorch = "*"
+
+[pypi-dependencies]
+gliclass = "*"
+transformers = "*"

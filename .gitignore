@@ -25,6 +25,9 @@ __pycache__/
 # Phase context (written at runtime by workflow engine)
 .claude/phase_context.md
 
+# Audit workflow database (generated per-user at runtime)
+.audit/
+
 # Test artifacts
 .test_runs/
 .test_results/

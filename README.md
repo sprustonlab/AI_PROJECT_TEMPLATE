@@ -4,7 +4,7 @@ Scaffold a Claude Code project with environments, guardrails, and multi-agent wo
 
 ## Quick Start
 
-👉 **[One-line install](https://sprustonlab.github.io/AI_PROJECT_TEMPLATE/)** — copy a single command for Linux, macOS, or Windows.
+👉 **[One-line install](https://sprustonlab.github.io/AI_PROJECT_TEMPLATE/install)** — copy a single command for Linux, macOS, or Windows.
 
 Or, if you already have [pixi](https://pixi.sh):
 

@@ -362,12 +362,12 @@ class TestQuickStartPresets:
                 files = [f for f in files if f.is_file()]
                 assert files == [], f"Tutorial {wf} should be excluded in defaults mode"
 
-        # Audit workflow NOT present in defaults
-        assert not (dest / "scripts" / "audit" / "audit.py").exists(), (
-            "Audit script should NOT be present in defaults mode"
+        # Audit workflow present in defaults
+        assert (dest / "scripts" / "audit" / "audit.py").exists(), (
+            "Audit script should be present in defaults mode"
         )
-        assert not (dest / "workflows" / "audit").exists(), (
-            "mine-patterns should NOT be present in defaults mode"
+        assert (dest / "workflows" / "audit" / "audit.yaml").exists(), (
+            "Audit workflow should be present in defaults mode"
         )
 
     def test_empty_mode(self, empty_project):

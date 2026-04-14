@@ -41,6 +41,11 @@ phases:
         prompt: "All tests passing?"
       - type: manual-confirm
         prompt: "Ready to proceed to sign-off?"
+  - id: documentation
+    file: documentation
+    advance_checks:
+      - type: manual-confirm
+        prompt: "Documentation complete and reviewed?"
   - id: signoff
     file: signoff
 
@@ -57,7 +62,7 @@ rules:
     detect:
       pattern: "git push"
     message: "No pushing before testing phase"
-    exclude_phases: [testing, signoff]
+    exclude_phases: [testing, documentation, signoff]
 
   - id: no_force_push
     trigger: PreToolUse/Bash

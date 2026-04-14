@@ -26,8 +26,8 @@ pytest tests/test_copier_generation.py -v  # After template changes
 - `global/` -- Always-active guardrail rules (rules.yaml) and contextual hints (hints.yaml).
 - `.claude/rules/` -- Agent context files documenting claudechic internals (developer mode only).
 - `tests/` -- Test suite (collects from both this repo AND submodules/claudechic/tests).
-- `scripts/` -- Utility scripts (pattern mining, mutation testing).
-- `commands/` -- Shell command launchers (claudechic, jupyter, mine-patterns).
+- `scripts/` -- Utility scripts (audit workflow, mutation testing). See `scripts/audit/README.md` for the audit pipeline and database schema.
+- `commands/` -- Shell command launchers (claudechic, jupyter).
 - `copier.yml` -- Copier template config. HIGH CHURN -- check `_exclude` rules when adding/removing files.
 
 ## Things That Will Bite You
@@ -37,6 +37,7 @@ pytest tests/test_copier_generation.py -v  # After template changes
 3. **Pre-commit auto-fixes staged files** -- ruff --fix + ruff-format + check-added-large-files (100KB limit) run on commit. May modify staged files silently.
 4. **Strict markers** -- `strict_markers = true` in pyproject.toml. New test markers MUST be added to the markers list.
 5. **DON'T write guardrail rules that block their own prerequisites** -- catch-22 pattern where rules prevent the very operations they protect.
+6. **Every bug is OUR bug** -- every failed test, CI failure, lint error, or broken behavior in our code is ours to own, surface, and fix. NEVER dismiss a failure as "pre-existing", "flaky", or "unrelated". Investigate it, explain the root cause, and fix it or escalate to the user. Hiding or downplaying failures erodes trust.
 
 ## Extending the Systems
 

@@ -115,9 +115,9 @@ class TestE2EFullLifecycle:
             "global/rules.yaml missing"
         )
 
-        # Pattern miner (present in "everything" preset)
-        assert (e2e_project / "scripts" / "mine_patterns.py").exists(), (
-            "scripts/mine_patterns.py missing"
+        # Audit workflow (present in "everything" preset)
+        assert (e2e_project / "scripts" / "audit" / "audit.py").exists(), (
+            "scripts/audit/audit.py missing"
         )
 
         # Global hints

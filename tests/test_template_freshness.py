@@ -1,7 +1,7 @@
 """Check that files shared between repo root and template/ stay in sync.
 
 Some files exist in both places:
-  - scripts/mine_patterns.py  (repo root copy for dev, template copy for generated projects)
+  - scripts/audit/  (repo root copy for dev, template copy for generated projects)
   - etc.
 
 This test fails if any paired file drifts, preventing silent staleness.
@@ -25,9 +25,10 @@ TEMPLATE_DIR = REPO_ROOT / "template"
 # (bash wrapper in repo, Python with submodule init in template).
 PAIRED_FILES = [
     # Scripts and commands
-    "scripts/mine_patterns.py",
+    "scripts/audit/__init__.py",
+    "scripts/audit/audit.py",
+    "scripts/audit/db.py",
     "commands/claudechic",
-    "commands/mine-patterns",
     # Global config
     "global/rules.yaml",
     # Workflow YAMLs

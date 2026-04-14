@@ -149,9 +149,9 @@ _exclude:
   - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/project_integrator/{% endif %}"
   - "{% if quick_start == 'empty' or (quick_start == 'custom' and not example_agent_roles) %}workflows/project_team/sync_coordinator/{% endif %}"
 
-  # Pattern miner
-  - "{% if quick_start != 'everything' and (quick_start != 'custom' or not example_patterns) %}scripts/mine_patterns.py{% endif %}"
-  - "{% if quick_start != 'everything' and (quick_start != 'custom' or not example_patterns) %}commands/mine-patterns{% endif %}"
+  # Audit workflow (replaces mine_patterns.py)
+  - "{% if quick_start != 'everything' and (quick_start != 'custom' or not example_patterns) %}scripts/audit/{% endif %}"
+  - "{% if quick_start != 'everything' and (quick_start != 'custom' or not example_patterns) %}workflows/audit/{% endif %}"
 
 _tasks:
   # Post-generation: make scripts executable

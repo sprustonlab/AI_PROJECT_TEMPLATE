@@ -27,6 +27,7 @@ __pycache__/
 
 # Audit workflow database (generated per-user at runtime)
 .audit/
+scripts/audit/*.db
 
 # Test artifacts
 .test_runs/

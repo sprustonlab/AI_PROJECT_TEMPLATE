@@ -70,3 +70,20 @@ rules:
     detect:
       pattern: "git push\\s.*(--force-with-lease|--force\\b|-f\\b)"
     message: "Force push is never allowed"
+
+  - id: prefer_ask_agent
+    trigger: PreToolUse/mcp__chic__tell_agent
+    enforcement: warn
+    message: >-
+      Coordinator should use ask_agent (not tell_agent) to ensure sub-agents
+      respond. tell_agent is fire-and-forget with no reply. Use ask_agent
+      unless you explicitly don't need a response.
+    roles: [coordinator]
+
+  - id: no_close_leadership
+    trigger: PreToolUse/mcp__chic__close_agent
+    enforcement: warn
+    message: >-
+      Do not close agents during active workflow phases. Agents carry context
+      that is lost on close. Wait until signoff phase.
+    exclude_phases: [signoff]

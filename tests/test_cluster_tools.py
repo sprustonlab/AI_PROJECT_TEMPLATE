@@ -6,7 +6,6 @@ All subprocess/SSH calls are mocked — no real cluster needed.
 
 from __future__ import annotations
 
-import asyncio
 import importlib.util
 import json
 import sys
@@ -48,8 +47,8 @@ def _import_module(name: str, filepath: Path):
 # Load _cluster first (shared helper), then backends
 
 _cluster_mod = _import_module("_cluster", TEMPLATE_MCP / "_cluster.py")
-lsf_mod = _import_module("lsf", TEMPLATE_MCP / "lsf.py")
-slurm_mod = _import_module("slurm", TEMPLATE_MCP / "slurm.py")
+lsf_mod = _import_module("_lsf", TEMPLATE_MCP / "_lsf.py")
+slurm_mod = _import_module("_slurm", TEMPLATE_MCP / "_slurm.py")
 
 
 # ---------------------------------------------------------------------------
@@ -278,118 +277,9 @@ class TestSLURMParseScontrol:
 
 
 # ---------------------------------------------------------------------------
-# get_tools() contract tests
+# get_tools() contract tests -- now in cluster_dispatch.py
+# (see test_bug13_cluster_dispatch.py for dispatch-level tests)
 # ---------------------------------------------------------------------------
-
-
-class TestLSFGetTools:
-    """Test lsf.py get_tools() contract."""
-
-    @patch.object(
-        lsf_mod,
-        "_get_config",
-        return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5},
-    )
-    def test_get_tools_no_kwargs(self, mock_config):
-        """get_tools() with no kwargs returns tool list without crashing."""
-        tools = lsf_mod.get_tools()
-        assert len(tools) == 6  # jobs, status, submit, kill, logs, watch
-        # Verify tool names
-        names = [_get_tool_name(t) for t in tools]
-        assert "cluster_jobs" in names
-        assert "cluster_status" in names
-        assert "cluster_submit" in names
-        assert "cluster_kill" in names
-        assert "cluster_logs" in names
-        assert "cluster_watch" in names
-
-    @patch.object(
-        lsf_mod,
-        "_get_config",
-        return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5},
-    )
-    def test_get_tools_with_full_kwargs(self, mock_config):
-        """get_tools() with all kwargs wires cluster_watch correctly."""
-        mock_notify = MagicMock()
-        mock_find = MagicMock()
-        tools = lsf_mod.get_tools(
-            caller_name="TestAgent",
-            send_notification=mock_notify,
-            find_agent=mock_find,
-        )
-        assert len(tools) == 6
-        # cluster_watch should be the last tool
-        watch = tools[-1]
-        assert _get_tool_name(watch) == "cluster_watch"
-
-
-class TestSLURMGetTools:
-    """Test slurm.py get_tools() contract."""
-
-    @patch.object(
-        slurm_mod,
-        "_get_config",
-        return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5},
-    )
-    def test_get_tools_no_kwargs(self, mock_config):
-        """get_tools() with no kwargs returns tool list without crashing."""
-        tools = slurm_mod.get_tools()
-        assert len(tools) == 6
-        names = [_get_tool_name(t) for t in tools]
-        assert "cluster_jobs" in names
-        assert "cluster_watch" in names
-
-    @patch.object(
-        slurm_mod,
-        "_get_config",
-        return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5},
-    )
-    def test_get_tools_with_full_kwargs(self, mock_config):
-        """get_tools() with all kwargs wires cluster_watch correctly."""
-        mock_notify = MagicMock()
-        mock_find = MagicMock()
-        tools = slurm_mod.get_tools(
-            caller_name="TestAgent",
-            send_notification=mock_notify,
-            find_agent=mock_find,
-        )
-        assert len(tools) == 6
-
-
-# ---------------------------------------------------------------------------
-# cluster_watch graceful degradation
-# ---------------------------------------------------------------------------
-
-
-class TestClusterWatchDegradation:
-    """cluster_watch returns error when send_notification is None."""
-
-    @patch.object(
-        lsf_mod,
-        "_get_config",
-        return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5},
-    )
-    def test_lsf_watch_without_notification(self, mock_config):
-        """LSF cluster_watch without send_notification → graceful error."""
-        tools = lsf_mod.get_tools()  # No kwargs → send_notification=None
-        watch = [t for t in tools if _get_tool_name(t) == "cluster_watch"][0]
-
-        # Run the async tool
-        result = asyncio.run(_call_tool(watch, {"job_id": "123"}))
-        assert result["isError"] is True
-        assert "not available" in result["content"][0]["text"].lower()
-
-    @patch.object(
-        slurm_mod,
-        "_get_config",
-        return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5},
-    )
-    def test_slurm_watch_without_notification(self, mock_config):
-        """SLURM cluster_watch without send_notification → graceful error."""
-        tools = slurm_mod.get_tools()
-        watch = [t for t in tools if _get_tool_name(t) == "cluster_watch"][0]
-        result = asyncio.run(_call_tool(watch, {"job_id": "456"}))
-        assert result["isError"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -465,7 +355,7 @@ class TestRunSSH:
 
     @patch("subprocess.run")
     def test_local_execution(self, mock_run):
-        """Empty ssh_target → run locally."""
+        """Empty ssh_target -> run locally."""
         mock_run.return_value = MagicMock(stdout="ok", stderr="", returncode=0)
         stdout, stderr, rc = _cluster_mod._run_ssh("bjobs -w", ssh_target="")
         assert rc == 0
@@ -477,7 +367,7 @@ class TestRunSSH:
     @patch("subprocess.run")
     @patch("os.makedirs")
     def test_ssh_execution(self, mock_makedirs, mock_run):
-        """Non-empty ssh_target → wraps command in SSH."""
+        """Non-empty ssh_target -> wraps command in SSH."""
         mock_run.return_value = MagicMock(stdout="remote_ok", stderr="", returncode=0)
         stdout, stderr, rc = _cluster_mod._run_ssh(
             "bjobs -w",
@@ -486,9 +376,16 @@ class TestRunSSH:
         )
         assert stdout == "remote_ok"
         call_cmd = mock_run.call_args[0][0]
-        assert "ssh" in call_cmd
-        assert "login.example.com" in call_cmd
-        assert "profile.lsf" in call_cmd
+        # SSH execution now uses argv list
+        if isinstance(call_cmd, list):
+            full_str = " ".join(call_cmd)
+            assert "ssh" in full_str
+            assert "login.example.com" in full_str
+            assert "profile.lsf" in full_str
+        else:
+            assert "ssh" in call_cmd
+            assert "login.example.com" in call_cmd
+            assert "profile.lsf" in call_cmd
 
 
 # ---------------------------------------------------------------------------

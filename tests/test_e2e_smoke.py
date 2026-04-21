@@ -86,6 +86,10 @@ def generated_project(tmp_path_factory):
 
     with FileLock(str(lock)):
         if not marker.exists():
+            # Clean stale output so non-idempotent _tasks (e.g. git clone) succeed
+            if dest.exists():
+                shutil.rmtree(dest)
+
             env = os.environ.copy()
             env["GIT_AUTHOR_NAME"] = "Test"
             env["GIT_AUTHOR_EMAIL"] = "test@test.com"
@@ -120,6 +124,7 @@ def generated_project(tmp_path_factory):
                 },
                 defaults=True,
                 unsafe=True,
+                overwrite=True,
                 vcs_ref="HEAD",
             )
 
@@ -146,8 +151,9 @@ class TestCopierGeneration:
 
     def test_cluster_tools_present(self, generated_project):
         mcp = generated_project / "mcp_tools"
-        assert (mcp / "lsf.py").exists()
-        assert (mcp / "slurm.py").exists()
+        assert (mcp / "cluster_dispatch.py").exists()
+        assert (mcp / "_lsf.py").exists()
+        assert (mcp / "_slurm.py").exists()
         assert (mcp / "cluster.yaml").exists()
         assert (mcp / "_cluster.py").exists()
 

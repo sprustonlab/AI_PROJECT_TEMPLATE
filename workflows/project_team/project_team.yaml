@@ -11,10 +11,10 @@ phases:
     file: setup
     advance_checks:
       - type: command-output-check
-        command: "ls .project_team/*/STATUS.md 2>/dev/null"
+        command: "python -c \"import glob; print('\\n'.join(glob.glob('.project_team/*/STATUS.md')))\""
         pattern: "STATUS\\.md"
       - type: command-output-check
-        command: "ls .project_team/*/userprompt.md 2>/dev/null"
+        command: "python -c \"import glob; print('\\n'.join(glob.glob('.project_team/*/userprompt.md')))\""
         pattern: "userprompt\\.md"
   - id: leadership
     file: leadership
@@ -22,7 +22,7 @@ phases:
     file: specification
     advance_checks:
       - type: command-output-check
-        command: "ls .project_team/*/specification/SPECIFICATION.md 2>/dev/null"
+        command: "python -c \"import glob; print('\\n'.join(glob.glob('.project_team/*/specification/SPECIFICATION.md')))\""
         pattern: "SPECIFICATION\\.md"
       - type: manual-confirm
         prompt: "Specification approved by user?"
@@ -53,6 +53,10 @@ rules:
   - id: no_direct_code_coordinator
     trigger: PreToolUse/Write
     enforcement: warn
+    detect:
+      field: file_path
+      pattern: ".+"
+    exclude_if_matches: "\\.md$"
     message: "Coordinator should delegate code writing to Implementer agents"
     roles: [coordinator]
 

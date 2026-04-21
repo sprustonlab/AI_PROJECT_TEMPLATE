@@ -122,8 +122,9 @@ _exclude:
 
   # Cluster: hardware capability toggle (not example content)
   - "{% if not use_cluster %}mcp_tools/_cluster.py{% endif %}"
-  - "{% if not use_cluster %}mcp_tools/lsf.py{% endif %}"
-  - "{% if not use_cluster %}mcp_tools/slurm.py{% endif %}"
+  - "{% if not use_cluster %}mcp_tools/cluster_dispatch.py{% endif %}"
+  - "{% if not use_cluster %}mcp_tools/_lsf.py{% endif %}"
+  - "{% if not use_cluster %}mcp_tools/_slurm.py{% endif %}"
   - "{% if not use_cluster %}mcp_tools/cluster.yaml{% endif %}"
 
   # Example content: controlled by quick_start preset or custom sub-questions

@@ -205,10 +205,11 @@ class TestClusterScheduler:
     """Test conditional cluster file inclusion."""
 
     def test_cluster_files_present(self, lsf_cluster_project):
-        """use_cluster=true -> all cluster files present (both backends + unified config)."""
+        """use_cluster=true -> all cluster files present (dispatch + backends + config)."""
         mcp = lsf_cluster_project / "mcp_tools"
-        assert (mcp / "lsf.py").exists(), "lsf.py should be present"
-        assert (mcp / "slurm.py").exists(), "slurm.py should be present"
+        assert (mcp / "cluster_dispatch.py").exists(), "cluster_dispatch.py should be present"
+        assert (mcp / "_lsf.py").exists(), "_lsf.py should be present"
+        assert (mcp / "_slurm.py").exists(), "_slurm.py should be present"
         assert (mcp / "cluster.yaml").exists(), "cluster.yaml should be present"
         assert (mcp / "_cluster.py").exists(), "_cluster.py should be present"
 
@@ -217,8 +218,9 @@ class TestClusterScheduler:
         mcp = standard_defaults_project / "mcp_tools"
         # mcp_tools/ directory may or may not exist, but cluster files must be absent
         if mcp.exists():
-            assert not (mcp / "lsf.py").exists()
-            assert not (mcp / "slurm.py").exists()
+            assert not (mcp / "cluster_dispatch.py").exists()
+            assert not (mcp / "_lsf.py").exists()
+            assert not (mcp / "_slurm.py").exists()
             assert not (mcp / "_cluster.py").exists()
             assert not (mcp / "cluster.yaml").exists()
 

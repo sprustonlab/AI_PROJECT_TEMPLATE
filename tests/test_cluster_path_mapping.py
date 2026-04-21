@@ -51,8 +51,9 @@ def _import_module(name: str, filepath: Path):
 
 # Load modules
 _cluster_mod = _import_module("_cluster", TEMPLATE_MCP / "_cluster.py")
-lsf_mod = _import_module("lsf", TEMPLATE_MCP / "lsf.py")
-slurm_mod = _import_module("slurm", TEMPLATE_MCP / "slurm.py")
+lsf_mod = _import_module("_lsf", TEMPLATE_MCP / "_lsf.py")
+slurm_mod = _import_module("_slurm", TEMPLATE_MCP / "_slurm.py")
+dispatch_mod = _import_module("cluster_dispatch", TEMPLATE_MCP / "cluster_dispatch.py")
 
 PathMapper = _cluster_mod.PathMapper
 LocalLogReader = _cluster_mod.LocalLogReader
@@ -672,12 +673,12 @@ class TestModelSeesCorrectDescriptions:
     """Tool descriptions inform the model about path mapping and setup."""
 
     @patch.object(
-        lsf_mod,
-        "_get_config",
+        dispatch_mod,
+        "_load_dispatch_config",
         return_value={"backend": "lsf", "ssh_target": "", "watch_poll_interval": 5},
     )
     def test_lsf_descriptions(self, mock_config):
-        tools = lsf_mod.get_tools()
+        tools = dispatch_mod.get_tools()
         tool_map = {_get_tool_name(t): t for t in tools}
 
         submit_desc = _get_tool_description(tool_map["cluster_submit"]).lower()
@@ -694,12 +695,12 @@ class TestModelSeesCorrectDescriptions:
         assert "local paths" in status_desc
 
     @patch.object(
-        slurm_mod,
-        "_get_config",
+        dispatch_mod,
+        "_load_dispatch_config",
         return_value={"backend": "slurm", "ssh_target": "", "watch_poll_interval": 5},
     )
     def test_slurm_descriptions(self, mock_config):
-        tools = slurm_mod.get_tools()
+        tools = dispatch_mod.get_tools()
         tool_map = {_get_tool_name(t): t for t in tools}
 
         submit_desc = _get_tool_description(tool_map["cluster_submit"]).lower()
@@ -1137,25 +1138,26 @@ class TestBugRegressionSSHLogReaderExceptions:
 
 
 class TestErrorWithHintWiring:
-    """Verify _error_with_hint usage in lsf.py and slurm.py backends.
+    """Verify _error_with_hint usage in _lsf.py and _slurm.py backends.
 
-    Finding: _error_with_hint is imported by both lsf.py and slurm.py but
-    is NOT called anywhere in their tool handlers. All error paths use
-    _error_response instead. This is dead import — flagged for review.
+    Finding: _error_with_hint was imported by the old lsf.py and slurm.py but
+    is NOT called anywhere in tool handlers. All error paths use
+    _error_response instead. The renamed _lsf.py/_slurm.py should not
+    import it either.
     """
 
     def test_error_with_hint_not_imported_in_lsf(self):
-        """_error_with_hint dead import was removed from lsf.py."""
-        lsf_source = Path(TEMPLATE_MCP / "lsf.py").read_text(encoding="utf-8")
+        """_error_with_hint dead import was removed from _lsf.py."""
+        lsf_source = Path(TEMPLATE_MCP / "_lsf.py").read_text(encoding="utf-8")
         assert "_error_with_hint" not in lsf_source, (
-            "_error_with_hint should not appear in lsf.py (dead import removed)"
+            "_error_with_hint should not appear in _lsf.py (dead import removed)"
         )
 
     def test_error_with_hint_not_imported_in_slurm(self):
-        """_error_with_hint dead import was removed from slurm.py."""
-        slurm_source = Path(TEMPLATE_MCP / "slurm.py").read_text(encoding="utf-8")
+        """_error_with_hint dead import was removed from _slurm.py."""
+        slurm_source = Path(TEMPLATE_MCP / "_slurm.py").read_text(encoding="utf-8")
         assert "_error_with_hint" not in slurm_source, (
-            "_error_with_hint should not appear in slurm.py (dead import removed)"
+            "_error_with_hint should not appear in _slurm.py (dead import removed)"
         )
 
     def test_error_with_hint_has_todo_comment(self):

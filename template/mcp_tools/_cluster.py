@@ -13,6 +13,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -36,7 +37,7 @@ def _load_config(tool_file: Path) -> dict:
         return {}
     config_path = tool_file.with_suffix(".yaml")
     if config_path.exists():
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     return {}
 
@@ -262,28 +263,41 @@ def _run_ssh(
     connection multiplexing. If profile is given, sources it first.
     """
     if not ssh_target:
-        full_cmd = cmd
+        # Local execution: use /bin/bash on Unix, default shell on Windows
+        run_kwargs: dict[str, Any] = {
+            "shell": True,
+            "capture_output": True,
+            "text": True,
+            "timeout": timeout,
+            "encoding": "utf-8",
+        }
+        if sys.platform != "win32":
+            run_kwargs["executable"] = "/bin/bash"
+        result = subprocess.run(cmd, **run_kwargs)
     else:
+        # SSH execution: build argv list (no shell=True needed)
         control_path = _ssh_control_path()
-        escaped = cmd.replace('"', '\\"')
         prefix = f"source {profile} && " if profile else ""
-        full_cmd = (
-            f"ssh"
-            f" -o ControlMaster=auto"
-            f" -o ControlPath={control_path}"
-            f" -o ControlPersist=600"
-            f" {ssh_target}"
-            f' "{prefix}{escaped}"'
+        escaped = cmd.replace('"', '\\"')
+        remote_cmd = f"{prefix}{escaped}"
+        argv = [
+            "ssh",
+            "-o",
+            "ControlMaster=auto",
+            "-o",
+            f"ControlPath={control_path}",
+            "-o",
+            "ControlPersist=600",
+            ssh_target,
+            remote_cmd,
+        ]
+        result = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding="utf-8",
         )
-
-    result = subprocess.run(
-        full_cmd,
-        shell=True,
-        executable="/bin/bash",
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
     return result.stdout, result.stderr, result.returncode
 
 
@@ -318,7 +332,7 @@ def _read_tail(path: Path, tail: int) -> str | None:
     Returns None if the file does not exist or cannot be read.
     """
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             if tail <= 0:
                 return f.read()
             lines = f.readlines()

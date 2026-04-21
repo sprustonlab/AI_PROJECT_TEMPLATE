@@ -172,13 +172,14 @@ class TestMCPToolRegistration:
 
     @pytest.mark.asyncio
     async def test_discover_cluster_tools_in_context(self, mock_sdk, tmp_path):
-        """LSF tools are discovered when lsf.py is in mcp_tools/."""
+        """Cluster tools are discovered when cluster_dispatch.py is in mcp_tools/."""
         from claudechic.mcp import discover_mcp_tools
 
         mcp_dir = tmp_path / "mcp_tools"
         mcp_dir.mkdir()
         shutil.copy(TEMPLATE_MCP / "_cluster.py", mcp_dir / "_cluster.py")
-        shutil.copy(TEMPLATE_MCP / "lsf.py", mcp_dir / "lsf.py")
+        shutil.copy(TEMPLATE_MCP / "cluster_dispatch.py", mcp_dir / "cluster_dispatch.py")
+        shutil.copy(TEMPLATE_MCP / "_lsf.py", mcp_dir / "_lsf.py")
         (mcp_dir / "cluster.yaml").write_text(
             'backend: lsf\nssh_target: ""\nwatch_poll_interval: 5\n', encoding="utf-8"
         )

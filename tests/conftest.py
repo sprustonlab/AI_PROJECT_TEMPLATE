@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import shutil
 import subprocess
 from collections.abc import Generator
 from contextlib import ExitStack
@@ -49,6 +50,10 @@ def shared_copier_generation(tmp_path_factory, name: str, data: dict) -> Path:
 
     with FileLock(str(lock)):
         if not marker.exists():
+            # Clean stale output so non-idempotent _tasks (e.g. git clone) succeed
+            if dest.exists():
+                shutil.rmtree(dest)
+
             env = os.environ.copy()
             env["GIT_AUTHOR_NAME"] = "Test"
             env["GIT_AUTHOR_EMAIL"] = "test@test.com"
@@ -77,6 +82,7 @@ def shared_copier_generation(tmp_path_factory, name: str, data: dict) -> Path:
                 data=data,
                 defaults=True,
                 unsafe=True,
+                overwrite=True,
                 vcs_ref="HEAD",
             )
 
